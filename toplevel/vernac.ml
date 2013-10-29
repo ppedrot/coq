@@ -197,6 +197,15 @@ let display_cmd_header loc com =
      str " [" ++ str cmd ++ str "] ")
 
 
+let print_heap =
+  let idx = ref 0 in
+  fun () ->
+    let pid = Unix.getpid () in
+    let i = !idx in
+    let () = incr idx in
+    let filename = Printf.sprintf "heap.%i.%i" pid i in
+    Allocation_profiling.Global.dump_allocations_by_address ~filename
+
 let rec vernac_com verbose checknav (loc,com) =
   let interp = function
     | VernacLoad (verbosely, fname) ->
@@ -247,6 +256,7 @@ and read_vernac_file verbosely s =
     (* we go out of the following infinite loop when a End_of_input is
      * raised, which means that we raised the end of the file being loaded *)
     while true do
+      print_heap ();
       let loc_ast = parse_sentence input in
       vernac_com verbosely checknav loc_ast
     done

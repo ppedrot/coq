@@ -282,6 +282,7 @@ let main () =
       "-linkall" :: "-rectypes" :: "-w" :: "-31" :: flags @ copts @ options @
       (std_includes basedir) @ tolink @ [ main_file ] @ topstart
     in
+    let args = if !opt then "-allocation-tracing" :: args else args in
     if !echo then begin
       let command = String.concat " " (Envars.ocamlfind ()::prog::args) in
       print_endline command;
