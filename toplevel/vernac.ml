@@ -197,19 +197,38 @@ let display_cmd_header loc com =
      str " [" ++ str cmd ++ str "] ")
 
 
+type profile = {
+  p_major : bool;
+  p_graph : bool;
+}
+
 let is_profiling =
-  try ignore (Sys.getenv "CAMLRUNPARAM"); true
-  with Not_found -> false
+  try
+    let var = Sys.getenv "CAMLRUNPARAM" in
+    let flags = (String.split ',' var) in
+    let p_major = String.List.mem "mj" flags in
+    let p_graph = String.List.mem "gr" flags in
+    Some { p_major; p_graph; }
+  with Not_found -> None
 
 let print_heap =
   let idx = ref 0 in
   fun () ->
-    if is_profiling then
+    match is_profiling with
+    | None -> ()
+    | Some p ->
+      let open Allocation_profiling in
       let pid = Unix.getpid () in
       let i = !idx in
       let () = incr idx in
-      let filename = Printf.sprintf "heap.%i.%i" pid i in
-      Allocation_profiling.Heap_snapshot.dump_allocators_of_major_heap_blocks ~filename
+      let () = if p.p_major then
+        let filename = Printf.sprintf "heap.%i.%i" pid i in
+        Heap_snapshot.dump_allocators_of_major_heap_blocks ~filename
+      in
+      if p.p_graph then
+        let node_filename = Printf.sprintf "node.%i.%i" pid i in
+        let edge_filename = Printf.sprintf "edge.%i.%i" pid i in
+        Heap_snapshot.dump_heapgraph ~node_filename ~edge_filename
 
 let rec vernac_com verbose checknav (loc,com) =
   let interp = function
