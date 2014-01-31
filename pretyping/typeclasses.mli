@@ -51,8 +51,9 @@ val all_instances : unit -> instance list
 
 val add_class : typeclass -> unit
 
-val new_instance : typeclass -> int option -> bool -> Decl_kinds.polymorphic -> 
+val new_instance : typeclass -> int option -> bool option -> Decl_kinds.polymorphic -> 
   global_reference -> instance
+
 val add_instance : instance -> unit
 val remove_instance : instance -> unit
 
@@ -115,17 +116,14 @@ val classes_transparent_state_hook : (unit -> transparent_state) Hook.t
 val classes_transparent_state : unit -> transparent_state
 
 val add_instance_hint_hook : 
-  (global_reference_or_constr -> global_reference list ->
-   bool (* local? *) -> int option -> Decl_kinds.polymorphic -> unit) Hook.t
+  (global_reference_or_constr -> global_reference list -> int option -> Decl_kinds.polymorphic -> unit) Hook.t
 val remove_instance_hint_hook : (global_reference -> unit) Hook.t
-val add_instance_hint : global_reference_or_constr -> global_reference list -> 
-  bool -> int option -> Decl_kinds.polymorphic -> unit
 val remove_instance_hint : global_reference -> unit
 
 val solve_instantiations_problem : (env -> evar_map -> evar_filter -> bool -> bool -> bool -> evar_map) ref
 val solve_instantiation_problem : (env -> evar_map -> types -> bool -> open_constr) ref
 
-val declare_instance : int option -> bool -> global_reference -> unit
+val declare_instance : int option -> bool option -> global_reference -> unit
 
 
 (** Build the subinstances hints for a given typeclass object.

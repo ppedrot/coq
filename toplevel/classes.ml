@@ -33,12 +33,12 @@ let set_typeclass_transparency c local b =
     
 let _ =
   Hook.set Typeclasses.add_instance_hint_hook
-    (fun inst path local pri poly ->
+    (fun inst path pri poly ->
      let inst' = match inst with IsConstr c -> Hints.IsConstr (c, Univ.ContextSet.empty)
        | IsGlobal gr -> Hints.IsGlobRef gr
      in
       Flags.silently (fun () ->
-	Hints.add_hints local [typeclasses_db]
+	Hints.add_hints true [typeclasses_db]
 	  (Hints.HintsResolveEntry
 	     [pri, poly, false, Hints.PathHints path, inst'])) ());
   Hook.set Typeclasses.set_typeclass_transparency_hook set_typeclass_transparency;
@@ -85,12 +85,12 @@ let id_of_class cl =
 
 open Pp
 
-let instance_hook k pri global imps ?hook cst =
+let instance_hook k pri locality imps ?hook cst =
   Impargs.maybe_declare_manual_implicits false cst ~enriching:false imps;
-  Typeclasses.declare_instance pri (not global) cst;
+  Typeclasses.declare_instance pri locality cst;
   (match hook with Some h -> h cst | None -> ())
 
-let declare_instance_constant k pri global imps ?hook id poly uctx term termtype =
+let declare_instance_constant k pri locality imps ?hook id poly uctx term termtype =
   let kind = IsDefinition Instance in
   let entry = 
     Declare.definition_entry ~types:termtype ~poly ~univs:uctx term
@@ -98,10 +98,10 @@ let declare_instance_constant k pri global imps ?hook id poly uctx term termtype
   let cdecl = (DefinitionEntry entry, kind) in
   let kn = Declare.declare_constant id cdecl in
     Declare.definition_message id;
-    instance_hook k pri global imps ?hook (ConstRef kn);
+    instance_hook k pri locality imps ?hook (ConstRef kn);
     id
 
-let new_instance ?(abstract=false) ?(global=false) poly ctx (instid, bk, cl) props
+let new_instance ?(abstract=false) ?(locality = None) poly ctx (instid, bk, cl) props
     ?(generalize=true)
     ?(tac:unit Proofview.tactic option) ?hook pri =
   let env = Global.env() in
@@ -173,7 +173,7 @@ let new_instance ?(abstract=false) ?(global=false) poly ctx (instid, bk, cl) pro
 	let cst = Declare.declare_constant ~internal:Declare.KernelSilent id
 	  (Entries.ParameterEntry 
             (None,poly,(termtype,ctx),None), Decl_kinds.IsAssumption Decl_kinds.Logical)
-	in instance_hook k None global imps ?hook (ConstRef cst); id
+	in instance_hook k None locality imps ?hook (ConstRef cst); id
       end
     else (
       let props =
@@ -267,7 +267,7 @@ let new_instance ?(abstract=false) ?(global=false) poly ctx (instid, bk, cl) pro
       let term = Option.map nf term in
 	if not (Evd.has_undefined evm) && not (Option.is_empty term) then
           let ctx = Evd.universe_context evm in
-	  declare_instance_constant k pri global imps ?hook id 
+	  declare_instance_constant k pri locality imps ?hook id 
             poly ctx (Option.get term) termtype
 	else begin
 	  let kind = Decl_kinds.Global, poly, Decl_kinds.DefinitionBody Decl_kinds.Instance in
@@ -275,7 +275,7 @@ let new_instance ?(abstract=false) ?(global=false) poly ctx (instid, bk, cl) pro
 	      let hook vis gr =
 		let cst = match gr with ConstRef kn -> kn | _ -> assert false in
 		  Impargs.declare_manual_implicits false gr ~enriching:false [imps];
-		  Typeclasses.declare_instance pri (not global) (ConstRef cst)
+		  Typeclasses.declare_instance pri locality (ConstRef cst)
 	      in
 	      let obls, constr, typ =
 		match term with 
@@ -301,7 +301,7 @@ let new_instance ?(abstract=false) ?(global=false) poly ctx (instid, bk, cl) pro
                 let evm = Evd.reset_future_goals evm in
                 Lemmas.start_proof id kind evm termtype
 		(Lemmas.mk_hook
-                  (fun _ -> instance_hook k pri global imps ?hook));
+                  (fun _ -> instance_hook k pri locality imps ?hook));
                  (* spiwack: I don't know what to do with the status here. *)
 		if not (Option.is_empty term) then
                   let init_refine =
@@ -349,7 +349,7 @@ let context poly l =
       let cst = Declare.declare_constant ~internal:Declare.KernelSilent id decl in
 	match class_of_constr t with
 	| Some (rels, ((tc,_), args) as _cl) ->
-	    add_instance (Typeclasses.new_instance tc None false (*FIXME*)
+	    add_instance (Typeclasses.new_instance tc None None (*FIXME*)
 			    poly (ConstRef cst));
             status
 	    (* declare_subclasses (ConstRef cst) cl *)

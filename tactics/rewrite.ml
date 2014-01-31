@@ -1653,10 +1653,10 @@ let declare_an_instance n s args =
 
 let declare_instance a aeq n s = declare_an_instance n s [a;aeq]
 
-let anew_instance global binders instance fields =
+let anew_instance locality binders instance fields =
   new_instance (Flags.is_universe_polymorphism ()) 
     binders instance (Some (true, CRecord (Loc.ghost,None,fields)))
-    ~global ~generalize:false None
+    ~locality ~generalize:false None
 
 let declare_instance_refl global binders a aeq n lemma =
   let instance = declare_instance a aeq (add_suffix n "_Reflexive") "Coq.Classes.RelationClasses.Reflexive"
@@ -1675,7 +1675,7 @@ let declare_instance_trans global binders a aeq n lemma =
 
 let declare_relation ?(binders=[]) a aeq n refl symm trans =
   init_setoid ();
-  let global = not (Locality.make_section_locality (Locality.LocalityFixme.consume ())) in
+  let global = Locality.LocalityFixme.consume () in
   let instance = declare_instance a aeq (add_suffix n "_relation") "Coq.Classes.RelationClasses.RewriteRelation"
   in ignore(anew_instance global binders instance []);
   match (refl,symm,trans) with
@@ -1801,6 +1801,7 @@ let default_morphism sign m =
 
 let add_setoid global binders a aeq t n =
   init_setoid ();
+  let global = Some (not global) in
   let _lemma_refl = declare_instance_refl global binders a aeq n (mkappc "Seq_refl" [a;aeq;t]) in
   let _lemma_sym = declare_instance_sym global binders a aeq n (mkappc "Seq_sym" [a;aeq;t]) in
   let _lemma_trans = declare_instance_trans global binders a aeq n (mkappc "Seq_trans" [a;aeq;t]) in
@@ -1822,6 +1823,7 @@ let make_tactic name =
 let add_morphism_infer glob m n =
   init_setoid ();
   let poly = Flags.is_universe_polymorphism () in
+  let glob = Some (not glob) in
   let instance_id = add_suffix n "_Proper" in
   let instance = build_morphism_signature m in
   let evd = Evd.empty (*FIXME *) in
@@ -1857,6 +1859,7 @@ let add_morphism_infer glob m n =
 let add_morphism glob binders m s n =
   init_setoid ();
   let poly = Flags.is_universe_polymorphism () in
+  let glob = Some (not glob) in
   let instance_id = add_suffix n "_Proper" in
   let instance =
     ((Loc.ghost,Name instance_id), Explicit,
@@ -1865,7 +1868,7 @@ let add_morphism glob binders m s n =
 	     [cHole; s; m]))
   in
   let tac = Tacinterp.interp (make_tactic "add_morphism_tactic") in
-    ignore(new_instance ~global:glob poly binders instance 
+    ignore(new_instance ~locality:glob poly binders instance 
 	     (Some (true, CRecord (Loc.ghost,None,[])))
 	      ~generalize:false ~tac ~hook:(declare_projection n instance_id) None)
 

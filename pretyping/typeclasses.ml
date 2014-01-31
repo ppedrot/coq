@@ -78,10 +78,8 @@ type typeclasses = typeclass Refmap.t
 type instance = {
   is_class: global_reference;
   is_pri: int option;
-  (* Sections where the instance should be redeclared,
-     -1 for discard, 0 for none, mutable to avoid redeclarations
-     when multiple rebuild_object happen. *)
-  is_global: int;
+  (** As in the [Locality] module *)
+  is_locality: bool option;
   is_poly: bool;
   is_impl: global_reference;
 }
@@ -93,13 +91,9 @@ let instance_impl is = is.is_impl
 let instance_priority is = is.is_pri
 
 let new_instance cl pri glob poly impl =
-  let global =
-    if glob then Lib.sections_depth ()
-    else -1
-  in
     { is_class = cl.cl_impl;
       is_pri = pri ;
-      is_global = global ;
+      is_locality = glob ;
       is_poly = poly;
       is_impl = impl }
 
@@ -219,8 +213,8 @@ let discharge_class (_,cl) =
       | ConstRef cst -> Lib.section_segment_of_constant cst
       | IndRef (ind,_) -> Lib.section_segment_of_mutual_inductive ind in
   let discharge_context ctx' subst (grs, ctx) =
-    let grs' = 
-      let newgrs = List.map (fun (_, _, t) -> 
+    let grs' =
+      let newgrs = List.map (fun (_, _, t) ->
 	match class_of_constr t with
 	| None -> None
 	| Some (_, ((tc,_), _)) -> Some (tc.cl_impl, true))
@@ -244,15 +238,15 @@ let discharge_class (_,cl) =
 	cl_unique = cl.cl_unique
       }
 
-let rebuild_class cl = 
-  try 
+let rebuild_class cl =
+  try
     let cst = Tacred.evaluable_of_global_reference (Global.env ()) cl.cl_impl in
       set_typeclass_transparency cst false false; cl
   with e when Errors.noncritical e -> cl
 
 let class_input : typeclass -> obj =
   declare_object
-    { (default_object "type classes state") with
+    { (default_object "TYPECLASS") with
       cache_function = cache_class;
       load_function = (fun _ -> load_class);
       open_function = (fun _ -> load_class);
@@ -267,7 +261,7 @@ let add_class cl =
 (** Build the subinstances hints. *)
 
 let check_instance env sigma c =
-  try 
+  try
     let (evd, c) = resolve_one_typeclass env sigma
       (Retyping.get_type_of env sigma c) in
       not (Evd.has_undefined evd)
@@ -275,8 +269,8 @@ let check_instance env sigma c =
 
 let build_subclasses ~check env sigma glob pri =
   let _id = Nametab.basename_of_global glob in
-  let _next_id = 
-    let i = ref (-1) in 
+  let _next_id =
+    let i = ref (-1) in
       (fun () -> incr i;
         Nameops.add_suffix _id ("_subinstance_" ^ string_of_int !i))
   in
@@ -291,23 +285,23 @@ let build_subclasses ~check env sigma glob pri =
 	  Reductionops.whd_beta sigma (appvectc c (Termops.extended_rel_vect 0 rels)) 
 	in
 	let projargs = Array.of_list (args @ [instapp]) in
-	let projs = List.map_filter 
+	let projs = List.map_filter
 	  (fun (n, b, proj) ->
-	   match b with 
+	   match b with
 	   | None -> None
 	   | Some (Backward, _) -> None
 	   | Some (Forward, pri') ->
 	     let proj = Option.get proj in
 	     let body = it_mkLambda_or_LetIn (mkApp (mkConstU (proj,u), projargs)) rels in
 	       if check && check_instance env sigma body then None
-	       else 
-		 let pri = 
+	       else
+		 let pri =
 		   match pri, pri' with
 		   | Some p, Some p' -> Some (p + p')
 		   | Some p, None -> Some (p + 1)
 		   | _, _ -> None
 		 in
-		   Some (ConstRef proj, pri, body)) tc.cl_projs 
+		   Some (ConstRef proj, pri, body)) tc.cl_projs
 	in
 	let declare_proj hints (cref, pri, body) =
 	  let path' = cref :: path in
@@ -325,79 +319,75 @@ let build_subclasses ~check env sigma glob pri =
  * instances persistent object
  *)
 
-type instance_action = 
+type instance_action =
   | AddInstance
   | RemoveInstance
 
-let load_instance inst = 
-  let insts = 
+let cache_addinstance inst =
+  (** Registering the instance as such *)
+  let insts =
     try Refmap.find inst.is_class !instances
-    with Not_found -> Refmap.empty in
+    with Not_found -> Refmap.empty
+  in
   let insts = Refmap.add inst.is_impl inst insts in
-  instances := Refmap.add inst.is_class insts !instances
+  let () = instances := Refmap.add inst.is_class insts !instances in
+  (* Adding the instance in the hint database *)
+  let impl = inst.is_impl in
+  let pri = inst.is_pri in
+  let check = not (isVarRef impl) in
+  let () = add_instance_hint (IsGlobal impl) [impl] pri inst.is_poly in
+  let add_subclass (path, pri, c) = add_instance_hint (IsConstr c) path pri inst.is_poly in
+  let subclasses = build_subclasses ~check (Global.env ()) Evd.empty impl pri in
+  List.iter add_subclass subclasses
 
-let remove_instance inst =
-  let insts = 
+let cache_removeinstance inst =
+  let insts =
     try Refmap.find inst.is_class !instances
     with Not_found -> assert false in
   let insts = Refmap.remove inst.is_impl insts in
   instances := Refmap.add inst.is_class insts !instances
 
 let cache_instance (_, (action, i)) =
-  match action with 
-  | AddInstance -> load_instance i
-  | RemoveInstance -> remove_instance i      
+  match action with
+  | AddInstance -> cache_addinstance i
+  | RemoveInstance -> cache_removeinstance i
+
+let is_global (_, i) = match i.is_locality with
+| None | Some true -> false
+| Some false -> true
+
+let load_instance i obj =
+  if i = 1 || is_global (snd obj) then cache_instance obj
 
 let subst_instance (subst, (action, inst)) = action,
-  { inst with 
+  { inst with
       is_class = fst (subst_global subst inst.is_class);
       is_impl = fst (subst_global subst inst.is_impl) }
 
-let discharge_instance (_, (action, inst)) =
-  if inst.is_global <= 0 then None
-  else Some (action,
-    { inst with 
-      is_global = pred inst.is_global;
-      is_class = Lib.discharge_global inst.is_class;
-      is_impl = Lib.discharge_global inst.is_impl })
-    
+let discharge_instance (_, (action, inst)) = match inst.is_locality with
+| None | Some true (** No specified or local *) -> None
+| Some false (** global *) ->
+  Some (action,
+  { inst with
+    is_class = Lib.discharge_global inst.is_class;
+    is_impl = Lib.discharge_global inst.is_impl })
 
-let is_local i = Int.equal i.is_global (-1)
-
-let add_instance check inst =
-  let poly = Global.is_polymorphic inst.is_impl in
-  add_instance_hint (IsGlobal inst.is_impl) [inst.is_impl] (is_local inst) 
-    inst.is_pri poly;
-  List.iter (fun (path, pri, c) -> add_instance_hint (IsConstr c) path
-    (is_local inst) pri poly)
-    (build_subclasses ~check:(check && not (isVarRef inst.is_impl))
-       (Global.env ()) Evd.empty inst.is_impl inst.is_pri)
-
-let rebuild_instance (action, inst) =
-  let () = match action with
-  | AddInstance -> add_instance true inst
-  | _ -> ()
-  in
-  (action, inst)
-
-let classify_instance (action, inst) =
-  if is_local inst then Dispose
-  else Substitute (action, inst)
+let classify_instance (action, inst) = match inst.is_locality with
+| Some true -> Dispose
+| None | Some false -> Substitute (action, inst)
 
 let instance_input : instance_action * instance -> obj =
   declare_object
-    { (default_object "type classes instances state") with
+    { (default_object "TYPECLASS-INSTANCE") with
       cache_function = cache_instance;
-      load_function = (fun _ x -> cache_instance x);
-      open_function = (fun _ x -> cache_instance x);
+      load_function = load_instance;
+      open_function = load_instance;
       classify_function = classify_instance;
       discharge_function = discharge_instance;
-      rebuild_function = rebuild_instance;
       subst_function = subst_instance }
 
 let add_instance i =
-  Lib.add_anonymous_leaf (instance_input (AddInstance, i));
-  add_instance true i
+  Lib.add_anonymous_leaf (instance_input (AddInstance, i))
 
 let remove_instance i =
   Lib.add_anonymous_leaf (instance_input (RemoveInstance, i));
@@ -407,7 +397,7 @@ let declare_instance pri local glob =
   let ty = Global.type_of_global_unsafe glob in
     match class_of_constr ty with
     | Some (rels, ((tc,_), args) as _cl) ->
-      add_instance (new_instance tc pri (not local) (Flags.use_polymorphic_flag ()) glob)
+      add_instance (new_instance tc pri local (Flags.use_polymorphic_flag ()) glob)
 (*       let path, hints = build_subclasses (not local) (Global.env ()) Evd.empty glob in *)
 (*       let entries = List.map (fun (path, pri, c) -> (pri, local, path, c)) hints in *)
 (* 	Auto.add_hints local [typeclasses_db] (Auto.HintsResolveEntry entries); *)
@@ -422,13 +412,12 @@ let add_class cl =
 	     | Some (Backward, pri) ->
 	       (match body with
 	       | None -> Errors.error "Non-definable projection can not be declared as a subinstance"
-	       | Some b -> declare_instance pri false (ConstRef b))
+	       | Some b -> declare_instance pri None (ConstRef b))
 	     | _ -> ())
   cl.cl_projs
 
 
 open Declarations
-      
 (*
  * interface functions
  *)
@@ -461,15 +450,15 @@ let cmap_elements c = Refmap.fold (fun k v acc -> v :: acc) c []
 let instances_of c =
   try cmap_elements (Refmap.find c.cl_impl !instances) with Not_found -> []
 
-let all_instances () = 
+let all_instances () =
   Refmap.fold (fun k v acc ->
     Refmap.fold (fun k v acc -> v :: acc) v acc)
     !instances []
 
-let instances r = 
-  let cl = class_info r in instances_of cl    
+let instances r =
+  let cl = class_info r in instances_of cl
 
-let is_class gr = 
+let is_class gr =
   Refmap.exists (fun _ v -> eq_gr v.cl_impl gr) !classes
 
 let is_instance = function
@@ -481,7 +470,7 @@ let is_instance = function
       (match Decls.variable_kind v with
       | IsDefinition Instance -> true
       | _ -> false)
-  | ConstructRef (ind,_) -> 
+  | ConstructRef (ind,_) ->
       is_class (IndRef ind)
   | _ -> false
 

@@ -22,13 +22,13 @@ val mismatched_props : env -> constr_expr list -> rel_context -> 'a
 
 (** Instance declaration *)
 
-val existing_instance : bool -> reference -> int option -> unit
+val existing_instance : bool option -> reference -> int option -> unit
 (** globality, reference, priority *)
 
 val declare_instance_constant :
   typeclass ->
   int option -> (** priority *)
-  bool -> (** globality *)
+  bool option -> (** globality *)
   Impargs.manual_explicitation list -> (** implicits *)
   ?hook:(Globnames.global_reference -> unit) ->
   Id.t -> (** name *)
@@ -40,7 +40,7 @@ val declare_instance_constant :
 
 val new_instance :
   ?abstract:bool -> (** Not abstract by default. *)
-  ?global:bool -> (** Not global by default. *)
+  ?locality:bool option ->
   Decl_kinds.polymorphic ->
   local_binder list ->
   typeclass_constraint ->

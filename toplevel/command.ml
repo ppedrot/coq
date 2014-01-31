@@ -208,7 +208,7 @@ let declare_assumption is_coe (local,p,kind) (c,ctx) imps impl nl (_,ident) = ma
     strbrk " is not visible from current goals")
   in
   let r = VarRef ident in
-  let () = Typeclasses.declare_instance None true r in
+  let () = Typeclasses.declare_instance None (Some true) r in
   let () = if is_coe then Class.try_add_new_coercion r ~local:true false in
   (r,Univ.Instance.empty,true)
 
@@ -225,7 +225,7 @@ let declare_assumption is_coe (local,p,kind) (c,ctx) imps impl nl (_,ident) = ma
   let gr = ConstRef kn in
   let () = maybe_declare_manual_implicits false gr imps in
   let () = assumption_message ident in
-  let () = Typeclasses.declare_instance None false gr in
+  let () = Typeclasses.declare_instance None None gr in
   let () = if is_coe then Class.try_add_new_coercion gr local p in
   let inst = 
     if p (* polymorphic *) then Univ.UContext.instance ctx 

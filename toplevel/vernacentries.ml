@@ -779,16 +779,14 @@ let vernac_identity_coercion locality poly local id qids qidt =
 (* Type classes *)
 
 let vernac_instance abst locality poly sup inst props pri =
-  let global = not (make_section_locality locality) in
   Dumpglob.dump_constraint inst false "inst";
-  ignore(Classes.new_instance ~abstract:abst ~global poly sup inst props pri)
+  ignore(Classes.new_instance ~abstract:abst ~locality poly sup inst props pri)
 
 let vernac_context poly l =
   if not (Classes.context poly l) then Pp.feedback Feedback.AddedAxiom
 
 let vernac_declare_instances locality ids pri =
-  let glob = not (make_section_locality locality) in
-  List.iter (fun id -> Classes.existing_instance glob id pri) ids
+  List.iter (fun id -> Classes.existing_instance locality id pri) ids
 
 let vernac_declare_class id =
   Record.declare_existing_class (Nametab.global id)
