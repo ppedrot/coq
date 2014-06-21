@@ -699,11 +699,13 @@ let universe_level = Universe.level
 
 type status = Unset | SetLe | SetLt
 
+type key = int
+
 (* Comparison on this type is pointer equality *)
 type canonical_arc =
-    { univ: Level.t;
-      lt: Level.t list;
-      le: Level.t list;
+    { univ: key;
+      lt: key list;
+      le: key list;
       rank : int;
       predicative : bool;
       mutable status : status;
@@ -740,9 +742,14 @@ end = HMap.Make(Level)
 
 type univ_entry =
     Canonical of canonical_arc
-  | Equiv of Level.t
+  | Equiv of key
 
-type universes = univ_entry UMap.t
+type universes = {
+  max : key;
+  map : univ_entry Int.Map.t;
+  src : Level.t Int.Map.t;
+  dst : key UMap.t;
+}
 
 (** Used to cleanup universes if a traversal function is interrupted before it
     has the opportunity to do it itself. *)
@@ -751,10 +758,10 @@ let unsafe_cleanup_universes g =
   | Equiv _ -> ()
   | Canonical arc -> arc.status <- Unset
   in
-  UMap.iter iter g
+  Int.Map.iter iter g
 
 let rec cleanup_universes g =
-  try unsafe_cleanup_universes g
+  try unsafe_cleanup_universes g.map
   with e ->
     (** The only way unsafe_cleanup_universes may raise an exception is when
         a serious error (stack overflow, out of memory) occurs, or a signal is
@@ -763,10 +770,10 @@ let rec cleanup_universes g =
     cleanup_universes g; raise e
 
 let enter_equiv_arc u v g =
-  UMap.add u (Equiv v) g
+  { g with map = Int.Map.add u (Equiv v) g.map }
 
 let enter_arc ca g =
-  UMap.add ca.univ (Canonical ca) g
+  { g with map = Int.Map.add ca.univ (Canonical ca) g.map }
 
 (* Every Level.t has a unique canonical arc representative *)
 
@@ -776,9 +783,9 @@ let enter_arc ca g =
 let repr g u =
   let rec repr_rec u =
     let a =
-      try UMap.find u g
+      try Int.Map.find u g.map
       with Not_found -> anomaly ~label:"Univ.repr"
-	  (str"Universe " ++ Level.pr u ++ str" undefined")
+	  (str"Universe undefined")
     in
     match a with
       | Equiv v -> repr_rec v
@@ -791,14 +798,23 @@ let repr g u =
 
 let safe_repr g u =
   let rec safe_repr_rec u =
-    match UMap.find u g with
+    match Int.Map.find u g.map with
       | Equiv v -> safe_repr_rec v
       | Canonical arc -> arc
   in
-  try g, safe_repr_rec u
+  try
+    let u = UMap.find u g.dst in
+    g, safe_repr_rec u
   with Not_found ->
-    let can = terminal u in
-    enter_arc can g, can
+    let key = g.max in
+    let can = terminal key in
+    let g = {
+      max = succ g.max;
+      src = Int.Map.add key u g.src;
+      dst = UMap.add u key g.dst;
+      map = Int.Map.add key (Canonical can) g.map;
+    } in
+    g, can
 
 (* reprleq : canonical_arc -> canonical_arc list *)
 (* All canonical arcv such that arcu<=arcv with arcv#arcu *)
@@ -896,6 +912,7 @@ let constraint_type_ord c1 c2 = match c1, c2 with
 let get_explanation strict g arcu arcv =
   (* [c] characterizes whether (and how) arcv has already been related
      to arcu among the lt_done,le_done universe *)
+  let make u = make (Int.Map.find u g.src) in
   let rec cmp c to_revert lt_todo le_todo = match lt_todo, le_todo with
   | [],[] -> (to_revert, c)
   | (arc,p)::lt_todo, le_todo ->
@@ -1073,9 +1090,16 @@ let check_equal g u v =
 
 let check_eq_level g u v = u == v || check_equal g u v
 
-let is_set_arc u = Level.is_set u.univ
-let is_prop_arc u = Level.is_prop u.univ
-let get_prop_arc g = snd (safe_repr g Level.prop)
+let is_set_arc g u =
+  let univ = Int.Map.find u.univ g.src in
+  Level.is_set univ
+
+let is_prop_arc g u =
+  let univ = Int.Map.find u.univ g.src in
+  Level.is_prop univ
+
+let get_prop_arc g =
+  snd (safe_repr g Level.prop)
 
 let check_smaller g strict u v =
   let g, arcu = safe_repr g u in
@@ -1083,8 +1107,8 @@ let check_smaller g strict u v =
   if strict then
     is_lt g arcu arcv
   else
-    is_prop_arc arcu 
-    || (is_set_arc arcu && arcv.predicative) 
+    is_prop_arc g arcu 
+    || (is_set_arc g arcu && arcv.predicative) 
     || is_leq g arcu arcv
 
 (** Then, checks on universes *)
@@ -1136,7 +1160,7 @@ let set_predicative g arcv =
 let setlt g arcu arcv =
   let arcu' = {arcu with lt=arcv.univ::arcu.lt} in
   let g = 
-    if is_set_arc arcu then set_predicative g arcv
+    if is_set_arc g arcu then set_predicative g arcv
     else g
   in
     enter_arc arcu' g, arcu'
@@ -1153,7 +1177,7 @@ let setlt_if (g,arcu) v =
 let setleq g arcu arcv =
   let arcu' = {arcu with le=arcv.univ::arcu.le} in
   let g = 
-    if is_set_arc arcu' then
+    if is_set_arc g arcu' then
       set_predicative g arcv
     else g
   in
@@ -1172,7 +1196,7 @@ let merge g arcu arcv =
   (* we find the arc with the biggest rank, and we redirect all others to it *)
   let arcu, g, v =
     let best_ranked (max_rank, old_max_rank, best_arc, rest) arc =
-      if Level.is_small arc.univ || arc.rank >= max_rank
+      if Level.is_small (Int.Map.find arc.univ g.src) || arc.rank >= max_rank
       then (arc.rank, max_rank, arc, best_arc::rest)
       else (max_rank, old_max_rank, best_arc, arc::rest)
     in
@@ -1277,14 +1301,25 @@ let enforce_univ_lt u v g =
         let p = get_explanation false g arcv arcu  in
         error_inconsistency Lt u v p
 
-let empty_universes = UMap.empty
+let empty_universes = {
+  max = 0;
+  map = Int.Map.empty;
+  src = Int.Map.empty;
+  dst = UMap.empty;
+}
 
 (* Prop = Set is forbidden here. *)
-let initial_universes = enforce_univ_lt Level.prop Level.set UMap.empty
+let initial_universes = enforce_univ_lt Level.prop Level.set empty_universes
 
-let is_initial_universes g = UMap.equal (==) g initial_universes
+let is_initial_universes g = true
 
-let add_universe vlev g = 
+let add_universe v g =
+  let vlev = g.max in
+  let g = { g with
+    max = succ g.max;
+    src = Int.Map.add vlev v g.src;
+    dst = UMap.add v vlev g.dst;
+  } in
   let v = terminal vlev in
   let proparc = get_prop_arc g in
     enter_arc {proparc with le=vlev::proparc.le}
@@ -1451,7 +1486,7 @@ let enforce_univ_constraint (u,d,v) =
 (* Normalization *)
 
 let lookup_level u g =
-  try Some (UMap.find u g) with Not_found -> None
+  try Some (Int.Map.find u g) with Not_found -> None
 
 (** [normalize_universes g] returns a graph where all edges point
     directly to the canonical representent of their target. The output
@@ -1465,20 +1500,20 @@ let normalize_universes g =
     | Some x -> x, cache
     | None -> match Lazy.force arc with
     | None ->
-      u, UMap.add u u cache
+      u, Int.Map.add u u cache
     | Some (Canonical {univ=v; lt=_; le=_}) ->
-      v, UMap.add u v cache
+      v, Int.Map.add u v cache
     | Some (Equiv v) ->
-      let v, cache = visit v (lazy (lookup_level v g)) cache in
-      v, UMap.add u v cache
+      let v, cache = visit v (lazy (lookup_level v g.map)) cache in
+      v, Int.Map.add u v cache
   in
-  let cache = UMap.fold
+  let cache = Int.Map.fold
     (fun u arc cache -> snd (visit u (Lazy.lazy_from_val (Some arc)) cache))
-    g UMap.empty
+    g.map Int.Map.empty
   in
-  let repr x = UMap.find x cache in
+  let repr x = Int.Map.find x cache in
   let lrepr us = List.fold_left
-    (fun e x -> LSet.add (repr x) e) LSet.empty us
+    (fun e x -> Int.Set.add (repr x) e) Int.Set.empty us
   in
   let canonicalize u = function
     | Equiv _ -> Equiv (repr u)
@@ -1486,31 +1521,35 @@ let normalize_universes g =
       assert (u == v);
       (* avoid duplicates and self-loops *)
       let lt = lrepr lt and le = lrepr le in
-      let le = LSet.filter
-        (fun x -> x != u && not (LSet.mem x lt)) le
+      let le = Int.Set.filter
+        (fun x -> x != u && not (Int.Set.mem x lt)) le
       in
-      LSet.iter (fun x -> assert (x != u)) lt;
+      Int.Set.iter (fun x -> assert (x != u)) lt;
       Canonical {
         univ = v;
-        lt = LSet.elements lt;
-        le = LSet.elements le;
+        lt = Int.Set.elements lt;
+        le = Int.Set.elements le;
 	rank = rank;
 	predicative = false;
 	status = Unset;
       }
   in
-  UMap.mapi canonicalize g
+  { g with map = Int.Map.mapi canonicalize g.map }
 
 let constraints_of_universes g =
   let constraints_of u v acc =
     match v with
     | Canonical {univ=u; lt=lt; le=le} ->
-      let acc = List.fold_left (fun acc v -> Constraint.add (u,Lt,v) acc) acc lt in
-      let acc = List.fold_left (fun acc v -> Constraint.add (u,Le,v) acc) acc le in
+      let u = Int.Map.find u g.src in
+      let acc = List.fold_left (fun acc v -> Constraint.add (u,Lt, Int.Map.find v g.src) acc) acc lt in
+      let acc = List.fold_left (fun acc v -> Constraint.add (u,Le, Int.Map.find v g.src) acc) acc le in
 	acc
-    | Equiv v -> Constraint.add (u,Eq,v) acc
+    | Equiv v ->
+      let u = Int.Map.find u g.src in
+      let v = Int.Map.find v g.src in
+      Constraint.add (u,Eq,v) acc
   in
-  UMap.fold constraints_of g Constraint.empty
+  Int.Map.fold constraints_of g.map Constraint.empty
 
 let constraints_of_universes g =
   constraints_of_universes (normalize_universes g)
@@ -1522,30 +1561,30 @@ let constraints_of_universes g =
     universes, which is the only case where we use this algorithm. *)
 
 (** Adjacency graph *)
-type graph = constraint_type LMap.t LMap.t
+type graph = constraint_type Int.Map.t Int.Map.t
 
 exception Connected
 
 (** Check connectedness *)
 let connected x y (g : graph) =
   let rec connected x target seen g =
-    if Level.equal x target then raise Connected
-    else if not (LSet.mem x seen) then
-      let seen = LSet.add x seen in
+    if Int.equal x target then raise Connected
+    else if not (Int.Set.mem x seen) then
+      let seen = Int.Set.add x seen in
       let fold z _ seen = connected z target seen g in
-      let neighbours = try LMap.find x g with Not_found -> LMap.empty in
-      LMap.fold fold neighbours seen
+      let neighbours = try Int.Map.find x g with Not_found -> Int.Map.empty in
+      Int.Map.fold fold neighbours seen
     else seen
   in
-  try ignore(connected x y LSet.empty g); false with Connected -> true
+  try ignore(connected x y Int.Set.empty g); false with Connected -> true
 
 let add_edge x y v (g : graph) =
   try
-    let neighbours = LMap.find x g in
-    let neighbours = LMap.add y v neighbours in
-    LMap.add x neighbours g
+    let neighbours = Int.Map.find x g in
+    let neighbours = Int.Map.add y v neighbours in
+    Int.Map.add x neighbours g
   with Not_found ->
-    LMap.add x (LMap.singleton y v) g
+    Int.Map.add x (Int.Map.singleton y v) g
 
 (** We want to keep the graph DAG. If adding an edge would cause a cycle, that
     would necessarily be an {Eq, Le}-cycle, otherwise there would have been a
@@ -1570,28 +1609,28 @@ let make_graph g : (graph * graph) =
     let accu = List.fold_left fold_lt accu lt in
     accu
   in
-  UMap.fold fold g (LMap.empty, LMap.empty)
+  Int.Map.fold fold g.map (Int.Map.empty, Int.Map.empty)
 
 (** Construct a topological order out of a DAG. *)
 let rec topological_fold u g rem seen accu =
   let is_seen =
     try
-      let status = LMap.find u seen in
+      let status = Int.Map.find u seen in
       assert status; (** If false, not a DAG! *)
       true
     with Not_found -> false
   in
   if not is_seen then
-    let rem = LMap.remove u rem in
-    let seen = LMap.add u false seen in
-    let neighbours = try LMap.find u g with Not_found -> LMap.empty in
+    let rem = Int.Map.remove u rem in
+    let seen = Int.Map.add u false seen in
+    let neighbours = try Int.Map.find u g with Not_found -> Int.Map.empty in
     let fold v _ (rem, seen, accu) = topological_fold v g rem seen accu in
-    let (rem, seen, accu) = LMap.fold fold neighbours (rem, seen, accu) in
-    (rem, LMap.add u true seen, u :: accu)
+    let (rem, seen, accu) = Int.Map.fold fold neighbours (rem, seen, accu) in
+    (rem, Int.Map.add u true seen, u :: accu)
   else (rem, seen, accu)
 
 let rec topological g rem seen accu =
-  let node = try Some (LMap.choose rem) with Not_found -> None in
+  let node = try Some (Int.Map.choose rem) with Not_found -> None in
   match node with
   | None -> accu
   | Some (u, _) ->
@@ -1609,13 +1648,13 @@ let constraint_cost = function
 let rec flatten_graph rem (rev : graph) map mx = match rem with
 | [] -> map, mx
 | u :: rem ->
-  let prev = try LMap.find u rev with Not_found -> LMap.empty in
+  let prev = try Int.Map.find u rev with Not_found -> Int.Map.empty in
   let fold v cstr accu =
-    let v_cost = LMap.find v map in
+    let v_cost = Int.Map.find v map in
     max (v_cost + constraint_cost cstr) accu
   in
-  let u_cost = LMap.fold fold prev 0 in
-  let map = LMap.add u u_cost map in
+  let u_cost = Int.Map.fold fold prev 0 in
+  let map = Int.Map.add u u_cost map in
   flatten_graph rem rev map (max mx u_cost)
 
 (** [sort_universes g] builds a map from universes in [g] to natural
@@ -1629,20 +1668,24 @@ let rec flatten_graph rem (rev : graph) map mx = match rem with
     probably a bad idea anyway). *)
 let sort_universes orig =
   let (dir, rev) = make_graph orig in
-  let order = topological dir dir LMap.empty [] in
-  let compact, max = flatten_graph order rev LMap.empty 0 in
+  let order = topological dir dir Int.Map.empty [] in
+  let compact, max = flatten_graph order rev Int.Map.empty 0 in
   let mp = Names.DirPath.make [Names.Id.of_string "Type"] in
   let types = Array.init (max + 1) (fun n -> Level.make mp n) in
   (** Old universes are made equal to [Type.n] *)
-  let fold u level accu = UMap.add u (Equiv types.(level)) accu in
-  let sorted = LMap.fold fold compact UMap.empty in
+  let fold u level accu = Int.Map.add u (Equiv (orig.max + level)) accu in
+  let sorted = { orig with
+    max = orig.max + max + 1;
+    map = Int.Map.fold fold compact Int.Map.empty
+  } in
   (** Add all [Type.n] nodes *)
   let fold i accu u =
-    if 0 < i then
-      let pred = types.(i - 1) in
-      let arc = {univ = u; lt = [pred]; le = []; rank = 0; predicative = false; status = Unset; } in
-      UMap.add u (Canonical arc) accu
-    else accu
+    let lt = if 0 < i then [orig.max + i - 1] else [] in
+    let arc = {univ = (orig.max + i); lt; le = []; rank = 0; predicative = false; status = Unset; } in
+    let map = Int.Map.add (orig.max + i) (Canonical arc) accu.map in
+    let src = Int.Map.add (orig.max + i) u accu.src in
+    let dst = UMap.add u (orig.max + i) accu.dst in
+    { accu with map; src; dst }
   in
   Array.fold_left_i fold sorted types
 
@@ -2048,7 +2091,7 @@ let subst_univs_constraints subst csts =
 
 (** Pretty-printing *)
 
-let pr_arc = function
+let pr_arc g = function
   | _, Canonical {univ=u; lt=[]; le=[]} ->
       mt ()
   | _, Canonical {univ=u; lt=lt; le=le} ->
@@ -2056,18 +2099,18 @@ let pr_arc = function
       | [], _ | _, [] -> mt ()
       | _ -> spc ()
       in
-      Level.pr u ++ str " " ++
+      Level.pr (Int.Map.find u g.src) ++ str " " ++
       v 0
-        (pr_sequence (fun v -> str "< " ++ Level.pr v) lt ++
+        (pr_sequence (fun v -> str "< " ++ Level.pr (Int.Map.find v g.src)) lt ++
 	 opt_sep ++
-         pr_sequence (fun v -> str "<= " ++ Level.pr v) le) ++
+         pr_sequence (fun v -> str "<= " ++ Level.pr (Int.Map.find v g.src)) le) ++
       fnl ()
   | u, Equiv v ->
-      Level.pr u  ++ str " = " ++ Level.pr v ++ fnl ()
+      Level.pr (Int.Map.find u g.src)  ++ str " = " ++ Level.pr (Int.Map.find v g.src) ++ fnl ()
 
 let pr_universes g =
-  let graph = UMap.fold (fun u a l -> (u,a)::l) g [] in
-  prlist pr_arc graph
+  let graph = Int.Map.fold (fun u a l -> (u,a)::l) g.map [] in
+  prlist (fun arc -> pr_arc g arc) graph
 
 let pr_constraints = Constraint.pr
 
@@ -2086,13 +2129,13 @@ let pr_universe_level_subst =
 let dump_universes output g =
   let dump_arc u = function
     | Canonical {univ=u; lt=lt; le=le} ->
-	let u_str = Level.to_string u in
-	List.iter (fun v -> output Lt u_str (Level.to_string v)) lt;
-	List.iter (fun v -> output Le u_str (Level.to_string v)) le
+	let u_str = Level.to_string (Int.Map.find u g.src) in
+	List.iter (fun v -> output Lt u_str (Level.to_string (Int.Map.find v g.src))) lt;
+	List.iter (fun v -> output Le u_str (Level.to_string (Int.Map.find v g.src))) le
     | Equiv v ->
-      output Eq (Level.to_string u) (Level.to_string v)
+      output Eq (Level.to_string (Int.Map.find u g.src)) (Level.to_string (Int.Map.find v g.src))
   in
-  UMap.iter dump_arc g
+  Int.Map.iter dump_arc g.map
 
 module Huniverse_set = 
   Hashcons.Make(
