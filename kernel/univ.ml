@@ -746,7 +746,7 @@ type univ_entry =
 
 type universes = {
   max : key;
-  map : univ_entry Int.Map.t;
+  map : univ_entry Int.PArray.t;
   src : Level.t Int.Map.t;
   dst : key UMap.t;
 }
@@ -758,10 +758,12 @@ let unsafe_cleanup_universes g =
   | Equiv _ -> ()
   | Canonical arc -> arc.status <- Unset
   in
-  Int.Map.iter iter g
+  for i = 0 to pred g.max do
+    iter i (Option.get (Int.PArray.get g.map i))
+  done
 
 let rec cleanup_universes g =
-  try unsafe_cleanup_universes g.map
+  try unsafe_cleanup_universes g
   with e ->
     (** The only way unsafe_cleanup_universes may raise an exception is when
         a serious error (stack overflow, out of memory) occurs, or a signal is
@@ -770,10 +772,10 @@ let rec cleanup_universes g =
     cleanup_universes g; raise e
 
 let enter_equiv_arc u v g =
-  { g with map = Int.Map.add u (Equiv v) g.map }
+  { g with map = Int.PArray.set g.map u (Some (Equiv v)) }
 
 let enter_arc ca g =
-  { g with map = Int.Map.add ca.univ (Canonical ca) g.map }
+  { g with map = Int.PArray.set g.map ca.univ (Some (Canonical ca)) }
 
 (* Every Level.t has a unique canonical arc representative *)
 
@@ -783,7 +785,7 @@ let enter_arc ca g =
 let repr g u =
   let rec repr_rec u =
     let a =
-      try Int.Map.find u g.map
+      try Option.get (Int.PArray.get g.map u)
       with Not_found -> anomaly ~label:"Univ.repr"
 	  (str"Universe undefined")
     in
@@ -798,7 +800,7 @@ let repr g u =
 
 let safe_repr g u =
   let rec safe_repr_rec u =
-    match Int.Map.find u g.map with
+    match Option.get (Int.PArray.get g.map u) with
       | Equiv v -> safe_repr_rec v
       | Canonical arc -> arc
   in
@@ -812,7 +814,7 @@ let safe_repr g u =
       max = succ g.max;
       src = Int.Map.add key u g.src;
       dst = UMap.add u key g.dst;
-      map = Int.Map.add key (Canonical can) g.map;
+      map = Int.PArray.set g.map key (Some (Canonical can));
     } in
     g, can
 
@@ -1303,7 +1305,7 @@ let enforce_univ_lt u v g =
 
 let empty_universes = {
   max = 0;
-  map = Int.Map.empty;
+  map = Int.PArray.empty 97;
   src = Int.Map.empty;
   dst = UMap.empty;
 }
@@ -1504,12 +1506,18 @@ let normalize_universes g =
     | Some (Canonical {univ=v; lt=_; le=_}) ->
       v, Int.Map.add u v cache
     | Some (Equiv v) ->
-      let v, cache = visit v (lazy (lookup_level v g.map)) cache in
+      let v, cache = visit v (lazy (Int.PArray.get g.map v)) cache in
       v, Int.Map.add u v cache
   in
-  let cache = Int.Map.fold
-    (fun u arc cache -> snd (visit u (Lazy.lazy_from_val (Some arc)) cache))
-    g.map Int.Map.empty
+  let cache =
+    let cache = ref Int.Map.empty in
+    for u = 0 to pred g.max do
+      match Int.PArray.get g.map u with
+      | None -> assert false
+      | Some arc ->
+        cache := snd (visit u (Lazy.lazy_from_val (Some arc)) !cache)
+    done;
+    !cache
   in
   let repr x = Int.Map.find x cache in
   let lrepr us = List.fold_left
@@ -1534,7 +1542,14 @@ let normalize_universes g =
 	status = Unset;
       }
   in
-  { g with map = Int.Map.mapi canonicalize g.map }
+  let map = ref g.map in
+  for u = 0 to pred g.max do
+    match Int.PArray.get !map u with
+    | None -> assert false
+    | Some arc ->
+       map := Int.PArray.set !map u (Some (canonicalize u arc))
+  done;
+  { g with map = !map }
 
 let constraints_of_universes g =
   let constraints_of u v acc =
@@ -1549,7 +1564,13 @@ let constraints_of_universes g =
       let v = Int.Map.find v g.src in
       Constraint.add (u,Eq,v) acc
   in
-  Int.Map.fold constraints_of g.map Constraint.empty
+  let ans = ref Constraint.empty in
+  let () = for u = 0 to pred g.max do
+    match Int.PArray.get g.map u with
+    | None -> assert false
+    | Some arc -> ans := constraints_of u arc !ans
+  done in
+  !ans
 
 let constraints_of_universes g =
   constraints_of_universes (normalize_universes g)
@@ -1609,7 +1630,17 @@ let make_graph g : (graph * graph) =
     let accu = List.fold_left fold_lt accu lt in
     accu
   in
-  Int.Map.fold fold g.map (Int.Map.empty, Int.Map.empty)
+  let dir = ref Int.Map.empty in
+  let rev = ref Int.Map.empty in
+  for u = 0 to pred g.max do
+    match Int.PArray.get g.map u with
+    | None -> assert false
+    | Some arc ->
+      let (d, r) = fold u arc (!dir, !rev) in
+      dir := d;
+      rev := r
+  done;
+  (!dir, !rev)
 
 (** Construct a topological order out of a DAG. *)
 let rec topological_fold u g rem seen accu =
@@ -1673,16 +1704,16 @@ let sort_universes orig =
   let mp = Names.DirPath.make [Names.Id.of_string "Type"] in
   let types = Array.init (max + 1) (fun n -> Level.make mp n) in
   (** Old universes are made equal to [Type.n] *)
-  let fold u level accu = Int.Map.add u (Equiv (orig.max + level)) accu in
+  let fold u level accu = Int.PArray.set accu u (Some (Equiv (orig.max + level))) in
   let sorted = { orig with
     max = orig.max + max + 1;
-    map = Int.Map.fold fold compact Int.Map.empty
+    map = Int.Map.fold fold compact (Int.PArray.empty 97)
   } in
   (** Add all [Type.n] nodes *)
   let fold i accu u =
     let lt = if 0 < i then [orig.max + i - 1] else [] in
     let arc = {univ = (orig.max + i); lt; le = []; rank = 0; predicative = false; status = Unset; } in
-    let map = Int.Map.add (orig.max + i) (Canonical arc) accu.map in
+    let map = Int.PArray.set accu.map (orig.max + i) (Some (Canonical arc)) in
     let src = Int.Map.add (orig.max + i) u accu.src in
     let dst = UMap.add u (orig.max + i) accu.dst in
     { accu with map; src; dst }
@@ -2109,8 +2140,13 @@ let pr_arc g = function
       Level.pr (Int.Map.find u g.src)  ++ str " = " ++ Level.pr (Int.Map.find v g.src) ++ fnl ()
 
 let pr_universes g =
-  let graph = Int.Map.fold (fun u a l -> (u,a)::l) g.map [] in
-  prlist (fun arc -> pr_arc g arc) graph
+  let graph = ref [] in
+  for u = 0 to pred g.max do
+    match Int.PArray.get g.map u with
+    | None -> assert false
+    | Some arc -> graph := (u, arc) :: !graph
+  done;
+  prlist (fun arc -> pr_arc g arc) !graph
 
 let pr_constraints = Constraint.pr
 
@@ -2135,7 +2171,11 @@ let dump_universes output g =
     | Equiv v ->
       output Eq (Level.to_string (Int.Map.find u g.src)) (Level.to_string (Int.Map.find v g.src))
   in
-  Int.Map.iter dump_arc g.map
+  for u = 0 to pred g.max do
+    match Int.PArray.get g.map u with
+    | None -> assert false
+    | Some arc -> dump_arc u arc
+  done
 
 module Huniverse_set = 
   Hashcons.Make(
