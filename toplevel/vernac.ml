@@ -213,22 +213,19 @@ let is_profiling =
 
 let print_heap =
   let idx = ref 0 in
-  fun () ->
-    match is_profiling with
-    | None -> ()
-    | Some p ->
-      let open Allocation_profiling in
-      let pid = Unix.getpid () in
-      let i = !idx in
-      let () = incr idx in
-      let () = if p.p_major then
-        let filename = Printf.sprintf "heap.%i.%i" pid i in
-        Heap_snapshot.dump_allocators_of_major_heap_blocks ~filename
-      in
-      if p.p_graph then
-        let node_filename = Printf.sprintf "node.%i.%i" pid i in
-        let edge_filename = Printf.sprintf "edge.%i.%i" pid i in
-        Heap_snapshot.dump_heapgraph ~node_filename ~edge_filename
+  fun p ->
+    let open Allocation_profiling in
+    let pid = Unix.getpid () in
+    let i = !idx in
+    let () = incr idx in
+    let () = if p.p_major then
+      let filename = Printf.sprintf "heap.%i.%i" pid i in
+      Heap_snapshot.dump_allocators_of_major_heap_blocks ~filename
+    in
+    if p.p_graph then
+      let node_filename = Printf.sprintf "node.%i.%i" pid i in
+      let edge_filename = Printf.sprintf "edge.%i.%i" pid i in
+      Heap_snapshot.dump_heapgraph ~node_filename ~edge_filename
 
 let rec vernac_com verbose checknav (loc,com) =
   let interp = function
@@ -280,7 +277,7 @@ and read_vernac_file verbosely s =
     (* we go out of the following infinite loop when a End_of_input is
      * raised, which means that we raised the end of the file being loaded *)
     while true do
-      print_heap ();
+      Option.iter print_heap is_profiling;
       let loc_ast = parse_sentence input in
       vernac_com verbosely checknav loc_ast
     done

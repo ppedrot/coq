@@ -44,3 +44,12 @@ val is_navigation_vernac : Vernacexpr.vernac_expr -> bool
 type location_files = { outer : string; inner : string }
 
 val get_exn_files : Exninfo.info -> location_files option
+
+(** Allocation-profiling *)
+
+type profile = {
+  p_major : bool;
+  p_graph : bool;
+}
+
+val print_heap : profile -> unit
