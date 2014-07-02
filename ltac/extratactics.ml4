@@ -1041,3 +1041,25 @@ VERNAC COMMAND EXTEND OptimizeProof
 | [ "Optimize" "Heap" ] => [ Vernac_classifier.classify_as_proofstep ] ->
   [ Gc.compact () ]
 END
+
+let delay f =
+  Proofview.tclBIND (Proofview.tclUNIT ()) begin fun () ->
+    f ();
+    Proofview.tclUNIT ()
+  end
+
+let dump_mj () =
+  let pr = { Vernac.p_major = true; Vernac.p_graph = false; } in
+  Vernac.print_heap pr
+
+let dump_gr () =
+  let pr = { Vernac.p_major = false; Vernac.p_graph = true; } in
+  Vernac.print_heap pr
+
+TACTIC EXTEND dump_mj
+| [ "dump_mj" ] -> [ delay dump_mj ]
+END
+
+TACTIC EXTEND dump_gr
+| [ "dump_gr" ] -> [ delay dump_gr ]
+END
