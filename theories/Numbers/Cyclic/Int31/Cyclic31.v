@@ -1106,7 +1106,7 @@ Section Basics.
 
 End Basics.
 
-Instance int31_ops : ZnZ.Ops int31 :=
+Global Instance int31_ops : ZnZ.Ops int31 :=
 {
  digits      := 31%positive; (* number of digits *)
  zdigits     := 31; (* number of digits *)

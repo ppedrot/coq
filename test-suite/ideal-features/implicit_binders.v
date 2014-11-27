@@ -106,7 +106,7 @@ Check `(foob 0 + x).
 (** Utilisé pour généraliser l'implémentation de la généralisation implicite dans
    les déclarations d'instances (i.e. les deux defs suivantes sont équivalentes). *)
 
-Instance fooa : Foo A.
+Global Instance fooa : Foo A.
 Admitted.
 Definition fooa' : `(Foo A).
 Admitted.

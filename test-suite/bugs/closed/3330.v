@@ -58,7 +58,7 @@ Definition concat {A : Type} {x y z : A} (p : x = y) (q : y = z) : x = z :=
 Definition inverse {A : Type} {x y : A} (p : x = y) : y = x
   := match p with idpath => idpath end.
 
-Instance symmetric_paths {A} : Symmetric (@paths A) | 0 := @inverse A.
+Global Instance symmetric_paths {A} : Symmetric (@paths A) | 0 := @inverse A.
 
 Notation "1" := idpath : path_scope.
 

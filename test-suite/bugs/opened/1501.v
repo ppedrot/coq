@@ -40,7 +40,7 @@ Parameter
 
 Hint Resolve equiv_refl equiv_sym equiv_trans: monad.
 
-Instance equiv_rel A: Equivalence (@equiv A).
+Global Instance equiv_rel A: Equivalence (@equiv A).
 Proof.
  constructor.
  intros xa; apply equiv_refl.
@@ -69,7 +69,7 @@ Proof.
   unfold fequiv; intros; eapply equiv_trans; auto with monad.
 Qed.
 
-Instance fequiv_re A B: Equivalence (@fequiv A B).
+Global Instance fequiv_re A B: Equivalence (@fequiv A B).
 Proof.
  constructor.
  intros f; apply fequiv_refl.
@@ -77,7 +77,7 @@ Proof.
  intros f g h; apply fequiv_trans.
 Defined.
 
-Instance bind_mor A B: Morphisms.Proper (@equiv _ ==> @fequiv _ _ ==> @equiv _) (@bind A B).
+Global Instance bind_mor A B: Morphisms.Proper (@equiv _ ==> @fequiv _ _ ==> @equiv _) (@bind A B).
 Proof.
  unfold fequiv; intros x y xy_equiv f g fg_equiv; apply bind_compat; auto.
 Qed.

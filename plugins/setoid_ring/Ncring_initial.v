@@ -30,9 +30,9 @@ Definition NotConstant := false.
 Lemma Zsth : Equivalence (@eq Z).
 Proof. exact Z.eq_equiv. Qed.
 
-Instance Zops:@Ring_ops Z 0%Z 1%Z Z.add Z.mul Z.sub Z.opp (@eq Z).
+Global Instance Zops:@Ring_ops Z 0%Z 1%Z Z.add Z.mul Z.sub Z.opp (@eq Z).
 
-Instance Zr: (@Ring _ _ _ _ _ _ _ _ Zops).
+Global Instance Zr: (@Ring _ _ _ _ _ _ _ _ Zops).
 Proof.
 constructor; try apply Zsth; try solve_proper.
  exact Z.add_comm. exact Z.add_assoc.
@@ -206,5 +206,5 @@ reflexivity.
 
 End ZMORPHISM.
 
-Instance multiplication_phi_ring{R:Type}`{Ring R} : Multiplication  :=
+Global Instance multiplication_phi_ring{R:Type}`{Ring R} : Multiplication  :=
   {multiplication x y := (gen_phiZ x) * y}.

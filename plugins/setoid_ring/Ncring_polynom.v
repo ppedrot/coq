@@ -45,7 +45,7 @@ Class Equalityb (A : Type):= {equalityb : A -> A -> bool}.
 Notation "x =? y" := (equalityb x y) (at level 70, no associativity).
 Variable Ceqb_eq: forall x y:C, Ceqb x y = true -> (x == y).
 
-Instance equalityb_coef : Equalityb C :=
+Global Instance equalityb_coef : Equalityb C :=
   {equalityb x y := Ceqb x y}.
 
  Fixpoint Peq (P P' : Pol) {struct P'} : bool :=
@@ -59,7 +59,7 @@ Instance equalityb_coef : Equalityb C :=
   | _, _ => false
   end.
 
-Instance equalityb_pol : Equalityb Pol :=
+Global Instance equalityb_pol : Equalityb Pol :=
   {equalityb x y := Peq x y}.
 
 (* Q a ses variables de queue < i *)

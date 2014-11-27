@@ -4,7 +4,7 @@ Class IsPointed (A : Type) := point : A.
 
 Generalizable Variables A B f.
 
-Instance ispointed_forall `{H : forall a : A, IsPointed (B a)}
+Global Instance ispointed_forall `{H : forall a : A, IsPointed (B a)}
 : IsPointed (forall a, B a)
   := fun a => @point (B a) (H a).
 

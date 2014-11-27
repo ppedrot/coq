@@ -35,7 +35,7 @@ Hint Extern 4 (IsTrunc _ (_ = _)) => eapply @istrunc_paths : typeclass_instances
 
 Class Funext.
 
-Instance isequiv_compose A B C f g `{IsEquiv A B f} `{IsEquiv B C g}
+Global Instance isequiv_compose A B C f g `{IsEquiv A B f} `{IsEquiv B C g}
   : IsEquiv (compose g f) | 1000.
 Admitted.
 
@@ -47,23 +47,23 @@ Section IsEquivHomotopic.
     := ( BuildIsEquiv _ _ g (@equiv_inv _ _ f _) sect retr).
 End IsEquivHomotopic.
 
-Instance trunc_succ A n `{IsTrunc n A} : IsTrunc (trunc_S n) A | 1000. Admitted.
+Global Instance trunc_succ A n `{IsTrunc n A} : IsTrunc (trunc_S n) A | 1000. Admitted.
 
 Global Instance trunc_forall A n `{P : A -> Type} `{forall a, IsTrunc n (P a)}
   : IsTrunc n (forall a, P a) | 100.
 Admitted.
 
-Instance trunc_prod A B n `{IsTrunc n A} `{IsTrunc n B} : IsTrunc n (A * B) | 100.
+Global Instance trunc_prod A B n `{IsTrunc n A} `{IsTrunc n B} : IsTrunc n (A * B) | 100.
 Admitted.
 
 Global Instance trunc_arrow n {A B : Type} `{IsTrunc n B} : IsTrunc n (A -> B) | 100.
 Admitted.
 
-Instance isequiv_pr1_contr {A} {P : A -> Type} `{forall a, IsTrunc minus_two (P a)}
+Global Instance isequiv_pr1_contr {A} {P : A -> Type} `{forall a, IsTrunc minus_two (P a)}
 : IsEquiv (@projT1 A P) | 100.
 Admitted.
 
-Instance trunc_sigma n A `{P : A -> Type} `{IsTrunc n A} `{forall a, IsTrunc n (P a)}
+Global Instance trunc_sigma n A `{P : A -> Type} `{IsTrunc n A} `{forall a, IsTrunc n (P a)}
 : IsTrunc n (sigT P) | 100.
 Admitted.
 
@@ -76,7 +76,7 @@ Definition BiInv {A B} (f : A -> B) : Type
 Global Instance isprop_biinv {A B} (f : A -> B) : IsTrunc (trunc_S minus_two) (BiInv f) | 0.
 Admitted.
 
-Instance isequiv_path {A B : Type} (p : A = B)
+Global Instance isequiv_path {A B : Type} (p : A = B)
 : IsEquiv (transport (fun X:Type => X) p) | 0.
 Admitted.
 

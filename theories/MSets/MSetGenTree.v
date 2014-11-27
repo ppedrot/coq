@@ -302,7 +302,7 @@ Definition IsOk := bst.
 
 Class Ok (s:tree) : Prop := ok : bst s.
 
-Instance bst_Ok s (Hs : bst s) : Ok s := { ok := Hs }.
+Global Instance bst_Ok s (Hs : bst s) : Ok s := { ok := Hs }.
 
 Fixpoint ltb_tree x s :=
  match s with
@@ -420,7 +420,7 @@ Proof.
  intuition_in.
 Qed.
 
-Instance isok_Ok s : isok s = true -> Ok s | 10.
+Global Instance isok_Ok s : isok s = true -> Ok s | 10.
 Proof. intros; apply <- isok_iff; auto. Qed.
 
 (** ** Basic results about [In] *)
@@ -432,7 +432,7 @@ Proof.
 Qed.
 Local Hint Immediate In_1.
 
-Instance In_compat : Proper (X.eq==>eq==>iff) InT.
+Global Instance In_compat : Proper (X.eq==>eq==>iff) InT.
 Proof.
 apply proper_sym_impl_iff_2; auto with *.
 repeat red; intros; subst. apply In_1 with x; auto.
@@ -502,13 +502,13 @@ Proof.
  eauto.
 Qed.
 
-Instance lt_tree_compat : Proper (X.eq ==> Logic.eq ==> iff) lt_tree.
+Global Instance lt_tree_compat : Proper (X.eq ==> Logic.eq ==> iff) lt_tree.
 Proof.
  apply proper_sym_impl_iff_2; auto.
  intros x x' Hx s s' Hs H y Hy. subst. setoid_rewrite <- Hx; auto.
 Qed.
 
-Instance gt_tree_compat : Proper (X.eq ==> Logic.eq ==> iff) gt_tree.
+Global Instance gt_tree_compat : Proper (X.eq ==> Logic.eq ==> iff) gt_tree.
 Proof.
  apply proper_sym_impl_iff_2; auto.
  intros x x' Hx s s' Hs H y Hy. subst. setoid_rewrite <- Hx; auto.
@@ -538,7 +538,7 @@ Proof.
  intros x H. inversion H.
 Qed.
 
-Instance empty_ok : Ok empty.
+Global Instance empty_ok : Ok empty.
 Proof.
  auto.
 Qed.
@@ -956,7 +956,7 @@ Qed.
 Module L := MSetInterface.MakeListOrdering X.
 
 Definition eq := Equal.
-Instance eq_equiv : Equivalence eq.
+Global Instance eq_equiv : Equivalence eq.
 Proof. firstorder. Qed.
 
 Lemma eq_Leq : forall s s', eq s s' <-> L.eq (elements s) (elements s').
@@ -972,7 +972,7 @@ Definition lt (s1 s2 : tree) : Prop :=
 
 Declare Equivalent Keys L.eq equivlistA.
 
-Instance lt_strorder : StrictOrder lt.
+Global Instance lt_strorder : StrictOrder lt.
 Proof.
  split.
  intros s (s1 & s2 & B1 & B2 & E1 & E2 & L).
@@ -991,7 +991,7 @@ Proof.
  rewrite H; auto.
 Qed.
 
-Instance lt_compat : Proper (eq==>eq==>iff) lt.
+Global Instance lt_compat : Proper (eq==>eq==>iff) lt.
 Proof.
  intros s1 s2 E12 s3 s4 E34. split.
  intros (s1' & s3' & B1 & B3 & E1 & E3 & LT).

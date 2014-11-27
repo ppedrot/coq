@@ -48,7 +48,7 @@ Qed.
 Definition b2n (b:bool) := if b then 1 else 0.
 Local Coercion b2n : bool >-> t.
 
-Instance b2n_proper : Proper (Logic.eq ==> eq) b2n.
+Global Instance b2n_proper : Proper (Logic.eq ==> eq) b2n.
 Proof. solve_proper. Qed.
 
 Lemma exists_div2 a : exists a' (b:bool), a == 2*a' + b.
@@ -322,14 +322,14 @@ Qed.
 
 Definition eqf (f g:t -> bool) := forall n:t, f n = g n.
 
-Instance eqf_equiv : Equivalence eqf.
+Global Instance eqf_equiv : Equivalence eqf.
 Proof.
  split; congruence.
 Qed.
 
 Local Infix "===" := eqf (at level 70, no associativity).
 
-Instance testbit_eqf : Proper (eq==>eqf) testbit.
+Global Instance testbit_eqf : Proper (eq==>eqf) testbit.
 Proof.
  intros a a' Ha n. now rewrite Ha.
 Qed.
@@ -427,12 +427,12 @@ Proof.
  intros. now rewrite shiftl_mul_pow2, mul_pow2_bits_add.
 Qed.
 
-Instance shiftr_wd : Proper (eq==>eq==>eq) shiftr.
+Global Instance shiftr_wd : Proper (eq==>eq==>eq) shiftr.
 Proof.
  intros a a' Ha b b' Hb. now rewrite 2 shiftr_div_pow2, Ha, Hb.
 Qed.
 
-Instance shiftl_wd : Proper (eq==>eq==>eq) shiftl.
+Global Instance shiftl_wd : Proper (eq==>eq==>eq) shiftl.
 Proof.
  intros a a' Ha b b' Hb. now rewrite 2 shiftl_mul_pow2, Ha, Hb.
 Qed.
@@ -529,7 +529,7 @@ Proof.
  intros. rewrite div2_spec, shiftr_div_pow2. now nzsimpl.
 Qed.
 
-Instance div2_wd : Proper (eq==>eq) div2.
+Global Instance div2_wd : Proper (eq==>eq) div2.
 Proof.
  intros a a' Ha. now rewrite 2 div2_div, Ha.
 Qed.
@@ -543,22 +543,22 @@ Qed.
 (** Properties of [lxor] and others, directly deduced
     from properties of [xorb] and others. *)
 
-Instance lxor_wd : Proper (eq ==> eq ==> eq) lxor.
+Global Instance lxor_wd : Proper (eq ==> eq ==> eq) lxor.
 Proof.
  intros a a' Ha b b' Hb. bitwise. now rewrite Ha, Hb.
 Qed.
 
-Instance land_wd : Proper (eq ==> eq ==> eq) land.
+Global Instance land_wd : Proper (eq ==> eq ==> eq) land.
 Proof.
  intros a a' Ha b b' Hb. bitwise. now rewrite Ha, Hb.
 Qed.
 
-Instance lor_wd : Proper (eq ==> eq ==> eq) lor.
+Global Instance lor_wd : Proper (eq ==> eq ==> eq) lor.
 Proof.
  intros a a' Ha b b' Hb. bitwise. now rewrite Ha, Hb.
 Qed.
 
-Instance ldiff_wd : Proper (eq ==> eq ==> eq) ldiff.
+Global Instance ldiff_wd : Proper (eq ==> eq ==> eq) ldiff.
 Proof.
  intros a a' Ha b b' Hb. bitwise. now rewrite Ha, Hb.
 Qed.
@@ -741,10 +741,10 @@ Proof.
  intros. unfold clearbit. now rewrite shiftl_1_l.
 Qed.
 
-Instance setbit_wd : Proper (eq==>eq==>eq) setbit.
+Global Instance setbit_wd : Proper (eq==>eq==>eq) setbit.
 Proof. unfold setbit. solve_proper. Qed.
 
-Instance clearbit_wd : Proper (eq==>eq==>eq) clearbit.
+Global Instance clearbit_wd : Proper (eq==>eq==>eq) clearbit.
 Proof. unfold clearbit. solve_proper. Qed.
 
 Lemma pow2_bits_true : forall n, (2^n).[n] = true.
@@ -893,10 +893,10 @@ Definition ones n := P (1 << n).
 
 Definition lnot a n := lxor a (ones n).
 
-Instance ones_wd : Proper (eq==>eq) ones.
+Global Instance ones_wd : Proper (eq==>eq) ones.
 Proof. unfold ones. solve_proper. Qed.
 
-Instance lnot_wd : Proper (eq==>eq==>eq) lnot.
+Global Instance lnot_wd : Proper (eq==>eq==>eq) lnot.
 Proof. unfold lnot. solve_proper. Qed.
 
 Lemma ones_equiv : forall n, ones n == P (2^n).

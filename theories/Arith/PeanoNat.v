@@ -30,16 +30,16 @@ Set Inline Level 50.
 
 Definition eq_equiv : Equivalence (@eq nat) := eq_equivalence.
 Local Obligation Tactic := simpl_relation.
-Program Instance succ_wd : Proper (eq==>eq) S.
-Program Instance pred_wd : Proper (eq==>eq) pred.
-Program Instance add_wd : Proper (eq==>eq==>eq) plus.
-Program Instance sub_wd : Proper (eq==>eq==>eq) minus.
-Program Instance mul_wd : Proper (eq==>eq==>eq) mult.
-Program Instance pow_wd : Proper (eq==>eq==>eq) pow.
-Program Instance div_wd : Proper (eq==>eq==>eq) div.
-Program Instance mod_wd : Proper (eq==>eq==>eq) modulo.
-Program Instance lt_wd : Proper (eq==>eq==>iff) lt.
-Program Instance testbit_wd : Proper (eq==>eq==>eq) testbit.
+Global Program Instance succ_wd : Proper (eq==>eq) S.
+Global Program Instance pred_wd : Proper (eq==>eq) pred.
+Global Program Instance add_wd : Proper (eq==>eq==>eq) plus.
+Global Program Instance sub_wd : Proper (eq==>eq==>eq) minus.
+Global Program Instance mul_wd : Proper (eq==>eq==>eq) mult.
+Global Program Instance pow_wd : Proper (eq==>eq==>eq) pow.
+Global Program Instance div_wd : Proper (eq==>eq==>eq) div.
+Global Program Instance mod_wd : Proper (eq==>eq==>eq) modulo.
+Global Program Instance lt_wd : Proper (eq==>eq==>iff) lt.
+Global Program Instance testbit_wd : Proper (eq==>eq==>eq) testbit.
 
 (** Bi-directional induction. *)
 
@@ -55,7 +55,7 @@ Qed.
 Definition recursion {A} : A -> (nat -> A -> A) -> nat -> A :=
   nat_rect (fun _ => A).
 
-Instance recursion_wd {A} (Aeq : relation A) :
+Global Instance recursion_wd {A} (Aeq : relation A) :
  Proper (Aeq ==> (eq==>Aeq==>Aeq) ==> eq ==> Aeq) recursion.
 Proof.
 intros a a' Ha f f' Hf n n' Hn. subst n'.

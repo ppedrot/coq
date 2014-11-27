@@ -26,13 +26,13 @@ Class Ring_ops(T:Type)
    {opp:T->T}
    {ring_eq:T->T->Prop}.
 
-Instance zero_notation(T:Type)`{Ring_ops T}:Zero T:= ring0. 
-Instance one_notation(T:Type)`{Ring_ops T}:One T:= ring1.
-Instance add_notation(T:Type)`{Ring_ops T}:Addition T:= add.
-Instance mul_notation(T:Type)`{Ring_ops T}:@Multiplication T T:= mul.
-Instance sub_notation(T:Type)`{Ring_ops T}:Subtraction T:= sub.
-Instance opp_notation(T:Type)`{Ring_ops T}:Opposite T:= opp.
-Instance eq_notation(T:Type)`{Ring_ops T}:@Equality T:= ring_eq.
+Global Instance zero_notation(T:Type)`{Ring_ops T}:Zero T:= ring0. 
+Global Instance one_notation(T:Type)`{Ring_ops T}:One T:= ring1.
+Global Instance add_notation(T:Type)`{Ring_ops T}:Addition T:= add.
+Global Instance mul_notation(T:Type)`{Ring_ops T}:@Multiplication T T:= mul.
+Global Instance sub_notation(T:Type)`{Ring_ops T}:Subtraction T:= sub.
+Global Instance opp_notation(T:Type)`{Ring_ops T}:Opposite T:= opp.
+Global Instance eq_notation(T:Type)`{Ring_ops T}:@Equality T:= ring_eq.
 
 Class Ring `{Ro:Ring_ops}:={
  ring_setoid: Equivalence _==_;
@@ -52,7 +52,7 @@ Class Ring `{Ro:Ring_ops}:={
  ring_opp_def    : forall x, x + -x == 0
 }.
 (* inutile! je sais plus pourquoi j'ai mis ca...
-Instance ring_Ring_ops(R:Type)`{Ring R}
+Global Instance ring_Ring_ops(R:Type)`{Ring R}
   :@Ring_ops R 0 1 addition multiplication subtraction opposite equality.
 *)
 Existing Instance ring_setoid.
@@ -86,7 +86,7 @@ Definition ZN(x:Z):=
     |Zpos p | Zneg p => Npos p
 end.
 
-Instance power_ring {R:Type}`{Ring R} : Power:=
+Global Instance power_ring {R:Type}`{Ring R} : Power:=
   {power x y := pow_N x (ZN y)}.
 
 (** Interpretation morphisms definition*)

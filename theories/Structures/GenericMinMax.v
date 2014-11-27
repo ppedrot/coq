@@ -102,10 +102,10 @@ Proof.
  destruct (max_spec n m); [left|right]; intuition; order.
 Qed.
 
-Instance : Proper (eq==>eq==>iff) le.
+Global Instance : Proper (eq==>eq==>iff) le.
 Proof. repeat red. intuition order. Qed.
 
-Instance max_compat : Proper (eq==>eq==>eq) max.
+Global Instance max_compat : Proper (eq==>eq==>eq) max.
 Proof.
  intros x x' Hx y y' Hy.
  assert (H1 := max_spec x y). assert (H2 := max_spec x' y').
@@ -249,7 +249,7 @@ Proof.
  destruct (min_spec n m); [left|right]; intuition; order.
 Qed.
 
-Instance min_compat : Proper (eq==>eq==>eq) min.
+Global Instance min_compat : Proper (eq==>eq==>eq) min.
 Proof.
 intros x x' Hx y y' Hy.
 assert (H1 := min_spec x y). assert (H2 := min_spec x' y').

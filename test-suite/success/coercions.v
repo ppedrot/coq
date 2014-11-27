@@ -115,8 +115,8 @@ Variables T1 T2 : Type.
 Variable c12 : T1 -> T2.
 
 Class coercion (A B : Type) : Type := cast : A -> B.
-Instance atom : coercion T1 T2 := c12.
-Instance pair A B C D (c1 : coercion A B) (c2 : coercion C D) : coercion (A * C) (B * D) :=
+Global Instance atom : coercion T1 T2 := c12.
+Global Instance pair A B C D (c1 : coercion A B) (c2 : coercion C D) : coercion (A * C) (B * D) :=
   fun x => (c1 (fst x), c2 (snd x)).
 
 Fixpoint l2v2 {A B} {c : coercion A B} (l : list A) : (vect B (size A l)) := 

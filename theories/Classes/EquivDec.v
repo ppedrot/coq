@@ -77,11 +77,11 @@ Infix "<>b" := nequiv_decb (no associativity, at level 70).
 (** The equiv is burried inside the setoid, but we can recover it by specifying
    which setoid we're talking about. *)
 
-Program Instance nat_eq_eqdec : EqDec nat eq := eq_nat_dec.
+Global Program Instance nat_eq_eqdec : EqDec nat eq := eq_nat_dec.
 
-Program Instance bool_eqdec : EqDec bool eq := bool_dec.
+Global Program Instance bool_eqdec : EqDec bool eq := bool_dec.
 
-Program Instance unit_eqdec : EqDec unit eq := fun x y => in_left.
+Global Program Instance unit_eqdec : EqDec unit eq := fun x y => in_left.
 
   Next Obligation.
   Proof.
@@ -91,7 +91,7 @@ Program Instance unit_eqdec : EqDec unit eq := fun x y => in_left.
 
 Obligation Tactic := unfold complement, equiv ; program_simpl.
 
-Program Instance prod_eqdec `(EqDec A eq, EqDec B eq) :
+Global Program Instance prod_eqdec `(EqDec A eq, EqDec B eq) :
   ! EqDec (prod A B) eq :=
   { equiv_dec x y :=
     let '(x1, x2) := x in
@@ -101,7 +101,7 @@ Program Instance prod_eqdec `(EqDec A eq, EqDec B eq) :
       else in_right
     else in_right }.
 
-Program Instance sum_eqdec `(EqDec A eq, EqDec B eq) :
+Global Program Instance sum_eqdec `(EqDec A eq, EqDec B eq) :
   EqDec (sum A B) eq := {
   equiv_dec x y :=
     match x, y with
@@ -113,7 +113,7 @@ Program Instance sum_eqdec `(EqDec A eq, EqDec B eq) :
 (** Objects of function spaces with countable domains like bool have decidable
   equality. Proving the reflection requires functional extensionality though. *)
 
-Program Instance bool_function_eqdec `(EqDec A eq) : ! EqDec (bool -> A) eq :=
+Global Program Instance bool_function_eqdec `(EqDec A eq) : ! EqDec (bool -> A) eq :=
   { equiv_dec f g :=
     if f true == g true then
       if f false == g false then in_left
@@ -128,7 +128,7 @@ Program Instance bool_function_eqdec `(EqDec A eq) : ! EqDec (bool -> A) eq :=
 
 Require Import List.
 
-Program Instance list_eqdec `(eqa : EqDec A eq) : ! EqDec (list A) eq :=
+Global Program Instance list_eqdec `(eqa : EqDec A eq) : ! EqDec (list A) eq :=
   { equiv_dec :=
     fix aux (x y : list A) :=
     match x, y with

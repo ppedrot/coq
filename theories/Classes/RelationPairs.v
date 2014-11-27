@@ -56,8 +56,8 @@ Class Measure {A B} (f : A -> B).
 
 (** Standard measures. *)
 
-Instance fst_measure : @Measure (A * B) A Fst.
-Instance snd_measure : @Measure (A * B) B Snd.
+Global Instance fst_measure : @Measure (A * B) A Fst.
+Global Instance snd_measure : @Measure (A * B) B Snd.
 
 (** We define a product relation over [A*B]: each components should
     satisfy the corresponding initial relation. *)

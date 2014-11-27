@@ -289,23 +289,23 @@ End BoolSpec.
 
 (** * [E.eq] and [Equal] are setoid equalities *)
 
-Instance E_ST : Equivalence E.eq.
+Global Instance E_ST : Equivalence E.eq.
 Proof.
 constructor ; red; [apply E.eq_refl|apply E.eq_sym|apply E.eq_trans].
 Qed.
 
-Instance Equal_ST : Equivalence Equal.
+Global Instance Equal_ST : Equivalence Equal.
 Proof.
 constructor ; red; [apply eq_refl | apply eq_sym | apply eq_trans].
 Qed.
 
-Instance In_m : Proper (E.eq ==> Equal ==> iff) In.
+Global Instance In_m : Proper (E.eq ==> Equal ==> iff) In.
 Proof.
 unfold Equal; intros x y H s s' H0.
 rewrite (In_eq_iff s H); auto.
 Qed.
 
-Instance is_empty_m : Proper (Equal==> Logic.eq) is_empty.
+Global Instance is_empty_m : Proper (Equal==> Logic.eq) is_empty.
 Proof.
 unfold Equal; intros s s' H.
 generalize (is_empty_iff s)(is_empty_iff s').
@@ -322,12 +322,12 @@ destruct H1 as (_,H1).
 exact (H1 Logic.eq_refl _ Ha).
 Qed.
 
-Instance Empty_m : Proper (Equal ==> iff) Empty.
+Global Instance Empty_m : Proper (Equal ==> iff) Empty.
 Proof.
 repeat red; intros; do 2 rewrite is_empty_iff; rewrite H; intuition.
 Qed.
 
-Instance mem_m : Proper (E.eq ==> Equal ==> Logic.eq) mem.
+Global Instance mem_m : Proper (E.eq ==> Equal ==> Logic.eq) mem.
 Proof.
 unfold Equal; intros x y H s s' H0.
 generalize (H0 x); clear H0; rewrite (In_eq_iff s' H).
@@ -335,7 +335,7 @@ generalize (mem_iff s x)(mem_iff s' y).
 destruct (mem x s); destruct (mem y s'); intuition.
 Qed.
 
-Instance singleton_m : Proper (E.eq ==> Equal) singleton.
+Global Instance singleton_m : Proper (E.eq ==> Equal) singleton.
 Proof.
 unfold Equal; intros x y H a.
 do 2 rewrite singleton_iff; split; intros.
@@ -343,42 +343,42 @@ apply E.eq_trans with x; auto.
 apply E.eq_trans with y; auto.
 Qed.
 
-Instance add_m : Proper (E.eq==>Equal==>Equal) add.
+Global Instance add_m : Proper (E.eq==>Equal==>Equal) add.
 Proof.
 unfold Equal; intros x y H s s' H0 a.
 do 2 rewrite add_iff; rewrite H; rewrite H0; intuition.
 Qed.
 
-Instance remove_m : Proper (E.eq==>Equal==>Equal) remove.
+Global Instance remove_m : Proper (E.eq==>Equal==>Equal) remove.
 Proof.
 unfold Equal; intros x y H s s' H0 a.
 do 2 rewrite remove_iff; rewrite H; rewrite H0; intuition.
 Qed.
 
-Instance union_m : Proper (Equal==>Equal==>Equal) union.
+Global Instance union_m : Proper (Equal==>Equal==>Equal) union.
 Proof.
 unfold Equal; intros s s' H s'' s''' H0 a.
 do 2 rewrite union_iff; rewrite H; rewrite H0; intuition.
 Qed.
 
-Instance inter_m : Proper (Equal==>Equal==>Equal) inter.
+Global Instance inter_m : Proper (Equal==>Equal==>Equal) inter.
 Proof.
 unfold Equal; intros s s' H s'' s''' H0 a.
 do 2 rewrite inter_iff; rewrite H; rewrite H0; intuition.
 Qed.
 
-Instance diff_m : Proper (Equal==>Equal==>Equal) diff.
+Global Instance diff_m : Proper (Equal==>Equal==>Equal) diff.
 Proof.
 unfold Equal; intros s s' H s'' s''' H0 a.
 do 2 rewrite diff_iff; rewrite H; rewrite H0; intuition.
 Qed.
 
-Instance Subset_m : Proper (Equal==>Equal==>iff) Subset.
+Global Instance Subset_m : Proper (Equal==>Equal==>iff) Subset.
 Proof.
 unfold Equal, Subset; firstorder.
 Qed.
 
-Instance subset_m : Proper (Equal ==> Equal ==> Logic.eq) subset.
+Global Instance subset_m : Proper (Equal ==> Equal ==> Logic.eq) subset.
 Proof.
 intros s s' H s'' s''' H0.
 generalize (subset_iff s s'') (subset_iff s' s''').
@@ -387,7 +387,7 @@ rewrite H in H1; rewrite H0 in H1; intuition.
 rewrite H in H1; rewrite H0 in H1; intuition.
 Qed.
 
-Instance equal_m : Proper (Equal ==> Equal ==> Logic.eq) equal.
+Global Instance equal_m : Proper (Equal ==> Equal ==> Logic.eq) equal.
 Proof.
 intros s s' H s'' s''' H0.
 generalize (equal_iff s s'') (equal_iff s' s''').
@@ -410,7 +410,7 @@ Add Relation t Subset
  transitivity proved by Subset_trans
  as SubsetSetoid.
 
-Instance In_s_m : Morphisms.Proper (E.eq ==> Subset ++> Basics.impl) In | 1.
+Global Instance In_s_m : Morphisms.Proper (E.eq ==> Subset ++> Basics.impl) In | 1.
 Proof.
   simpl_relation. eauto with set.
 Qed.

@@ -1,7 +1,7 @@
 (* Set Primitive Projections. *)
 Class foo {A} {a : A} := { bar := a; baz : bar = bar }.
 Arguments bar {_} _ {_}.
-Instance: forall A a, @foo A a.
+Global Instance: forall A a, @foo A a.
 intros; constructor.
 abstract reflexivity.
 Defined.

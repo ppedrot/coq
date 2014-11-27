@@ -236,15 +236,15 @@ Module OrderedTypeRev (O:OrderedTypeFull) <: OrderedTypeFull.
 
 Definition t := O.t.
 Definition eq := O.eq.
-Program Instance eq_equiv : Equivalence eq.
+Global Program Instance eq_equiv : Equivalence eq.
 Definition eq_dec := O.eq_dec.
 
 Definition lt := flip O.lt.
 Definition le := flip O.le.
 
-Instance lt_strorder: StrictOrder lt.
+Global Instance lt_strorder: StrictOrder lt.
 Proof. unfold lt; auto with *. Qed.
-Instance lt_compat : Proper (eq==>eq==>iff) lt.
+Global Instance lt_compat : Proper (eq==>eq==>iff) lt.
 Proof. unfold lt; auto with *. Qed.
 
 Lemma le_lteq : forall x y, le x y <-> lt x y \/ eq x y.

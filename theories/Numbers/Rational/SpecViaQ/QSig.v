@@ -114,24 +114,24 @@ Ltac solve_wd2 := intros x x' Hx y y' Hy; qify; now rewrite Hx, Hy.
 
 Local Obligation Tactic := solve_wd2 || solve_wd1.
 
-Instance : Measure to_Q.
-Instance eq_equiv : Equivalence eq := {}.
+Global Instance : Measure to_Q.
+Global Instance eq_equiv : Equivalence eq := {}.
 
-Program Instance lt_wd : Proper (eq==>eq==>iff) lt.
-Program Instance le_wd : Proper (eq==>eq==>iff) le.
-Program Instance red_wd : Proper (eq==>eq) red.
-Program Instance compare_wd : Proper (eq==>eq==>Logic.eq) compare.
-Program Instance eq_bool_wd : Proper (eq==>eq==>Logic.eq) eq_bool.
-Program Instance min_wd : Proper (eq==>eq==>eq) min.
-Program Instance max_wd : Proper (eq==>eq==>eq) max.
-Program Instance add_wd : Proper (eq==>eq==>eq) add.
-Program Instance sub_wd : Proper (eq==>eq==>eq) sub.
-Program Instance opp_wd : Proper (eq==>eq) opp.
-Program Instance mul_wd : Proper (eq==>eq==>eq) mul.
-Program Instance square_wd : Proper (eq==>eq) square.
-Program Instance inv_wd : Proper (eq==>eq) inv.
-Program Instance div_wd : Proper (eq==>eq==>eq) div.
-Program Instance power_wd : Proper (eq==>Logic.eq==>eq) power.
+Global Program Instance lt_wd : Proper (eq==>eq==>iff) lt.
+Global Program Instance le_wd : Proper (eq==>eq==>iff) le.
+Global Program Instance red_wd : Proper (eq==>eq) red.
+Global Program Instance compare_wd : Proper (eq==>eq==>Logic.eq) compare.
+Global Program Instance eq_bool_wd : Proper (eq==>eq==>Logic.eq) eq_bool.
+Global Program Instance min_wd : Proper (eq==>eq==>eq) min.
+Global Program Instance max_wd : Proper (eq==>eq==>eq) max.
+Global Program Instance add_wd : Proper (eq==>eq==>eq) add.
+Global Program Instance sub_wd : Proper (eq==>eq==>eq) sub.
+Global Program Instance opp_wd : Proper (eq==>eq) opp.
+Global Program Instance mul_wd : Proper (eq==>eq==>eq) mul.
+Global Program Instance square_wd : Proper (eq==>eq) square.
+Global Program Instance inv_wd : Proper (eq==>eq) inv.
+Global Program Instance div_wd : Proper (eq==>eq==>eq) div.
+Global Program Instance power_wd : Proper (eq==>Logic.eq==>eq) power.
 
 (** Let's implement [HasCompare] *)
 
@@ -141,7 +141,7 @@ Proof. intros. qify. destruct (Qcompare_spec [x] [y]); auto. Qed.
 (** Let's implement [TotalOrder] *)
 
 Definition lt_compat := lt_wd.
-Instance lt_strorder : StrictOrder lt := {}.
+Global Instance lt_strorder : StrictOrder lt := {}.
 
 Lemma le_lteq : forall x y, x<=y <-> x<y \/ x==y.
 Proof. intros. qify. apply Qle_lteq. Qed.

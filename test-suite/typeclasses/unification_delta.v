@@ -23,7 +23,7 @@ Axiom euclid : nat -> { x : nat | x > 0 } -> nat.
 Definition eq_proj {A} {s : A -> Prop} : relation (sig s) :=
   fun x y => `x = `y.
 
-Program Instance {A : Type} {s : A -> Prop} => Equivalence (sig s) eq_proj.
+Global Program Instance {A : Type} {s : A -> Prop} => Equivalence (sig s) eq_proj.
 
   Next Obligation.
   Proof.
@@ -33,7 +33,7 @@ Program Instance {A : Type} {s : A -> Prop} => Equivalence (sig s) eq_proj.
 
   Admit Obligations.
 
-Instance Morphism (eq ==> eq_proj ==> eq) euclid.
+Global Instance Morphism (eq ==> eq_proj ==> eq) euclid.
 Proof.
 Admitted.
 

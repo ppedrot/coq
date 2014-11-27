@@ -7,7 +7,7 @@ Notation Vcons n t := (@Vector.cons _ n _ t).
 Class Equiv A := equiv : A -> A -> Prop.
 Class Setoid A `{Equiv A} := setoid_equiv:> Equivalence (equiv).
 
-Instance vecequiv A `{Equiv A} n : Equiv (vector A n).
+Global Instance vecequiv A `{Equiv A} n : Equiv (vector A n).
 admit.
 Qed.
 
@@ -16,7 +16,7 @@ Global Instance vcons_proper A `{Equiv A} `{!Setoid A} :
         (@Vector.cons A).
 Proof. Admitted.
 
-Instance vecseotid A `{Setoid A} n : Setoid (vector A n).
+Global Instance vecseotid A `{Setoid A} n : Setoid (vector A n).
 Proof. Admitted.
 
 (* Instance equiv_setoid A {e : Equiv A} {s : @Setoid A e} : Equivalence e. *)

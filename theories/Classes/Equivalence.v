@@ -49,11 +49,11 @@ Infix "=~=" := pequiv (at level 70, no associativity) : equiv_scope.
 
 (** Shortcuts to make proof search easier. *)
 
-Program Instance equiv_reflexive `(sa : Equivalence A) : Reflexive equiv.
+Global Program Instance equiv_reflexive `(sa : Equivalence A) : Reflexive equiv.
 
-Program Instance equiv_symmetric `(sa : Equivalence A) : Symmetric equiv.
+Global Program Instance equiv_symmetric `(sa : Equivalence A) : Symmetric equiv.
 
-Program Instance equiv_transitive `(sa : Equivalence A) : Transitive equiv.
+Global Program Instance equiv_transitive `(sa : Equivalence A) : Transitive equiv.
 
   Next Obligation.
   Proof. intros A R sa x y z Hxy Hyz.
@@ -125,15 +125,15 @@ End Respecting.
 
 (** The default equivalence on function spaces, with higher-priority than [eq]. *)
 
-Instance pointwise_reflexive {A} `(reflb : Reflexive B eqB) :
+Global Instance pointwise_reflexive {A} `(reflb : Reflexive B eqB) :
   Reflexive (pointwise_relation A eqB) | 9.
 Proof. firstorder. Qed.
-Instance pointwise_symmetric {A} `(symb : Symmetric B eqB) :
+Global Instance pointwise_symmetric {A} `(symb : Symmetric B eqB) :
   Symmetric (pointwise_relation A eqB) | 9.
 Proof. firstorder. Qed.
-Instance pointwise_transitive {A} `(transb : Transitive B eqB) :
+Global Instance pointwise_transitive {A} `(transb : Transitive B eqB) :
   Transitive (pointwise_relation A eqB) | 9.
 Proof. firstorder. Qed.
-Instance pointwise_equivalence {A} `(eqb : Equivalence B eqB) :
+Global Instance pointwise_equivalence {A} `(eqb : Equivalence B eqB) :
   Equivalence (pointwise_relation A eqB) | 9.
 Proof. split; apply _. Qed.

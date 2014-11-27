@@ -74,7 +74,7 @@ Qed.
 
 Definition Bezout n m p := exists a b, a*n == p + b*m.
 
-Instance Bezout_wd : Proper (eq==>eq==>eq==>iff) Bezout.
+Global Instance Bezout_wd : Proper (eq==>eq==>eq==>iff) Bezout.
 Proof.
  unfold Bezout. intros x x' Hx y y' Hy z z' Hz.
  setoid_rewrite Hx. setoid_rewrite Hy. now setoid_rewrite Hz.

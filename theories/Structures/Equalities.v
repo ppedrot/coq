@@ -184,7 +184,7 @@ Module BoolEqualityFacts (Import E : BooleanEqualityType').
 
 (** [eqb] is compatible with [eq] *)
 
-Instance eqb_compat : Proper (E.eq ==> E.eq ==> Logic.eq) eqb.
+Global Instance eqb_compat : Proper (E.eq ==> E.eq ==> Logic.eq) eqb.
 Proof.
 intros x x' Exx' y y' Eyy'.
 apply eq_true_iff_eq.

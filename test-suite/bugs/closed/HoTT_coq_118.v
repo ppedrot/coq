@@ -9,9 +9,9 @@ Arguments idpath {A a} , [A] a.
 Notation "x = y" := (@paths _ x y) : type_scope.
 Class Contr_internal (A : Type) := BuildContr { center : A }.
 Arguments center A {_}.
-Instance contr_paths_contr `{Contr_internal A} (x y : A) : Contr_internal (x = y) := admit.
+Global Instance contr_paths_contr `{Contr_internal A} (x y : A) : Contr_internal (x = y) := admit.
 Inductive Unit : Set := tt.
-Instance contr_unit : Contr_internal Unit | 0 := admit.
+Global Instance contr_unit : Contr_internal Unit | 0 := admit.
 Record PreCategory := { morphism : Type }.
 Class IsIsomorphism {C : PreCategory} (m : morphism C) := { left_inverse : m = m }.
 Definition indiscrete_category : PreCategory := @Build_PreCategory Unit.

@@ -444,9 +444,9 @@ Lemma Rsth : Setoid_Theory R (@eq R).
 constructor;red;intros;subst;trivial.
 Qed.
 
-Instance Rops: (@Ring_ops R 0%R 1%R Rplus Rmult Rminus Ropp (@eq R)).
+Global Instance Rops: (@Ring_ops R 0%R 1%R Rplus Rmult Rminus Ropp (@eq R)).
 
-Instance Rri : (Ring (Ro:=Rops)).
+Global Instance Rri : (Ring (Ro:=Rops)).
 constructor;
 try (try apply Rsth;
    try (unfold respectful, Proper; unfold equality; unfold eq_notation in *;
@@ -461,19 +461,19 @@ Lemma R_one_zero: 1%R <> 0%R.
 discrR.
 Qed.
 
-Instance Rcri: (Cring (Rr:=Rri)).
+Global Instance Rcri: (Cring (Rr:=Rri)).
 red. exact Rmult_comm. Defined.
 
-Instance Rdi : (Integral_domain (Rcr:=Rcri)). 
+Global Instance Rdi : (Integral_domain (Rcr:=Rcri)). 
 constructor. 
 exact Rmult_integral. exact R_one_zero. Defined.
 
 (* Rational numbers *)
 Require Import QArith.
 
-Instance Qops: (@Ring_ops Q 0%Q 1%Q Qplus Qmult Qminus Qopp Qeq).
+Global Instance Qops: (@Ring_ops Q 0%Q 1%Q Qplus Qmult Qminus Qopp Qeq).
 
-Instance Qri : (Ring (Ro:=Qops)).
+Global Instance Qri : (Ring (Ro:=Qops)).
 constructor.
 try apply Q_Setoid. 
 apply Qplus_comp. 
@@ -489,10 +489,10 @@ Defined.
 Lemma Q_one_zero: not (Qeq 1%Q 0%Q).
 unfold Qeq. simpl. auto with *. Qed.
 
-Instance Qcri: (Cring (Rr:=Qri)).
+Global Instance Qcri: (Cring (Rr:=Qri)).
 red. exact Qmult_comm. Defined.
 
-Instance Qdi : (Integral_domain (Rcr:=Qcri)). 
+Global Instance Qdi : (Integral_domain (Rcr:=Qcri)). 
 constructor. 
 exact Qmult_integral. exact Q_one_zero. Defined.
 
@@ -501,10 +501,10 @@ Lemma Z_one_zero: 1%Z <> 0%Z.
 omega. 
 Qed.
 
-Instance Zcri: (Cring (Rr:=Zr)).
+Global Instance Zcri: (Cring (Rr:=Zr)).
 red. exact Z.mul_comm. Defined.
 
-Instance Zdi : (Integral_domain (Rcr:=Zcri)). 
+Global Instance Zdi : (Integral_domain (Rcr:=Zcri)). 
 constructor. 
 exact Zmult_integral. exact Z_one_zero. Defined.
 

@@ -151,13 +151,13 @@ Infix "^" := PEpow : PE_scope.
 Definition NPEequiv e e' := forall l, e@l == e'@l.
 Infix "===" := NPEequiv (at level 70, no associativity) : PE_scope.
 
-Instance NPEequiv_eq : Equivalence NPEequiv.
+Global Instance NPEequiv_eq : Equivalence NPEequiv.
 Proof.
  split; red; unfold NPEequiv; intros; [reflexivity|symmetry|etransitivity];
   eauto.
 Qed.
 
-Instance NPEeval_ext : Proper (eq ==> NPEequiv ==> req) NPEeval.
+Global Instance NPEeval_ext : Proper (eq ==> NPEequiv ==> req) NPEeval.
 Proof.
  intros l l' <- e e' He. now rewrite (He l).
 Qed.
@@ -198,7 +198,7 @@ transitivity (/ q * q * p); [ ring | ].
 now rewrite rinv_l.
 Qed.
 
-Instance rdiv_ext: Proper (req ==> req ==> req) rdiv.
+Global Instance rdiv_ext: Proper (req ==> req ==> req) rdiv.
 Proof.
 intros p1 p2 Ep q1 q2 Eq. now rewrite !rdiv_def, Ep, Eq.
 Qed.
@@ -395,13 +395,13 @@ Qed.
 
 (* Results about [pow_pos] and [pow_N] *)
 
-Instance pow_ext : Proper (req ==> eq ==> req) (pow_pos rmul).
+Global Instance pow_ext : Proper (req ==> eq ==> req) (pow_pos rmul).
 Proof.
 intros x y H p p' <-.
 induction p as [p IH| p IH|];simpl; trivial; now rewrite !IH, ?H.
 Qed.
 
-Instance pow_N_ext : Proper (req ==> eq ==> req) (pow_N rI rmul).
+Global Instance pow_N_ext : Proper (req ==> eq ==> req) (pow_N rI rmul).
 Proof.
 intros x y H n n' <-. destruct n; simpl; trivial. now apply pow_ext.
 Qed.
@@ -462,15 +462,15 @@ Qed.
 
 (* === is a morphism *)
 
-Instance PEadd_ext : Proper (NPEequiv ==> NPEequiv ==> NPEequiv) (@PEadd C).
+Global Instance PEadd_ext : Proper (NPEequiv ==> NPEequiv ==> NPEequiv) (@PEadd C).
 Proof. intros ? ? E ? ? E' l. simpl. now rewrite E, E'. Qed.
-Instance PEsub_ext : Proper (NPEequiv ==> NPEequiv ==> NPEequiv) (@PEsub C).
+Global Instance PEsub_ext : Proper (NPEequiv ==> NPEequiv ==> NPEequiv) (@PEsub C).
 Proof. intros ? ? E ? ? E' l. simpl. now rewrite E, E'. Qed.
-Instance PEmul_ext : Proper (NPEequiv ==> NPEequiv ==> NPEequiv) (@PEmul C).
+Global Instance PEmul_ext : Proper (NPEequiv ==> NPEequiv ==> NPEequiv) (@PEmul C).
 Proof. intros ? ? E ? ? E' l. simpl. now rewrite E, E'. Qed.
-Instance PEopp_ext : Proper (NPEequiv ==> NPEequiv) (@PEopp C).
+Global Instance PEopp_ext : Proper (NPEequiv ==> NPEequiv) (@PEopp C).
 Proof. intros ? ? E l. simpl. now rewrite E. Qed.
-Instance PEpow_ext : Proper (NPEequiv ==> eq ==> NPEequiv) (@PEpow C).
+Global Instance PEpow_ext : Proper (NPEequiv ==> eq ==> NPEequiv) (@PEpow C).
 Proof.
  intros ? ? E ? ? <- l. simpl. rewrite !rpow_pow. apply pow_N_ext; trivial.
 Qed.

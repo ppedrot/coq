@@ -78,18 +78,18 @@ Require Import Coq.Arith.Arith.
 (** The equiv is burried inside the setoid, but we can recover
   it by specifying which setoid we're talking about. *)
 
-Program Instance eq_setoid A : Setoid A | 10 :=
+Global Program Instance eq_setoid A : Setoid A | 10 :=
   { equiv := eq ; setoid_equiv := eq_equivalence }.
 
-Program Instance nat_eq_eqdec : EqDec (eq_setoid nat) :=
+Global Program Instance nat_eq_eqdec : EqDec (eq_setoid nat) :=
   eq_nat_dec.
 
 Require Import Coq.Bool.Bool.
 
-Program Instance bool_eqdec : EqDec (eq_setoid bool) :=
+Global Program Instance bool_eqdec : EqDec (eq_setoid bool) :=
   bool_dec.
 
-Program Instance unit_eqdec : EqDec (eq_setoid unit) :=
+Global Program Instance unit_eqdec : EqDec (eq_setoid unit) :=
   fun x y => in_left.
 
   Next Obligation.
@@ -98,7 +98,7 @@ Program Instance unit_eqdec : EqDec (eq_setoid unit) :=
     reflexivity.
   Qed.
 
-Program Instance prod_eqdec `(! EqDec (eq_setoid A), ! EqDec (eq_setoid B))
+Global Program Instance prod_eqdec `(! EqDec (eq_setoid A), ! EqDec (eq_setoid B))
  : EqDec (eq_setoid (prod A B)) :=
   fun x y =>
     let '(x1, x2) := x in
@@ -113,7 +113,7 @@ Program Instance prod_eqdec `(! EqDec (eq_setoid A), ! EqDec (eq_setoid B))
 (** Objects of function spaces with countable domains like bool
   have decidable equality. *)
 
-Program Instance bool_function_eqdec `(! EqDec (eq_setoid A))
+Global Program Instance bool_function_eqdec `(! EqDec (eq_setoid A))
  : EqDec (eq_setoid (bool -> A)) :=
   fun f g =>
     if f true == g true then

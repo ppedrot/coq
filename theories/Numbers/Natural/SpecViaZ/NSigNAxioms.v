@@ -26,14 +26,14 @@ Ltac omega_pos n := generalize (spec_pos n); omega with *.
 
 Local Obligation Tactic := ncongruence.
 
-Instance eq_equiv : Equivalence eq.
+Global Instance eq_equiv : Equivalence eq.
 Proof. unfold eq. firstorder. Qed.
 
-Program Instance succ_wd : Proper (eq==>eq) succ.
-Program Instance pred_wd : Proper (eq==>eq) pred.
-Program Instance add_wd : Proper (eq==>eq==>eq) add.
-Program Instance sub_wd : Proper (eq==>eq==>eq) sub.
-Program Instance mul_wd : Proper (eq==>eq==>eq) mul.
+Global Program Instance succ_wd : Proper (eq==>eq) succ.
+Global Program Instance pred_wd : Proper (eq==>eq) pred.
+Global Program Instance add_wd : Proper (eq==>eq==>eq) add.
+Global Program Instance sub_wd : Proper (eq==>eq==>eq) sub.
+Global Program Instance mul_wd : Proper (eq==>eq==>eq) mul.
 
 Theorem pred_succ : forall n, pred (succ n) == n.
 Proof.
@@ -164,27 +164,27 @@ Qed.
 
 Include BoolOrderFacts NN NN NN [no inline].
 
-Instance compare_wd : Proper (eq ==> eq ==> Logic.eq) compare.
+Global Instance compare_wd : Proper (eq ==> eq ==> Logic.eq) compare.
 Proof.
 intros x x' Hx y y' Hy. zify. now rewrite Hx, Hy.
 Qed.
 
-Instance eqb_wd : Proper (eq ==> eq ==> Logic.eq) eqb.
+Global Instance eqb_wd : Proper (eq ==> eq ==> Logic.eq) eqb.
 Proof.
 intros x x' Hx y y' Hy. zify. now rewrite Hx, Hy.
 Qed.
 
-Instance ltb_wd : Proper (eq ==> eq ==> Logic.eq) ltb.
+Global Instance ltb_wd : Proper (eq ==> eq ==> Logic.eq) ltb.
 Proof.
 intros x x' Hx y y' Hy. zify. now rewrite Hx, Hy.
 Qed.
 
-Instance leb_wd : Proper (eq ==> eq ==> Logic.eq) leb.
+Global Instance leb_wd : Proper (eq ==> eq ==> Logic.eq) leb.
 Proof.
 intros x x' Hx y y' Hy. zify. now rewrite Hx, Hy.
 Qed.
 
-Instance lt_wd : Proper (eq ==> eq ==> iff) lt.
+Global Instance lt_wd : Proper (eq ==> eq ==> iff) lt.
 Proof.
 intros x x' Hx y y' Hy; unfold lt; rewrite Hx, Hy; intuition.
 Qed.
@@ -223,7 +223,7 @@ Qed.
 
 (** Power *)
 
-Program Instance pow_wd : Proper (eq==>eq==>eq) pow.
+Global Program Instance pow_wd : Proper (eq==>eq==>eq) pow.
 
 Lemma pow_0_r : forall a, a^0 == 1.
 Proof.
@@ -313,8 +313,8 @@ Qed.
 
 (** Div / Mod *)
 
-Program Instance div_wd : Proper (eq==>eq==>eq) div.
-Program Instance mod_wd : Proper (eq==>eq==>eq) modulo.
+Global Program Instance div_wd : Proper (eq==>eq==>eq) div.
+Global Program Instance mod_wd : Proper (eq==>eq==>eq) modulo.
 
 Theorem div_mod : forall a b, ~b==0 -> a == b*(div a b) + (modulo a b).
 Proof.
@@ -364,7 +364,7 @@ Qed.
 
 (** Bitwise operations *)
 
-Program Instance testbit_wd : Proper (eq==>eq==>Logic.eq) testbit.
+Global Program Instance testbit_wd : Proper (eq==>eq==>Logic.eq) testbit.
 
 Lemma testbit_odd_0 : forall a, testbit (2*a+1) 0 = true.
 Proof.
@@ -447,7 +447,7 @@ Definition recursion (A : Type) (a : A) (f : NN.t -> A -> A) (n : NN.t) :=
   N.peano_rect (fun _ => A) a (fun n a => f (NN.of_N n) a) (NN.to_N n).
 Arguments recursion [A] a f n.
 
-Instance recursion_wd (A : Type) (Aeq : relation A) :
+Global Instance recursion_wd (A : Type) (Aeq : relation A) :
  Proper (Aeq ==> (eq==>Aeq==>Aeq) ==> eq ==> Aeq) (@recursion A).
 Proof.
 unfold eq.

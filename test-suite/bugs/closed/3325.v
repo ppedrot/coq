@@ -10,15 +10,15 @@ Class StateIs := {
   stateIs : valueType -> SProp
 }.
 
-Instance NatStateIs : StateIs := {
+Global Instance NatStateIs : StateIs := {
   valueType := nat;
   stateIs := fun _ => sp
 }.
 Canonical Structure NatStateIs.
 
 Class LogicOps F := { land: F -> F }.
-Instance : LogicOps SProp. Admitted.
-Instance : LogicOps Prop. Admitted.
+Global Instance : LogicOps SProp. Admitted.
+Global Instance : LogicOps Prop. Admitted.
 
 Parameter (n : nat).
 (* If this is a [Definition], the resolution goes through fine. *)
@@ -32,11 +32,11 @@ Definition BAD : SProp :=
 
 
 Class A T := { foo : T -> Prop }.
-Instance: A nat. Admitted.
-Instance: A Set. Admitted.
+Global Instance: A nat. Admitted.
+Global Instance: A Set. Admitted.
 
 Class B := { U : Type ; b : U }.
-Instance bi: B := {| U := nat ; b := 0 |}.
+Global Instance bi: B := {| U := nat ; b := 0 |}.
 Canonical Structure bi.
 
 Notation b0N := (@b _ : nat).

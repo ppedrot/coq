@@ -459,27 +459,27 @@ Lemma eqm_trans : forall a b c,
   a == b -> b == c -> a == c.
 Proof. unfold eqm; eauto with *. Qed.
 
-Instance eqm_setoid : Equivalence eqm.
+Global Instance eqm_setoid : Equivalence eqm.
 Proof.
  constructor; [exact eqm_refl | exact eqm_sym | exact eqm_trans].
 Qed.
 
-Instance Zplus_eqm : Proper (eqm ==> eqm ==> eqm) Z.add.
+Global Instance Zplus_eqm : Proper (eqm ==> eqm ==> eqm) Z.add.
 Proof.
   unfold eqm; repeat red; intros. rewrite Zplus_mod, H, H0, <- Zplus_mod; auto.
 Qed.
 
-Instance Zminus_eqm : Proper (eqm ==> eqm ==> eqm) Z.sub.
+Global Instance Zminus_eqm : Proper (eqm ==> eqm ==> eqm) Z.sub.
 Proof.
   unfold eqm; repeat red; intros. rewrite Zminus_mod, H, H0, <- Zminus_mod; auto.
 Qed.
 
-Instance Zmult_eqm : Proper (eqm ==> eqm ==> eqm) Z.mul.
+Global Instance Zmult_eqm : Proper (eqm ==> eqm ==> eqm) Z.mul.
 Proof.
   unfold eqm; repeat red; intros. rewrite Zmult_mod, H, H0, <- Zmult_mod; auto.
 Qed.
 
-Instance Zopp_eqm : Proper (eqm ==> eqm) Z.opp.
+Global Instance Zopp_eqm : Proper (eqm ==> eqm) Z.opp.
 Proof.
   intros x y H. change ((-x)==(-y)) with ((0-x)==(0-y)). now rewrite H.
 Qed.

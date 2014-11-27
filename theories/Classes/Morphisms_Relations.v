@@ -20,11 +20,11 @@ Generalizable Variables A l.
 
 (** Morphisms for relations *)
 
-Instance relation_conjunction_morphism : Proper (relation_equivalence (A:=A) ==>
+Global Instance relation_conjunction_morphism : Proper (relation_equivalence (A:=A) ==>
   relation_equivalence ==> relation_equivalence) relation_conjunction.
   Proof. firstorder. Qed.
 
-Instance relation_disjunction_morphism : Proper (relation_equivalence (A:=A) ==>
+Global Instance relation_disjunction_morphism : Proper (relation_equivalence (A:=A) ==>
   relation_equivalence ==> relation_equivalence) relation_disjunction.
   Proof. firstorder. Qed.
 
@@ -41,11 +41,11 @@ Proof. do 2 red. unfold predicate_implication. auto. Qed.
 (** The instantiation at relation allows rewriting applications of relations
     [R x y] to [R' x y]  when [R] and [R'] are in [relation_equivalence]. *)
 
-Instance relation_equivalence_pointwise :
+Global Instance relation_equivalence_pointwise :
   Proper (relation_equivalence ==> pointwise_relation A (pointwise_relation A iff)) id.
 Proof. intro. apply (predicate_equivalence_pointwise (Tcons A (Tcons A Tnil))). Qed.
 
-Instance subrelation_pointwise :
+Global Instance subrelation_pointwise :
   Proper (subrelation ==> pointwise_relation A (pointwise_relation A impl)) id.
 Proof. intro. apply (predicate_implication_pointwise (Tcons A (Tcons A Tnil))). Qed.
 

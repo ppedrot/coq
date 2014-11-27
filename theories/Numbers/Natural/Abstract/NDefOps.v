@@ -25,7 +25,7 @@ Definition if_zero (A : Type) (a b : A) (n : N.t) : A :=
 
 Arguments if_zero [A] a b n.
 
-Instance if_zero_wd (A : Type) :
+Global Instance if_zero_wd (A : Type) :
  Proper (Logic.eq ==> Logic.eq ==> N.eq ==> Logic.eq) (@if_zero A).
 Proof.
 unfold if_zero. (* TODO : solve_proper : SLOW + BUG *)
@@ -51,7 +51,7 @@ Definition def_add (x y : N.t) := recursion y (fun _ => S) x.
 
 Local Infix "+++" := def_add (at level 50, left associativity).
 
-Instance def_add_wd : Proper (N.eq ==> N.eq ==> N.eq) def_add.
+Global Instance def_add_wd : Proper (N.eq ==> N.eq ==> N.eq) def_add.
 Proof.
 unfold def_add. f_equiv'.
 Qed.
@@ -81,7 +81,7 @@ Definition def_mul (x y : N.t) := recursion 0 (fun _ p => p +++ x) y.
 
 Local Infix "**" := def_mul (at level 40, left associativity).
 
-Instance def_mul_wd : Proper (N.eq ==> N.eq ==> N.eq) def_mul.
+Global Instance def_mul_wd : Proper (N.eq ==> N.eq ==> N.eq) def_mul.
 Proof.
 unfold def_mul. (* TODO : solve_proper SLOW + BUG *)
 f_equiv'.
@@ -117,7 +117,7 @@ recursion
 
 Local Infix "<<" := ltb (at level 70, no associativity).
 
-Instance ltb_wd : Proper (N.eq ==> N.eq ==> Logic.eq) ltb.
+Global Instance ltb_wd : Proper (N.eq ==> N.eq ==> Logic.eq) ltb.
 Proof.
 unfold ltb. f_equiv'.
 Qed.
@@ -177,7 +177,7 @@ Qed.
 
 Definition even (x : N.t) := recursion true (fun _ p => negb p) x.
 
-Instance even_wd : Proper (N.eq==>Logic.eq) even.
+Global Instance even_wd : Proper (N.eq==>Logic.eq) even.
 Proof.
 unfold even. f_equiv'.
 Qed.
@@ -202,7 +202,7 @@ Definition half_aux (x : N.t) : N.t * N.t :=
 
 Definition half (x : N.t) := snd (half_aux x).
 
-Instance half_aux_wd : Proper (N.eq ==> N.eq*N.eq) half_aux.
+Global Instance half_aux_wd : Proper (N.eq ==> N.eq*N.eq) half_aux.
 Proof.
 intros x x' Hx. unfold half_aux.
 f_equiv; trivial.
@@ -210,7 +210,7 @@ intros y y' Hy (u,v) (u',v') (Hu,Hv). compute in *.
 rewrite Hu, Hv; auto with *.
 Qed.
 
-Instance half_wd : Proper (N.eq==>N.eq) half.
+Global Instance half_wd : Proper (N.eq==>N.eq) half.
 Proof.
 unfold half. f_equiv'.
 Qed.
@@ -327,7 +327,7 @@ Definition pow (n m : N.t) := recursion 1 (fun _ r => n*r) m.
 
 Local Infix "^^" := pow (at level 30, right associativity).
 
-Instance pow_wd : Proper (N.eq==>N.eq==>N.eq) pow.
+Global Instance pow_wd : Proper (N.eq==>N.eq==>N.eq) pow.
 Proof.
 unfold pow. f_equiv'.
 Qed.
@@ -353,7 +353,7 @@ strong_rec 0
               else S (g (half x)))
            x.
 
-Instance log_prewd :
+Global Instance log_prewd :
  Proper ((N.eq==>N.eq)==>N.eq==>N.eq)
    (fun g x => if x<<2 then 0 else S (g (half x))).
 Proof.
@@ -363,7 +363,7 @@ destruct (n' << 2); auto with *.
 f_equiv. apply Hg. now f_equiv.
 Qed.
 
-Instance log_wd : Proper (N.eq==>N.eq) log.
+Global Instance log_wd : Proper (N.eq==>N.eq) log.
 Proof.
 intros x x' Exx'. unfold log.
 apply strong_rec_wd; f_equiv'.

@@ -127,19 +127,19 @@ End Definitions.
 
 Section Computational.
 
-Program Instance Decidable_PosEq : forall (p q : positive), Decidable (p = q) :=
+Global Program Instance Decidable_PosEq : forall (p q : positive), Decidable (p = q) :=
   { Decidable_witness := Pos.eqb p q }.
 Next Obligation.
 apply Pos.eqb_eq.
 Qed.
 
-Program Instance Decidable_PosLt : forall p q, Decidable (Pos.lt p q) :=
+Global Program Instance Decidable_PosLt : forall p q, Decidable (Pos.lt p q) :=
   { Decidable_witness := Pos.ltb p q }.
 Next Obligation.
 apply Pos.ltb_lt.
 Qed.
 
-Program Instance Decidable_PosLe : forall p q, Decidable (Pos.le p q) :=
+Global Program Instance Decidable_PosLe : forall p q, Decidable (Pos.le p q) :=
   { Decidable_witness := Pos.leb p q }.
 Next Obligation.
 apply Pos.leb_le.
@@ -165,7 +165,7 @@ match pl with
 end.
 
 (* We could do that with [decide equality] but dependency in proofs is heavy *)
-Program Instance Decidable_eq_poly : forall (p q : poly), Decidable (eq p q) := {
+Global Program Instance Decidable_eq_poly : forall (p q : poly), Decidable (eq p q) := {
   Decidable_witness := beq_poly p q
 }.
 
@@ -177,7 +177,7 @@ revert q; induction p; intros [] Heq; simpl in *; bool; try_decide; intuition;
   try injection Heq; first[congruence|intuition].
 Qed.
 
-Program Instance Decidable_null : forall p, Decidable (null p) := {
+Global Program Instance Decidable_null : forall p, Decidable (null p) := {
   Decidable_witness := match p with Cst false => true | _ => false end
 }.
 Next Obligation.
@@ -207,7 +207,7 @@ match p with
     valid_dec i p && valid_dec (Pos.succ i) q
 end.
 
-Program Instance Decidable_valid : forall n p, Decidable (valid n p) := {
+Global Program Instance Decidable_valid : forall n p, Decidable (valid n p) := {
   Decidable_witness := valid_dec n p
 }.
 Next Obligation.

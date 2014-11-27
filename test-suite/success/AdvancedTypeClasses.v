@@ -48,19 +48,19 @@ Lemma fun_interp' :forall `{ia : interp_pair, ib : interp_pair}, (ia -> ib) = in
   simpl. intros a ia b ib. rewrite <- link. rewrite <- (link b). reflexivity.
 Qed.
 
-Instance ProdCan `(interp_pair a, interp_pair b) : interp_pair (a * b) :=
+Global Instance ProdCan `(interp_pair a, interp_pair b) : interp_pair (a * b) :=
   { repr := Prod (repr a) (repr b) ; link := prod_interp }.
 
-Instance FunCan `(interp_pair a, interp_pair b) : interp_pair (a -> b) :=
+Global Instance FunCan `(interp_pair a, interp_pair b) : interp_pair (a -> b) :=
   { link := fun_interp }.
 
-Instance BoolCan : interp_pair bool :=
+Global Instance BoolCan : interp_pair bool :=
   { repr := Bool ; link := refl_equal _ }.
 
-Instance VarCan x : interp_pair x | 10 := { repr := Var x ; link := refl_equal _ }.
-Instance SetCan : interp_pair Set := { repr := SET ; link := refl_equal _ }.
-Instance PropCan : interp_pair Prop := { repr := PROP ; link := refl_equal _ }.
-Instance TypeCan : interp_pair Type := { repr := TYPE ; link := refl_equal _ }.
+Global Instance VarCan x : interp_pair x | 10 := { repr := Var x ; link := refl_equal _ }.
+Global Instance SetCan : interp_pair Set := { repr := SET ; link := refl_equal _ }.
+Global Instance PropCan : interp_pair Prop := { repr := PROP ; link := refl_equal _ }.
+Global Instance TypeCan : interp_pair Type := { repr := TYPE ; link := refl_equal _ }.
 
 (* Print Canonical Projections. *)
 

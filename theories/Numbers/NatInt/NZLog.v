@@ -75,7 +75,7 @@ Qed.
 
 (** Hence log2 is a morphism. *)
 
-Instance log2_wd : Proper (eq==>eq) log2.
+Global Instance log2_wd : Proper (eq==>eq) log2.
 Proof.
  intros x x' Hx.
  destruct (le_gt_cases x 0).
@@ -488,7 +488,7 @@ Proof.
  intros. apply log2_up_eqn0. order'.
 Qed.
 
-Instance log2_up_wd : Proper (eq==>eq) log2_up.
+Global Instance log2_up_wd : Proper (eq==>eq) log2_up.
 Proof.
  assert (Proper (eq==>eq==>Logic.eq) compare).
   repeat red; intros; do 2 case compare_spec; trivial; order.

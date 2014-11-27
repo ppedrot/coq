@@ -54,18 +54,18 @@ Ltac zify :=
  autorewrite with cyclic.
 Ltac zcongruence := repeat red; intros; zify; congruence.
 
-Instance eq_equiv : Equivalence eq.
+Global Instance eq_equiv : Equivalence eq.
 Proof.
 unfold eq. firstorder.
 Qed.
 
 Local Obligation Tactic := zcongruence.
 
-Program Instance succ_wd : Proper (eq ==> eq) succ.
-Program Instance pred_wd : Proper (eq ==> eq) pred.
-Program Instance add_wd : Proper (eq ==> eq ==> eq) add.
-Program Instance sub_wd : Proper (eq ==> eq ==> eq) sub.
-Program Instance mul_wd : Proper (eq ==> eq ==> eq) mul.
+Global Program Instance succ_wd : Proper (eq ==> eq) succ.
+Global Program Instance pred_wd : Proper (eq ==> eq) pred.
+Global Program Instance add_wd : Proper (eq ==> eq ==> eq) add.
+Global Program Instance sub_wd : Proper (eq ==> eq ==> eq) sub.
+Global Program Instance mul_wd : Proper (eq ==> eq ==> eq) mul.
 
 Theorem gt_wB_1 : 1 < wB.
 Proof.

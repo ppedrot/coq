@@ -9,7 +9,7 @@ Implicit Arguments car [].
 
 Coercion car: lops >-> Sortclass.
 
-Instance weq_Equivalence `{lops}: Equivalence weq.
+Global Instance weq_Equivalence `{lops}: Equivalence weq.
 Proof.
 Admitted.
 
@@ -25,7 +25,7 @@ Class ops := mk_ops {
 Coercion mor: ops >-> Funclass.
 Implicit Arguments ob [].
 
-Instance dot_weq `{ops} n m p: Proper (weq ==> weq ==> weq) (dot n m p).
+Global Instance dot_weq `{ops} n m p: Proper (weq ==> weq ==> weq) (dot n m p).
 Proof.
 Admitted.
 

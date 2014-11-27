@@ -233,10 +233,10 @@ Hint Extern 5 (@Proper _ ?H _) => proper_subrelation : typeclass_instances.
 
 (** Essential subrelation instances for [iff], [impl] and [pointwise_relation]. *)
 
-Instance iff_impl_subrelation : subrelation iff impl | 2.
+Global Instance iff_impl_subrelation : subrelation iff impl | 2.
 Proof. firstorder. Qed.
 
-Instance iff_flip_impl_subrelation : subrelation iff (flip impl) | 2.
+Global Instance iff_flip_impl_subrelation : subrelation iff (flip impl) | 2.
 Proof. firstorder. Qed.
 
 (** We use an extern hint to help unification. *)
@@ -506,7 +506,7 @@ Ltac partial_application_tactic :=
 
 (** Bootstrap !!! *)
 
-Instance proper_proper : Proper (relation_equivalence ==> eq ==> iff) (@Proper A).
+Global Instance proper_proper : Proper (relation_equivalence ==> eq ==> iff) (@Proper A).
 Proof.
   simpl_relation.
   reduce in H.
@@ -632,7 +632,7 @@ Qed.
 
 (** A [PartialOrder] is compatible with its underlying equivalence. *)
 
-Instance PartialOrder_proper `(PartialOrder A eqA R) :
+Global Instance PartialOrder_proper `(PartialOrder A eqA R) :
   Proper (eqA==>eqA==>iff) R.
 Proof.
 intros.

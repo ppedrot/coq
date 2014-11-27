@@ -9,9 +9,9 @@ Lemma Rsth : Setoid_Theory R (@eq R).
 constructor;red;intros;subst;trivial.
 Qed.
 
-Instance Rops: (@Ring_ops R 0%R 1%R Rplus Rmult Rminus Ropp (@eq R)).
+Global Instance Rops: (@Ring_ops R 0%R 1%R Rplus Rmult Rminus Ropp (@eq R)).
 
-Instance Rri : (Ring (Ro:=Rops)).
+Global Instance Rri : (Ring (Ro:=Rops)).
 constructor;
 try (try apply Rsth;
    try (unfold respectful, Proper; unfold equality; unfold eq_notation in *;
@@ -22,13 +22,13 @@ try (try apply Rsth;
 exact Rplus_opp_r.
 Defined.
 
-Instance Rcri: (Cring (Rr:=Rri)).
+Global Instance Rcri: (Cring (Rr:=Rri)).
 red. exact Rmult_comm. Defined.
 
 Lemma R_one_zero: 1%R <> 0%R.
 discrR.
 Qed.
 
-Instance Rdi : (Integral_domain (Rcr:=Rcri)). 
+Global Instance Rdi : (Integral_domain (Rcr:=Rcri)). 
 constructor. 
 exact Rmult_integral. exact R_one_zero. Defined.

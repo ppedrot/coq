@@ -17,11 +17,11 @@ Hint Mode C +.
 Fail Definition test := c.
 
 Unset Typeclasses Unique Instances.
-Instance : B -> D -> C nat := fun _ _ => 0.
-Instance : A -> D -> C nat := fun _ _ => 0.
-Instance : B -> C bool := fun _ => true.
+Global Instance : B -> D -> C nat := fun _ _ => 0.
+Global Instance : A -> D -> C nat := fun _ _ => 0.
+Global Instance : B -> C bool := fun _ => true.
 
-Instance : forall A, C A -> C (option A) := fun A _ => None.
+Global Instance : forall A, C A -> C (option A) := fun A _ => None.
 
 Set Typeclasses Debug.
 

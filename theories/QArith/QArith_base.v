@@ -120,7 +120,7 @@ Hint Resolve Qeq_refl Qeq_trans : qarith.
 
 (** In a word, [Qeq] is a setoid equality. *)
 
-Instance Q_Setoid : Equivalence Qeq.
+Global Instance Q_Setoid : Equivalence Qeq.
 Proof. split; red; eauto with qarith. Qed.
 
 (** Furthermore, this equality is decidable: *)
@@ -214,7 +214,7 @@ Qed.
 
 (** * Setoid compatibility results *)
 
-Instance Qplus_comp : Proper (Qeq==>Qeq==>Qeq) Qplus.
+Global Instance Qplus_comp : Proper (Qeq==>Qeq==>Qeq) Qplus.
 Proof.
   unfold Qeq, Qplus; simpl.
   Open Scope Z_scope.
@@ -228,7 +228,7 @@ Proof.
   Close Scope Z_scope.
 Qed.
 
-Instance Qopp_comp : Proper (Qeq==>Qeq) Qopp.
+Global Instance Qopp_comp : Proper (Qeq==>Qeq) Qopp.
 Proof.
   unfold Qeq, Qopp; simpl.
   Open Scope Z_scope.
@@ -238,13 +238,13 @@ Proof.
   Close Scope Z_scope.
 Qed.
 
-Instance Qminus_comp : Proper (Qeq==>Qeq==>Qeq) Qminus.
+Global Instance Qminus_comp : Proper (Qeq==>Qeq==>Qeq) Qminus.
 Proof.
   intros x x' Hx y y' Hy.
   unfold Qminus. rewrite Hx, Hy; auto with qarith.
 Qed.
 
-Instance Qmult_comp : Proper (Qeq==>Qeq==>Qeq) Qmult.
+Global Instance Qmult_comp : Proper (Qeq==>Qeq==>Qeq) Qmult.
 Proof.
   unfold Qeq; simpl.
   Open Scope Z_scope.
@@ -258,7 +258,7 @@ Proof.
   Close Scope Z_scope.
 Qed.
 
-Instance Qinv_comp : Proper (Qeq==>Qeq) Qinv.
+Global Instance Qinv_comp : Proper (Qeq==>Qeq) Qinv.
 Proof.
   unfold Qeq, Qinv; simpl.
   Open Scope Z_scope.
@@ -272,13 +272,13 @@ Proof.
   Close Scope Z_scope.
 Qed.
 
-Instance Qdiv_comp : Proper (Qeq==>Qeq==>Qeq) Qdiv.
+Global Instance Qdiv_comp : Proper (Qeq==>Qeq==>Qeq) Qdiv.
 Proof.
   intros x x' Hx y y' Hy; unfold Qdiv.
   rewrite Hx, Hy; auto with qarith.
 Qed.
 
-Instance Qcompare_comp : Proper (Qeq==>Qeq==>eq) Qcompare.
+Global Instance Qcompare_comp : Proper (Qeq==>Qeq==>eq) Qcompare.
 Proof.
   unfold Qeq, Qcompare.
   Open Scope Z_scope.
@@ -295,23 +295,23 @@ Proof.
   Close Scope Z_scope.
 Qed.
 
-Instance Qle_comp : Proper (Qeq==>Qeq==>iff) Qle.
+Global Instance Qle_comp : Proper (Qeq==>Qeq==>iff) Qle.
 Proof.
   intros p q H r s H'. rewrite 2 Qle_alt, H, H'; auto with *.
 Qed.
 
-Instance Qlt_compat : Proper (Qeq==>Qeq==>iff) Qlt.
+Global Instance Qlt_compat : Proper (Qeq==>Qeq==>iff) Qlt.
 Proof.
   intros p q H r s H'. rewrite 2 Qlt_alt, H, H'; auto with *.
 Qed.
 
-Instance Qeqb_comp : Proper (Qeq==>Qeq==>eq) Qeq_bool.
+Global Instance Qeqb_comp : Proper (Qeq==>Qeq==>eq) Qeq_bool.
 Proof.
  intros p q H r s H'; apply eq_true_iff_eq.
  rewrite 2 Qeq_bool_iff, H, H'; split; auto with qarith.
 Qed.
 
-Instance Qleb_comp : Proper (Qeq==>Qeq==>eq) Qle_bool.
+Global Instance Qleb_comp : Proper (Qeq==>Qeq==>eq) Qle_bool.
 Proof.
  intros p q H r s H'; apply eq_true_iff_eq.
  rewrite 2 Qle_bool_iff, H, H'; split; auto with qarith.
@@ -928,7 +928,7 @@ Qed.
 Definition Qpower_positive : Q -> positive -> Q :=
  pow_pos Qmult.
 
-Instance Qpower_positive_comp : Proper (Qeq==>eq==>Qeq) Qpower_positive.
+Global Instance Qpower_positive_comp : Proper (Qeq==>eq==>Qeq) Qpower_positive.
 Proof.
 intros x x' Hx y y' Hy. rewrite <-Hy; clear y' Hy.
 unfold Qpower_positive.
@@ -947,7 +947,7 @@ Definition Qpower (q:Q) (z:Z) :=
 
 Notation " q ^ z " := (Qpower q z) : Q_scope.
 
-Instance Qpower_comp : Proper (Qeq==>eq==>Qeq) Qpower.
+Global Instance Qpower_comp : Proper (Qeq==>eq==>Qeq) Qpower.
 Proof.
 intros x x' Hx y y' Hy. rewrite <- Hy; clear y' Hy.
 destruct y; simpl; rewrite ?Hx; auto with *.

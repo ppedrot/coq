@@ -192,8 +192,8 @@ Section Defs.
 End Defs.
 
 (** Default rewrite crelations handled by [setoid_rewrite]. *)
-Instance: RewriteRelation impl.
-Instance: RewriteRelation iff.
+Global Instance: RewriteRelation impl.
+Global Instance: RewriteRelation iff.
 
 (** Hints to drive the typeclass resolution avoiding loops
  due to the use of full unification. *)
@@ -259,26 +259,26 @@ Local Obligation Tactic := simpl_crelation.
 
 (** Logical implication. *)
 
-Program Instance impl_Reflexive : Reflexive impl.
-Program Instance impl_Transitive : Transitive impl.
+Global Program Instance impl_Reflexive : Reflexive impl.
+Global Program Instance impl_Transitive : Transitive impl.
 
 (** Logical equivalence. *)
 
-Instance iff_Reflexive : Reflexive iff := iff_refl.
-Instance iff_Symmetric : Symmetric iff := iff_sym.
-Instance iff_Transitive : Transitive iff := iff_trans.
+Global Instance iff_Reflexive : Reflexive iff := iff_refl.
+Global Instance iff_Symmetric : Symmetric iff := iff_sym.
+Global Instance iff_Transitive : Transitive iff := iff_trans.
 
 (** Logical equivalence [iff] is an equivalence crelation. *)
 
-Program Instance iff_equivalence : Equivalence iff. 
-Program Instance arrow_Reflexive : Reflexive arrow.
-Program Instance arrow_Transitive : Transitive arrow.
+Global Program Instance iff_equivalence : Equivalence iff. 
+Global Program Instance arrow_Reflexive : Reflexive arrow.
+Global Program Instance arrow_Transitive : Transitive arrow.
 
-Instance iffT_Reflexive : Reflexive iffT. 
+Global Instance iffT_Reflexive : Reflexive iffT. 
 Proof. firstorder. Defined.
-Instance iffT_Symmetric : Symmetric iffT. 
+Global Instance iffT_Symmetric : Symmetric iffT. 
 Proof. firstorder. Defined. 
-Instance iffT_Transitive : Transitive iffT.
+Global Instance iffT_Transitive : Transitive iffT.
 Proof. firstorder. Defined.
 
 (** We now develop a generalization of results on crelations for arbitrary predicates.

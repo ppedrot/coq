@@ -51,14 +51,14 @@ Proof.
 reflexivity.
 Qed.
 
-Instance strong_rec0_wd :
+Global Instance strong_rec0_wd :
  Proper (Aeq ==> ((N.eq ==> Aeq) ==> N.eq ==> Aeq) ==> N.eq ==> N.eq ==> Aeq)
   strong_rec0.
 Proof.
 unfold strong_rec0; f_equiv'.
 Qed.
 
-Instance strong_rec_wd :
+Global Instance strong_rec_wd :
  Proper (Aeq ==> ((N.eq ==> Aeq) ==> N.eq ==> Aeq) ==> N.eq ==> Aeq) strong_rec.
 Proof.
 intros a a' Eaa' f f' Eff' n n' Enn'.

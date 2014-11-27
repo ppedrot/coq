@@ -81,7 +81,7 @@ Qed.
 
 (** Hence sqrt is a morphism *)
 
-Instance sqrt_wd : Proper (eq==>eq) sqrt.
+Global Instance sqrt_wd : Proper (eq==>eq) sqrt.
 Proof.
  intros x x' Hx.
  destruct (lt_ge_cases x 0) as [H|H].
@@ -434,7 +434,7 @@ Qed.
 
 (** [sqrt_up] is a morphism *)
 
-Instance sqrt_up_wd : Proper (eq==>eq) sqrt_up.
+Global Instance sqrt_up_wd : Proper (eq==>eq) sqrt_up.
 Proof.
  assert (Proper (eq==>eq==>Logic.eq) compare).
   intros x x' Hx y y' Hy. do 2 case compare_spec; trivial; order.

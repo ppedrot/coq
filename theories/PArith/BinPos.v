@@ -1053,10 +1053,10 @@ Proof.
   apply lt_succ_r, le_lteq in H. destruct H as [H|H]; subst; auto.
 Qed.
 
-Instance lt_strorder : StrictOrder lt.
+Global Instance lt_strorder : StrictOrder lt.
 Proof. split. exact lt_irrefl. exact lt_trans. Qed.
 
-Instance lt_compat : Proper (Logic.eq==>Logic.eq==>iff) lt.
+Global Instance lt_compat : Proper (Logic.eq==>Logic.eq==>iff) lt.
 Proof. repeat red. intros. subst; auto. Qed.
 
 Lemma lt_total p q : p < q \/ p = q \/ q < p.
@@ -1101,10 +1101,10 @@ Proof.
  elim (lt_irrefl p). now transitivity q.
 Qed.
 
-Instance le_preorder : PreOrder le.
+Global Instance le_preorder : PreOrder le.
 Proof. split. exact le_refl. exact le_trans. Qed.
 
-Instance le_partorder : PartialOrder Logic.eq le.
+Global Instance le_partorder : PartialOrder Logic.eq le.
 Proof.
  intros x y. change (x=y <-> x <= y <= x).
  split. intros; now subst.

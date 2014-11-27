@@ -12,7 +12,7 @@ Check (2 3).
 Record Binop := { binop :> nat -> nat -> nat }.
 Class Plusop := { plusop : Binop; zero : nat }.
 Infix "[+]" := plusop (at level 40).
-Instance Plus : Plusop := {| plusop := {| binop := plus |} ; zero := 0 |}.
+Global Instance Plus : Plusop := {| plusop := {| binop := plus |} ; zero := 0 |}.
 Check 2[+]3.
 
 (* Test bug #2091 (variable le was printed using <= !) *)

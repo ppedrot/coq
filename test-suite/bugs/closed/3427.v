@@ -99,12 +99,12 @@ Definition transport2 {A : Type} (P : A -> Type) {x y : A} {p q : x = y}
 Inductive Unit : Type0 :=
   tt : Unit.
 
-Instance contr_unit : Contr Unit | 0 := let x := {|
+Global Instance contr_unit : Contr Unit | 0 := let x := {|
                                               center := tt;
                                               contr := fun t : Unit => match t with tt => 1 end
                                             |} in x.
 
-Instance trunc_succ `{IsTrunc n A} : IsTrunc (trunc_S n) A | 1000.
+Global Instance trunc_succ `{IsTrunc n A} : IsTrunc (trunc_S n) A | 1000.
 admit.
 Defined.
 
@@ -120,7 +120,7 @@ Definition path_hprop `{Funext} X Y := (@ap _ _ hproptype X Y)^-1%equiv.
 Record hSet := BuildhSet {setT:> Type; iss :> IsHSet setT}.
 Local Open Scope equiv_scope.
 
-Instance isequiv_path {A B : Type} (p : A = B)
+Global Instance isequiv_path {A B : Type} (p : A = B)
 : IsEquiv (transport (fun X:Type => X) p) | 0
   := BuildIsEquiv _ _ _ (transport (fun X:Type => X) p^)
                   (fun b => ((transport_pp idmap p^ p b)^ @ transport2 idmap (concat_Vp p) b))
@@ -148,7 +148,7 @@ End Univalence.
 Local Inductive minus1Trunc (A :Type) : Type :=
   min1 : A -> minus1Trunc A.
 
-Instance minus1Trunc_is_prop {A : Type} : IsHProp (minus1Trunc A) | 0.
+Global Instance minus1Trunc_is_prop {A : Type} : IsHProp (minus1Trunc A) | 0.
 admit.
 Defined.
 

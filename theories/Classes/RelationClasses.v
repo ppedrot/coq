@@ -181,8 +181,8 @@ Section Defs.
 End Defs.
 
 (** Default rewrite relations handled by [setoid_rewrite]. *)
-Instance: RewriteRelation impl.
-Instance: RewriteRelation iff.
+Global Instance: RewriteRelation impl.
+Global Instance: RewriteRelation iff.
 
 (** Hints to drive the typeclass resolution avoiding loops
  due to the use of full unification. *)
@@ -250,18 +250,18 @@ Local Obligation Tactic := simpl_relation.
 
 (** Logical implication. *)
 
-Program Instance impl_Reflexive : Reflexive impl.
-Program Instance impl_Transitive : Transitive impl.
+Global Program Instance impl_Reflexive : Reflexive impl.
+Global Program Instance impl_Transitive : Transitive impl.
 
 (** Logical equivalence. *)
 
-Instance iff_Reflexive : Reflexive iff := iff_refl.
-Instance iff_Symmetric : Symmetric iff := iff_sym.
-Instance iff_Transitive : Transitive iff := iff_trans.
+Global Instance iff_Reflexive : Reflexive iff := iff_refl.
+Global Instance iff_Symmetric : Symmetric iff := iff_sym.
+Global Instance iff_Transitive : Transitive iff := iff_trans.
 
 (** Logical equivalence [iff] is an equivalence relation. *)
 
-Program Instance iff_equivalence : Equivalence iff.
+Global Program Instance iff_equivalence : Equivalence iff.
 
 (** We now develop a generalization of results on relations for arbitrary predicates.
    The resulting theory can be applied to homogeneous binary relations but also to
@@ -379,7 +379,7 @@ Notation "∙⊥∙" := false_predicate : predicate_scope.
 
 (** Predicate equivalence is an equivalence, and predicate implication defines a preorder. *)
 
-Program Instance predicate_equivalence_equivalence : 
+Global Program Instance predicate_equivalence_equivalence : 
   Equivalence (@predicate_equivalence l).
 
   Next Obligation.
@@ -395,7 +395,7 @@ Program Instance predicate_equivalence_equivalence :
     firstorder.
   Qed.
 
-Program Instance predicate_implication_preorder :
+Global Program Instance predicate_implication_preorder :
   PreOrder (@predicate_implication l).
   Next Obligation.
     induction l ; firstorder.
@@ -462,7 +462,7 @@ Hint Extern 3 (PartialOrder (flip _)) => class_apply PartialOrder_inverse : type
 
 (** The partial order defined by subrelation and relation equivalence. *)
 
-Program Instance subrelation_partial_order :
+Global Program Instance subrelation_partial_order :
   ! PartialOrder (relation A) relation_equivalence subrelation.
 
 Next Obligation.

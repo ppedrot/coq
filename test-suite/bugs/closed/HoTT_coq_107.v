@@ -53,7 +53,7 @@ Definition path_sigma' {A : Type} (P : A -> Type) {x x' : A} {y : P x} {y' : P x
            (p : x = x') (q : transport _ p y = y')
 : existT _ x y = existT _ x' y'
   := admit.
-Instance trunc_sigma `{P : A -> Type}
+Global Instance trunc_sigma `{P : A -> Type}
          `{IsTrunc n A} `{forall a, IsTrunc n (P a)}
 : IsTrunc n (sigT P) | 100.
 

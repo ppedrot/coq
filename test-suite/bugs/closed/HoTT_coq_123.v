@@ -38,7 +38,7 @@ Fixpoint IsTrunc_internal (n : trunc_index) (A : Type) : Type :=
 Class IsTrunc (n : trunc_index) (A : Type) : Type :=
   Trunc_is_trunc : IsTrunc_internal n A.
 
-Instance istrunc_paths (A : Type) n `{H : IsTrunc (trunc_S n) A} (x y : A)
+Global Instance istrunc_paths (A : Type) n `{H : IsTrunc (trunc_S n) A} (x y : A)
 : IsTrunc n (x = y)
   := H x y.
 
@@ -51,7 +51,7 @@ Local Open Scope equiv_scope.
 
 Global Instance isequiv_inverse `{IsEquiv A B f} : IsEquiv f^-1 | 10000
   := BuildIsEquiv B A f^-1 f.
-Instance trunc_succ `{IsTrunc n A} : IsTrunc (trunc_S n) A | 1000.
+Global Instance trunc_succ `{IsTrunc n A} : IsTrunc (trunc_S n) A | 1000.
 
 admit.
 
@@ -111,7 +111,7 @@ Proof.
   - admit.
   - pose (fun f g => trunc_equiv (@apD10 A P f g) ^-1); admit.
 Defined.
-Instance trunc_sigma `{P : A -> Type}
+Global Instance trunc_sigma `{P : A -> Type}
          `{IsTrunc n A} `{forall a, IsTrunc n (P a)}
 : IsTrunc n (sigT P) | 100.
 admit.

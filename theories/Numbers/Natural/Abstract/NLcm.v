@@ -94,7 +94,7 @@ Qed.
 
 Definition lcm a b := a*(b/gcd a b).
 
-Instance lcm_wd : Proper (eq==>eq==>eq) lcm.
+Global Instance lcm_wd : Proper (eq==>eq==>eq) lcm.
 Proof. unfold lcm. solve_proper. Qed.
 
 Lemma lcm_equiv1 : forall a b, gcd a b ~= 0 ->

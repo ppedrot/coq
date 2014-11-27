@@ -13,7 +13,7 @@ Require Import NZAxioms NZBase Decidable OrdersTac.
 Module Type NZOrderProp
  (Import NZ : NZOrdSig')(Import NZBase : NZBaseProp NZ).
 
-Instance le_wd : Proper (eq==>eq==>iff) le.
+Global Instance le_wd : Proper (eq==>eq==>iff) le.
 Proof.
 intros n n' Hn m m' Hm. now rewrite <- !lt_succ_r, Hn, Hm.
 Qed.
@@ -127,13 +127,13 @@ Qed.
 
 (** Some type classes about order *)
 
-Instance lt_strorder : StrictOrder lt.
+Global Instance lt_strorder : StrictOrder lt.
 Proof. split. exact lt_irrefl. exact lt_trans. Qed.
 
-Instance le_preorder : PreOrder le.
+Global Instance le_preorder : PreOrder le.
 Proof. split. exact le_refl. exact le_trans. Qed.
 
-Instance le_partialorder : PartialOrder _ le.
+Global Instance le_partialorder : PartialOrder _ le.
 Proof.
 intros x y. compute. split.
 intro EQ; now rewrite EQ.
@@ -606,12 +606,12 @@ Variable z : t.
 Let Rlt (n m : t) := z <= n < m.
 Let Rgt (n m : t) := m < n <= z.
 
-Instance Rlt_wd : Proper (eq ==> eq ==> iff) Rlt.
+Global Instance Rlt_wd : Proper (eq ==> eq ==> iff) Rlt.
 Proof.
 intros x1 x2 H1 x3 x4 H2; unfold Rlt. rewrite H1; now rewrite H2.
 Qed.
 
-Instance Rgt_wd : Proper (eq ==> eq ==> iff) Rgt.
+Global Instance Rgt_wd : Proper (eq ==> eq ==> iff) Rgt.
 Proof.
 intros x1 x2 H1 x3 x4 H2; unfold Rgt; rewrite H1; now rewrite H2.
 Qed.

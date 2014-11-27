@@ -14,6 +14,6 @@ End OPT.
 
 Definition f_nat (n: nat):  MyOption nat := MySome _ n.
 
-Instance Nat_Opt: Opt nat := {
+Global Instance Nat_Opt: Opt nat := {
   f_opt := f_nat
 }.

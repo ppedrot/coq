@@ -30,7 +30,7 @@ Fixpoint IsTrunc_internal (n : trunc_index) (A : Type@{i}) : Type@{i} :=
 Notation minus_one:=(trunc_S minus_two).
 Class IsTrunc (n : trunc_index) (A : Type) : Type := Trunc_is_trunc :
 IsTrunc_internal n A.
-Instance istrunc_paths (A : Type) n `{H : IsTrunc (trunc_S n) A} (x y : A) :
+Global Instance istrunc_paths (A : Type) n `{H : IsTrunc (trunc_S n) A} (x y : A) :
 IsTrunc n (x = y) := H x y.
 
 Axiom cheat : forall {A}, A.
