@@ -46,7 +46,7 @@ module MakeQueue(T : Task) : sig
   type queue
 
   (* Number of workers, 0 = lazy local *)
-  val create : int -> queue
+  val create : LWT.loop -> int -> queue
   val destroy : queue -> unit
 
   val n_workers : queue -> int
@@ -55,6 +55,7 @@ module MakeQueue(T : Task) : sig
 
   (* blocking function that waits for the task queue to be empty *)
   val join : queue -> unit
+
   val cancel_all : queue -> unit
 
   val cancel_worker : queue -> WorkerPool.worker_id -> unit
@@ -63,14 +64,14 @@ module MakeQueue(T : Task) : sig
 
   (* Take a snapshot (non destructive but waits until all workers are
    * enqueued) *)
-  val snapshot : queue -> T.task list
+  val snapshot : queue -> T.task list LWT.t
 
   (* Clears the queue, only if the worker prool is empty *)
  val clear : queue -> unit
  
   (* create a queue, run the function, destroy the queue.
    * the user should call join *)
-  val with_n_workers : int -> (queue -> 'a) -> 'a
+  val with_n_workers : LWT.loop -> int -> (queue -> 'a) -> 'a
 
 end
 

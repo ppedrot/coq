@@ -9,7 +9,7 @@
 type worker_id = string
 
 type 'a cpanel = {
-  exit : unit -> unit; (* called by manager to exit instead of Thread.exit *)
+  exit : unit -> unit LWT.t; (* called by manager to exit instead of Thread.exit *)
   cancelled : unit -> bool; (* manager checks for a request of termination *)
   extra : 'a;                        (* extra stuff to pass to the manager *)
 }
@@ -22,14 +22,14 @@ module type PoolModel = sig
   (* this defines the main loop of the manager *)
   type extra
   val manager :
-    extra cpanel -> worker_id * process * CThread.thread_ic * out_channel -> unit
+    extra cpanel -> worker_id * process * CThread.thread_ic * out_channel -> unit LWT.t
 end
 
 module Make(Model : PoolModel) : sig
 
   type pool
   
-  val create : Model.extra -> size:int -> pool
+  val create : Model.extra -> LWT.loop -> size:int -> pool
 
   val is_empty : pool -> bool
   val n_workers : pool -> int

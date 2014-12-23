@@ -9,7 +9,7 @@
 type worker_id = string
 
 type 'a cpanel = {
-  exit : unit -> unit; (* called by manager to exit instead of Thread.exit *)
+  exit : unit -> unit LWT.t; (* called by manager to exit instead of Thread.exit *)
   cancelled : unit -> bool; (* manager checks for a request of termination *)
   extra : 'a;                        (* extra stuff to pass to the manager *)
 }
@@ -22,7 +22,7 @@ module type PoolModel = sig
   (* this defines the main loop of the manager *)
   type extra
   val manager :
-    extra cpanel -> worker_id * process * CThread.thread_ic * out_channel -> unit
+    extra cpanel -> worker_id * process * CThread.thread_ic * out_channel -> unit LWT.t
 end
 
 module Make(Model : PoolModel) = struct
@@ -30,7 +30,6 @@ module Make(Model : PoolModel) = struct
 type worker = {
   name : worker_id;
   cancel : bool ref;
-  manager : Thread.t;
   process : Model.process;
 }
 
@@ -40,7 +39,7 @@ type pre_pool = {
   extra_arg : Model.extra;
 }
 
-type pool = { lock : Mutex.t; pool : pre_pool }
+type pool = { lock : Mutex.t; pool : pre_pool; loop : LWT.loop }
 
 let magic_no = 17
 
@@ -81,11 +80,12 @@ let rec create_worker extra pool id =
   let cancel = ref false in
   let name, process, ic, oc as worker = Model.spawn id in
   master_handshake name ic oc;
-  let exit () = cancel := true; cleanup pool; Thread.exit () in
+  let exit () = cancel := true; cleanup pool; LWT.exit in
   let cancelled () = !cancel in
   let cpanel = { exit; cancelled; extra } in
-  let manager = Thread.create (Model.manager cpanel) worker in
-  { name; cancel; manager; process }
+  let manager = Model.manager cpanel worker in
+  let _ = LWT.add_loop manager pool.loop in
+  { name; cancel; process }
   
 and cleanup x = locking x begin fun { workers; count; extra_arg } ->
   workers := List.map (function
@@ -100,7 +100,8 @@ end
 
 let is_empty x = locking x begin fun { workers } -> !workers = [] end
 
-let create extra_arg ~size = let x = {
+let create extra_arg loop ~size = let x = {
+    loop;
     lock = Mutex.create ();
     pool = {
       extra_arg;

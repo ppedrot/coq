@@ -14,7 +14,7 @@
  * an unbounded wait has the same problem. *)
 
 (* Use only the following functions on the channel *)
-type thread_ic
+type thread_ic = in_channel
 val prepare_in_channel_for_thread_friendly_io : in_channel -> thread_ic
 
 val thread_friendly_input_value : thread_ic -> 'a

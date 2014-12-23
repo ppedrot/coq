@@ -12,6 +12,8 @@ open Util
 open Pp
 open Printer
 
+open LWT.Notations
+
 (** Ide_slave : an implementation of [Interface], i.e. mainly an interp
     function and a rewind function. This specialized loop is triggered
     when the -ideslave option is passed to Coqtop. Currently CoqIDE is
@@ -459,18 +461,23 @@ let loop () =
   (* We'll handle goal fetching and display in our own way *)
   Vernacentries.enable_goal_printing := false;
   Vernacentries.qed_display_script := false;
-  while not !quit do
-    try
-      let xml_query = Xml_parser.parse xml_ic in
-(*       pr_with_pid (Xml_printer.to_string_fmt xml_query); *)
-      let q = Xmlprotocol.to_call xml_query in
-      let () = pr_debug_call q in
-      let r = eval_call xml_oc (slave_logger xml_oc Pp.Notice) q in
-      let () = pr_debug_answer q r in
-(*       pr_with_pid (Xml_printer.to_string_fmt (Xmlprotocol.of_answer q r)); *)
-      print_xml xml_oc (Xmlprotocol.of_answer q r);
-      flush out_ch
-    with
+  let rec loop () =
+    if !quit then begin
+      pr_debug "Exiting gracefully.";
+      exit 0
+    end else
+      let event =
+        LWT.Unix.wait_rd (Unix.descr_of_in_channel in_ch) >>= fun () ->
+        let xml_query = Xml_parser.parse xml_ic in
+        let q = Xmlprotocol.to_call xml_query in
+        let () = pr_debug_call q in
+        let r = eval_call xml_oc (slave_logger xml_oc Pp.Notice) q in
+        let () = pr_debug_answer q r in
+        print_xml xml_oc (Xmlprotocol.of_answer q r);
+        flush out_ch;
+        LWT.return ()
+      in
+      let handler = function
       | Xml_parser.Error (Xml_parser.Empty, _) ->
         pr_debug "End of input, exiting gracefully.";
         exit 0
@@ -483,9 +490,11 @@ let loop () =
       | any ->
         pr_debug ("Fatal exception in coqtop:\n" ^ Printexc.to_string any);
         exit 1
-  done;
-  pr_debug "Exiting gracefully.";
-  exit 0
+      in
+      LWT.catch event handler >>= loop
+  in
+  let _ = LWT.add_loop (loop ()) Stm.loop in
+  LWT.run_loop Stm.loop
 
 let rec parse = function
   | "--help-XML-protocol" :: rest ->

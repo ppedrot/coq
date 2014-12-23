@@ -66,6 +66,7 @@ val loop : unit -> loop
 val add_loop : 'a t -> loop -> id
 val run_loop : loop -> unit
 val run_loop_until : loop -> id -> unit
+val run_loop_until_idle : loop -> unit
 
 (** {6 Concurrency structures} *)
 

@@ -39,6 +39,10 @@ val query :
 type focus = { start : Stateid.t; stop : Stateid.t; tip : Stateid.t }
 val edit_at : Stateid.t -> [ `NewTip | `Focus of focus ]
 
+(* Main loop *)
+
+val loop : LWT.loop
+
 (* Evaluates the tip of the current branch *)
 val finish : unit -> unit
 

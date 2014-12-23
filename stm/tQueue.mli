@@ -10,14 +10,14 @@
 
 type 'a t
 val create : unit -> 'a t
-val pop : ?picky:('a -> bool) -> ?destroy:bool ref -> 'a t -> 'a
+val pop : ?picky:('a -> bool) -> ?destroy:bool ref -> 'a t -> 'a LWT.t
 val push : 'a t -> 'a -> unit
 val set_order : 'a t -> ('a -> 'a -> int) -> unit
-val wait_until_n_are_waiting_and_queue_empty : int -> 'a t -> unit
+val wait_until_n_are_waiting_and_queue_empty : int -> 'a t -> unit LWT.t
 val signal_destruction : 'a t -> unit
 
 (* Non destructive *)
-val wait_until_n_are_waiting_then_snapshot : int -> 'a t -> 'a list
+val wait_until_n_are_waiting_then_snapshot : int -> 'a t -> 'a list LWT.t
 
 val clear : 'a t -> unit
 val is_empty : 'a t -> bool
@@ -25,4 +25,4 @@ val is_empty : 'a t -> bool
 exception BeingDestroyed
 (* Threads blocked in pop can get this exception if the queue is being
  * destroyed *)
-val destroy : 'a t -> unit
+val destroy : 'a t -> unit LWT.t

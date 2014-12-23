@@ -9,6 +9,7 @@
 open Errors
 open Pp
 open Util
+open LWT.Notations
 
 let pr_err s = Printf.eprintf "%s] %s\n" (System.process_id ()) s; flush stderr
 
@@ -149,12 +150,13 @@ module Make(T : Task) = struct
     let pick_task () =
       prerr_endline "waiting for a task";
       let pick age (t, c) = not !c && T.task_match age t in
-      let task, task_expiration =
-        TQueue.pop ~picky:(pick !worker_age) ~destroy:stop_waiting queue in
+      let ans = TQueue.pop ~picky:(pick !worker_age) ~destroy:stop_waiting queue in
+      ans >>= fun (task, task_expiration) ->
       expiration_date := task_expiration;
       last_task := Some task;
       prerr_endline ("got task: "^T.name_of_task task);
-      task in
+      LWT.return task
+    in
     let add_tasks l =
       List.iter (fun t -> TQueue.push queue (t,!expiration_date)) l in
     let get_exec_token () =
@@ -174,22 +176,21 @@ module Make(T : Task) = struct
         Universes.new_univ_level (Global.current_dirpath ())) in
 
     let rec kill_if () =
-      if not (Worker.is_alive proc) then ()
+      if not (Worker.is_alive proc) then LWT.return ()
       else if cancelled () || !(!expiration_date) then
         let () = stop_waiting := true in
         let () = TQueue.signal_destruction queue in
-        Worker.kill proc
-      else
-        let () = Unix.sleep 1 in
-        kill_if ()
+        let () = Worker.kill proc in
+        LWT.return ()
+      else LWT.yield >>= kill_if
     in
-    let _ = Thread.create kill_if () in
+    LWT.detach (kill_if ()) >>= fun () ->
 
-    try while true do
+    let rec loop () =
       report_status ~id "Idle";
-      let task = pick_task () in
+      pick_task () >>= fun task ->
       match T.request_of_task !worker_age task with
-      | None -> prerr_endline ("Task expired: " ^ T.name_of_task task)
+      | None -> prerr_endline ("Task expired: " ^ T.name_of_task task); loop ()
       | Some req ->
       try
         get_exec_token ();
@@ -202,23 +203,25 @@ module Make(T : Task) = struct
           | RespFeedback fbk -> T.forward_feedback fbk; continue ()
           | Response resp ->
               match T.use_response !worker_age task resp with
-              | `End -> raise Die
+              | `End -> LWT.raise Die
               | `Stay(competence, new_tasks) ->
                    last_task := None;
                    giveback_exec_token ();
                    worker_age := `Old competence;
-                   add_tasks new_tasks
+                   add_tasks new_tasks;
+                   LWT.return ()
         in
-          continue ()
+          continue () >>= loop
       with
       | (Sys_error _|Invalid_argument _|End_of_file|Die) as e ->
-          raise e (* we pass the exception to the external handler *)
+          LWT.raise e (* we pass the exception to the external handler *)
       | MarshalError s -> T.on_marshal_error s task; raise Die
       | e ->
           pr_err ("Uncaught exception in worker manager: "^
             string_of_ppcmds (print e));
-          flush_all (); raise Die
-    done with
+          flush_all (); LWT.raise Die
+    in
+    let handler = function
     | (Die | TQueue.BeingDestroyed) ->
         giveback_exec_token (); kill proc; exit ()
     | Sys_error _ | Invalid_argument _ | End_of_file ->
@@ -226,6 +229,10 @@ module Make(T : Task) = struct
         T.on_task_cancellation_or_expiration_or_slave_death !last_task;
         kill proc;
         exit ()
+    | e -> LWT.raise e
+    in
+    LWT.catch (loop ()) handler
+
   end
 
   module Pool = WorkerPool.Make(Model)
@@ -233,25 +240,34 @@ module Make(T : Task) = struct
   type queue = {
     active : Pool.pool;
     queue : (T.task * expiration) TQueue.t;
-    cleaner : Thread.t;
+    loop : LWT.loop;
   }
 
-  let create size =
-    let cleaner queue =
-      while true do
-        try ignore(TQueue.pop ~picky:(fun (_,cancelled) -> !cancelled) queue)
-        with TQueue.BeingDestroyed -> Thread.exit ()
-      done in
+  let create loop size =
     let queue = TQueue.create () in
+    let rec cleaner () =
+      let ans =
+        TQueue.pop ~picky:(fun (_,cancelled) -> !cancelled) queue >>= fun _ ->
+        LWT.return ()
+      in
+      let handle = function
+      | TQueue.BeingDestroyed -> LWT.return ()
+      | e -> LWT.raise e
+      in
+      LWT.catch ans handle >>= fun () -> cleaner ()
+    in
+    let _ = LWT.add_loop (cleaner ()) loop in
     {
-      active = Pool.create queue ~size;
+      active = Pool.create queue loop ~size;
       queue;
-      cleaner = Thread.create cleaner queue;
+      loop;
     }
   
-  let destroy { active; queue } =
-    Pool.destroy active;
-    TQueue.destroy queue
+  let destroy { active; queue; loop } =
+    let () = Pool.destroy active in
+    let id = LWT.add_loop (TQueue.destroy queue) loop in
+    (** We must synchronize after a destroy so that all resources are freed *)
+    LWT.run_loop_until loop id
 
   let enqueue_task { queue; active } (t, _ as item) =
     prerr_endline ("Enqueue task "^T.name_of_task t);
@@ -264,11 +280,12 @@ module Make(T : Task) = struct
   let set_order { queue } cmp =
     TQueue.set_order queue (fun (t1,_) (t2,_) -> cmp t1 t2)
 
-  let join { queue; active } =
+  let join { queue; active; loop } =
     if not (Pool.is_empty active) then
-      TQueue.wait_until_n_are_waiting_and_queue_empty
-        (Pool.n_workers active + 1(*cleaner*))
-        queue
+      let num = Pool.n_workers active + 1(*cleaner*) in
+      let req = TQueue.wait_until_n_are_waiting_and_queue_empty num queue in
+      let id = LWT.add_loop req loop in
+      LWT.run_loop_until loop id
 
   let cancel_all { queue; active } =
     TQueue.clear queue;
@@ -327,12 +344,12 @@ module Make(T : Task) = struct
     TQueue.clear queue
   
   let snapshot { queue; active } =
-    List.map fst
-     (TQueue.wait_until_n_are_waiting_then_snapshot
-       (Pool.n_workers active) queue)
+    (TQueue.wait_until_n_are_waiting_then_snapshot
+      (Pool.n_workers active) queue) >>= fun l ->
+    LWT.return (List.map fst l)
 
-  let with_n_workers n f =
-    let q = create n in 
+  let with_n_workers loop n f =
+    let q = create loop n in
     try let rc = f q in destroy q; rc
     with e -> let e = Errors.push e in destroy q; iraise e
 

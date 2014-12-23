@@ -17,6 +17,7 @@ open Names
 open Util
 open Ppvernac
 open Vernac_classifier
+open LWT.Notations
 
 module Hooks = struct
 
@@ -878,6 +879,8 @@ let _ = Errors.register_handler (function
 (****************************** THE SCHEDULER *********************************)
 (******************************************************************************)
 
+let loop = LWT.loop ()
+
 module rec ProofTask : sig
  
   type competence = Stateid.t list
@@ -1112,12 +1115,12 @@ and Slaves : sig
 
   (* blocking function that waits for the task queue to be empty *)
   val wait_all_done : unit -> unit
-  
+
   (* initialize the whole machinery (optional) *)
   val init : unit -> unit
 
   type 'a tasks = ('a,VCS.vcs) Stateid.request list
-  val dump_snapshot : unit -> Future.UUID.t tasks
+  val dump_snapshot : unit -> Future.UUID.t tasks LWT.t
   val check_task : string -> int tasks -> int -> bool
   val info_tasks : 'a tasks -> (string * float * int) list
   val finish_task :
@@ -1139,9 +1142,9 @@ end = struct (* {{{ *)
 
   let init () =
     if Flags.async_proofs_is_master () then
-      queue := Some (TaskQueue.create !Flags.async_proofs_n_workers)
+      queue := Some (TaskQueue.create loop !Flags.async_proofs_n_workers)
     else
-      queue := Some (TaskQueue.create 0)
+      queue := Some (TaskQueue.create loop 0)
 
   let check_task_aux extra name l i =
     let { Stateid.stop; document; loc; name = r_name } = List.nth l i in
@@ -1288,7 +1291,7 @@ end = struct (* {{{ *)
   (* For external users this name is nicer than request *)
   type 'a tasks = ('a,VCS.vcs) Stateid.request list
   let dump_snapshot () =
-    let tasks = TaskQueue.snapshot (Option.get !queue) in
+    TaskQueue.snapshot (Option.get !queue) >>= fun tasks ->
     let reqs =
       CList.map_filter
         ProofTask.(fun x ->
@@ -1297,7 +1300,7 @@ end = struct (* {{{ *)
              | _ -> None)
         tasks in
     prerr_endline (Printf.sprintf "dumping %d tasks\n" (List.length reqs));
-    reqs
+    LWT.return reqs
 
   let reset_task_queue () = TaskQueue.clear (Option.get !queue)
 
@@ -1421,7 +1424,7 @@ end = struct (* {{{ *)
         | _ -> errorlabstrm "Stm" (str"unsupported") in find false false e in
     Hooks.call Hooks.with_fail fail (fun () ->
     (if time then System.with_time false else (fun x -> x)) (fun () ->
-    ignore(TaskQueue.with_n_workers nworkers (fun queue ->
+    ignore(TaskQueue.with_n_workers loop nworkers (fun queue ->
     Proof_global.with_current_proof (fun _ p ->
       let goals, _, _, _, _ = Proof.proof p in
       let open TacTask in
@@ -1529,7 +1532,7 @@ end = struct (* {{{ *)
     TaskQueue.enqueue_task (Option.get !queue)
       QueryTask.({ QueryTask.t_where = prev; t_for = id; t_what = q }, switch)
 
-  let init () = queue := Some (TaskQueue.create
+  let init () = queue := Some (TaskQueue.create loop
     (if !Flags.async_proofs_full then 1 else 0))
 
 end (* }}} *)
@@ -1834,7 +1837,9 @@ let join () =
   VCS.print ();
   VCS.print ()
 
-let dump_snapshot () = Slaves.dump_snapshot (), RemoteCounter.snapshot ()
+let dump_snapshot () =
+  (LWT.run (Slaves.dump_snapshot ()), RemoteCounter.snapshot ())
+
 type document = VCS.vcs
 type tasks = int Slaves.tasks * RemoteCounter.remote_counters_status
 let check_task name (tasks,rcbackup) i =
