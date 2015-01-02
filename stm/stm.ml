@@ -1823,7 +1823,8 @@ let observe id =
 let finish ?(print_goals=false) () =
   observe (VCS.get_branch_pos (VCS.current_branch ()));
   if print_goals then msg_notice (pr_open_cur_subgoals ());
-  VCS.print ()
+  VCS.print ();
+  Printf.eprintf "[%i] Finished\n%!" (Unix.getpid ())
 
 let wait () =
   Slaves.wait_all_done ();
@@ -1834,8 +1835,9 @@ let join () =
   wait ();
   prerr_endline "Joining the environment";
   Global.join_safe_environment ();
+  prerr_endline "Finished the environment";
   VCS.print ();
-  VCS.print ()
+  Printf.eprintf "[%i] Joined\n%!" (Unix.getpid ())
 
 let dump_snapshot () =
   (LWT.run (Slaves.dump_snapshot ()), RemoteCounter.snapshot ())

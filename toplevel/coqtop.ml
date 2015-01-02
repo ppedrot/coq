@@ -16,6 +16,13 @@ open Libnames
 open States
 open Coqinit
 
+let handler _ =
+  Printexc.print_raw_backtrace stderr (Printexc.get_callstack max_int);
+  flush stderr
+
+let () =
+  Sys.set_signal Sys.sigusr1 (Sys.Signal_handle handler)
+
 let () = at_exit flush_all
 
 let ( / ) = Filename.concat

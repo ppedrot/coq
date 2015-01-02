@@ -184,7 +184,7 @@ module Make(T : Task) = struct
         LWT.return ()
       else LWT.yield >>= kill_if
     in
-    LWT.detach (kill_if ()) >>= fun () ->
+(*     LWT.detach (kill_if ()) >>= fun () -> *)
 
     let rec loop () =
       report_status ~id "Idle";

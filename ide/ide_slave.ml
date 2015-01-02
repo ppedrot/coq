@@ -50,11 +50,11 @@ let init_stdout, read_stdout =
 let pr_with_pid s = Printf.eprintf "[pid %d] %s\n%!" (Unix.getpid ()) s
 
 let pr_debug s =
-  if !Flags.debug then pr_with_pid s
+  if true then pr_with_pid s
 let pr_debug_call q =
-  if !Flags.debug then pr_with_pid ("<-- " ^ Xmlprotocol.pr_call q)
+  if true then pr_with_pid ("<-- " ^ Xmlprotocol.pr_call q)
 let pr_debug_answer q r =
-  if !Flags.debug then pr_with_pid ("--> " ^ Xmlprotocol.pr_full_value q r)
+  if true then pr_with_pid ("--> " ^ Xmlprotocol.pr_full_value q r)
 
 (** Categories of commands *)
 
@@ -247,7 +247,7 @@ let status force =
       (usually Top in an interactive session, cf "coqtop -top"),
       and display the other parts (opened sections and modules) *)
   Stm.finish ();
-  if force then Stm.join ();
+  if force then (Stm.join ());
   let s = read_stdout () in
   if not (String.is_empty s) then msg_info (str s);
   let path =

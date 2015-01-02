@@ -29,6 +29,7 @@ type 'a result =
 type 'a comp = ('a -> unit) -> unit
 
 type ops = {
+  id : int;
   yield : unit comp;
   (** Push the computation with lowest priority *)
   still : unit comp;
@@ -89,7 +90,8 @@ let exit = fun ops _ -> ops.exit ()
 (** The run_* functions return a boolean indicating whether they made
     progress. *)
 
-let run_fdescrs loop = match !(loop.reading), !(loop.writing) with
+let run_fdescrs loop =
+match !(loop.reading), !(loop.writing) with
 | [], [] -> false
 | rl, wl ->
   let rok = List.map fst rl in
@@ -128,6 +130,12 @@ let run_waiting loop =
     match check_waiting [] !(loop.waiting) with
     | None -> false
     | Some r -> loop.waiting := r; true
+
+let run_fdescrs loop =
+  if run_fdescrs loop then begin
+    Printf.eprintf "[%i] Step fdescrs\n%!" (Unix.getpid ());
+    true
+  end else false
 
 let run_pending loop =
   if Queue.is_empty loop.pending then false
@@ -190,14 +198,26 @@ let join x y = (); fun ops k ->
   ops.join (fun k -> x ops k) (fun k -> y ops k) k
 
 let signal id loop =
+  Printf.eprintf "[%i] Thread %i dead!\n%!" (Unix.getpid ()) id;
   try Int.Map.find id !(loop.watched) () with Not_found -> ()
 
 let make_ops id loop =
   (** Yielding delays the thread as the last one on the queue *)
-  let yield k = Queue.push k loop.pending in
-  let still k = Queue.hsup k loop.pending in
+  let log k = (); fun () ->
+    Printf.eprintf "[%i] Thread %i awaken\n%!" (Unix.getpid ()) id;
+    k ()
+  in
+  let yield k =
+    Printf.eprintf "[%i] Thread %i yield\n%!" (Unix.getpid ()) id;
+    Queue.push (log k) loop.pending
+  in
+  let still k =
+    Printf.eprintf "[%i] Thread %i release\n%!" (Unix.getpid ()) id;
+    Queue.hsup (log k) loop.pending
+  in
   let exit () = signal id loop in
   {
+    id = id;
     yield = yield;
     still = still;
     join = (fun x y -> join_ loop x y);
@@ -232,7 +252,7 @@ let add_loop t loop =
   let ops = make_ops id loop in
   let finish _ = signal id loop in
   let f () = t ops finish in
-  let () = Queue.hsup f loop.pending in
+  let () = ops.still f in
   id
 
 let run_loop_until loop id =
@@ -241,7 +261,12 @@ let run_loop_until loop id =
   let watched = !(loop.watched) in
   let signal () = alive := false in
   let () = loop.watched := Int.Map.singleton id signal in
-  let () = while !alive do step_loop loop done in
+  Printf.eprintf "[%i] Entering loop\n%!" (Unix.getpid ());
+  let () = while !alive do
+    Printf.eprintf "[%i] Stepping loop\n%!" (Unix.getpid ());
+    step_loop loop
+  done in
+  Printf.eprintf "[%i] Leaving loop\n%!" (Unix.getpid ());
   loop.watched := watched
 
 type mutex = {
@@ -287,14 +312,20 @@ struct
     Queue.push unlock c
 
   let await c = (); fun ops k ->
-    let unlock () = ops.still (fun () -> k dummy_ans) in
+    let () = Printf.eprintf "[%i] Thread %i waiting\n%!" (Unix.getpid ()) ops.id in
+    let unlock () =
+    Printf.eprintf "[%i] Thread %i resumed\n%!" (Unix.getpid ()) ops.id; 
+    ops.still (fun () -> k dummy_ans) in
     Queue.push unlock c
 
   let signal c =
+(*     let () = Printf.eprintf "[%i] Condition signalled\n%!" (Unix.getpid ()) in *)
     if not (Queue.is_empty c) then
       Queue.pop c ()
 
   let broadcast c =
+    let len = Queue.fold (fun acc _ -> succ acc) 0 c in
+    Printf.eprintf "[%i] Broadcasted (%i waiting)\n%!" (Unix.getpid ()) len;
     while not (Queue.is_empty c) do
       Queue.pop c ();
     done
