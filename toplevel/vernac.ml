@@ -227,6 +227,11 @@ let print_heap =
       let edge_filename = Printf.sprintf "edge.%i.%i" pid i in
       Heap_snapshot.dump_heapgraph ~node_filename ~edge_filename
 
+let () =
+  let all = { p_major = true; p_graph = true } in
+  let handler _ = print_heap all in
+  Sys.set_signal Sys.sigusr1 (Sys.Signal_handle handler)
+
 let rec vernac_com verbose checknav (loc,com) =
   let interp = function
     | VernacLoad (verbosely, fname) ->
