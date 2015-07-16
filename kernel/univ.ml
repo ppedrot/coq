@@ -1130,40 +1130,33 @@ let get_explanation strict u v g =
        path (typically, the shortest path has length 1)
  *)
 let search_path strict u v g =
-  (* Purely functional queue with two lists. *)
-  let qpush (l1, l2) x = (l1, x::l2) in
-  let qpop (l1, l2) =
-    match l1 with
-    | t :: q -> Some (t, (q, l2))
-    | [] ->
-      match List.rev l2 with
-      | t :: q -> Some (t, (q, []))
-      | [] -> None
-  in
-  let rec loop to_revert q =
-    match qpop q with
-    | None -> false, to_revert (* No path found *)
-    | Some ((u, strict), q) ->
+  let rec loop to_revert todo next_todo =
+    match todo, next_todo with
+    | [], [] -> false, to_revert (* No path found *)
+    | [], _ -> loop to_revert next_todo []
+    | (u, strict)::todo, _ ->
       if u.status = Visited || (u.status = WeakVisited && strict)
-      then loop to_revert q
+      then loop to_revert todo next_todo
       else
         let to_revert = if u.status = NoMark then u::to_revert else to_revert in
         u.status <- if strict then WeakVisited else Visited;
-        let rec aux strict q l cont =
+        let rec aux strict next_todo l cont =
           match l with
-          | [] -> cont q
+          | [] -> cont next_todo
           | u::l ->
             let u = repr g u in
             if u == v && not strict then true, to_revert
-            else if idx_of_can u >= idx_of_can v then aux strict q l cont
-            else aux strict (qpush q (u, strict)) l cont
+            else if idx_of_can u >= idx_of_can v then aux strict next_todo l cont
+            else aux strict ((u, strict)::next_todo) l cont
         in
-        aux false q u.lt (fun q -> aux strict q u.le (loop to_revert))
+        aux false next_todo u.lt (fun next_todo ->
+        aux strict next_todo u.le (fun next_todo ->
+        loop to_revert todo next_todo))
   in
   if u == v then not strict
   else
     try
-      let res, to_revert = loop [] ([u, strict],[]) in
+      let res, to_revert = loop [] [u, strict] [] in
       List.iter (fun u -> u.status <- NoMark) to_revert;
       res
     with e ->
