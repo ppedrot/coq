@@ -1124,8 +1124,8 @@ let get_explanation strict u v g =
   else None
 
 (* To compare two nodes, we simply do a forward search.
-   We have two ameliorations:
-   - we ignore nodes that ar higher than the destination;
+   We implement two improvements:
+   - we ignore nodes that are higher than the destination;
    - we do a BFS rather than a DFS because we expect to have a short
        path (typically, the shortest path has length 1)
  *)
@@ -1494,7 +1494,7 @@ let constraints_of_universes g =
 
 let topo_compare u v = Pervasives.compare (idx_of_can u) (idx_of_can v)
 
-(** [sort_universes g] builds a totaly ordered universe graph.  The
+(** [sort_universes g] builds a totally ordered universe graph.  The
     output graph should imply the input graph (and the implication
     will be strict most of the time), but is not necessarily minimal.
     Moreover, it adds levels [Type.n] to identify universes at level
