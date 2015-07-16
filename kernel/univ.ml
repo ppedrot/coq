@@ -1082,13 +1082,6 @@ let insert_edge strict ucan vcan g =
     let () = cleanup_universes g in
     raise e
 
-(** Uncomment to debug the cycle detection algorithm. *)
-(* let insert_edge strict ucan vcan g = *)
-(*   check_universes_invariants g; *)
-(*   let g = insert_edge strict ucan vcan g in *)
-(*   check_universes_invariants g; *)
-(*   g *)
-
 type constraint_type = Lt | Le | Eq
 
 type explanation = (constraint_type * universe) list
@@ -1177,6 +1170,16 @@ let search_path strict u v g =
       (** Unlikely event: fatal error or signal *)
       let () = cleanup_universes g in
       raise e
+
+(** Uncomment to debug the cycle detection algorithm. *)
+(*let insert_edge strict ucan vcan g =
+  check_universes_invariants g;
+  let g = insert_edge strict ucan vcan g in
+  check_universes_invariants g;
+  let ucan = repr g ucan.univ in
+  let vcan = repr g vcan.univ in
+  assert (search_path strict ucan vcan g);
+  g*)
 
 (** First, checks on universe levels *)
 
