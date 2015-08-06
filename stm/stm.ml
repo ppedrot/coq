@@ -1220,7 +1220,7 @@ end = struct (* {{{ *)
         (Lemmas.standard_proof_terminator []
           (Lemmas.mk_hook (fun _ _ -> ())));
       let proof =
-        Proof_global.close_proof ~keep_body_ucst_sepatate:true (fun x -> x) in
+        Proof_global.close_proof ~keep_body_ucst_separate:true (fun x -> x) in
       (* We jump at the beginning since the kernel handles side effects by also
        * looking at the ones that happen to be present in the current env *)
       Reach.known_state ~cache:`No start;
@@ -1688,7 +1688,10 @@ let collect_proof keep cur hd brkind id =
         assert (VCS.Branch.equal hd hd' || VCS.Branch.equal hd VCS.edit_branch);
         let name = name ids in
         `MaybeASync (parent last, None, accn, name, delegate name)
-    | `Sideff _ -> `Sync (no_name,None,`NestedProof)
+    | `Sideff _ ->
+        Pp.(msg_warning (strbrk ("Nested proofs are deprecated and will "^
+           "stop working in the next Coq version")));
+        `Sync (no_name,None,`NestedProof)
     | _ -> `Sync (no_name,None,`Unknown) in
  let make_sync why = function
    | `Sync(name,pua,_) -> `Sync (name,pua,why)
@@ -1837,7 +1840,6 @@ let known_state ?(redefine_qed=false) ~cache id =
                 Proof_global.discard_all ()
               ), (if redefine_qed then `No else `Yes), true
           | `Sync (name, _, `Immediate) -> (fun () -> 
-                assert (Stateid.equal view.next eop);
                 reach eop; vernac_interp id x; Proof_global.discard_all ()
               ), `Yes, true
           | `Sync (name, pua, reason) -> (fun () ->
@@ -1854,11 +1856,10 @@ let known_state ?(redefine_qed=false) ~cache id =
                       qed.fproof <- Some (fp, ref false); None
                   | VtKeep ->
                       Some(Proof_global.close_proof
-                                ~keep_body_ucst_sepatate:false
+                                ~keep_body_ucst_separate:false
                                 (State.exn_on id ~valid:eop)) in
-                reach view.next;
-                if keep == VtKeepAsAxiom then
-                  Option.iter (vernac_interp id) pua;
+                if keep != VtKeepAsAxiom then
+                  reach view.next;
                 let wall_clock2 = Unix.gettimeofday () in
                 vernac_interp id ?proof x;
                 let wall_clock3 = Unix.gettimeofday () in
@@ -2117,7 +2118,7 @@ let process_transaction ?(newtip=Stateid.fresh ()) ~tty verbose c (loc, expr) =
              iraise (State.exn_on report_id e)); `Ok
       | VtQuery (false,(report_id,route)), VtNow ->
           (try vernac_interp report_id ~route x
-           with e when Errors.noncritical e ->
+           with e ->
              let e = Errors.push e in
              iraise (State.exn_on report_id e)); `Ok
       | VtQuery (true,(report_id,_)), w ->
@@ -2306,9 +2307,7 @@ let edit_at id =
   let rec master_for_br root tip =
       if Stateid.equal tip Stateid.initial then tip else
       match VCS.visit tip with
-      | { next } when next = root -> root
-      | { step = `Fork _ } -> tip
-      | { step = `Sideff (`Ast(_,id)|`Id id) } -> id
+      | { step = (`Fork _ | `Sideff _ | `Qed _) } -> tip
       | { next } -> master_for_br root next in
   let reopen_branch start at_id mode qed_id tip old_branch =
     let master_id, cancel_switch, keep =
@@ -2451,7 +2450,7 @@ let get_script prf =
   let branch, test =
     match prf with
     | None -> VCS.Branch.master, fun _ -> true
-    | Some name -> VCS.current_branch (),  List.mem name in
+    | Some name -> VCS.current_branch (),fun nl -> nl=[] || List.mem name nl in
   let rec find acc id =
     if Stateid.equal id Stateid.initial ||
        Stateid.equal id Stateid.dummy then acc else
@@ -2462,7 +2461,9 @@ let get_script prf =
     | `Sideff (`Ast (x,_)) ->
          find ((x.expr, (VCS.get_info id).n_goals)::acc) view.next
     | `Sideff (`Id id)  -> find acc id
-    | `Cmd {cast = x} -> find ((x.expr, (VCS.get_info id).n_goals)::acc) view.next 
+    | `Cmd {cast = x; ctac} when ctac -> (* skip non-tactics *)
+         find ((x.expr, (VCS.get_info id).n_goals)::acc) view.next 
+    | `Cmd _ -> find acc view.next
     | `Alias (id,_) -> find acc id
     | `Fork _ -> find acc view.next
     in

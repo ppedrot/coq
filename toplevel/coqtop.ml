@@ -41,8 +41,8 @@ let toploop = ref None
 
 let color : [`ON | `AUTO | `OFF] ref = ref `AUTO
 let set_color = function
-| "on" -> color := `ON
-| "off" -> color := `OFF
+| "yes" | "on" -> color := `ON
+| "no" | "off" -> color := `OFF
 | "auto" -> color := `AUTO
 | _ -> prerr_endline ("Error: on/off/auto expected after option color"); exit 1
 
@@ -112,14 +112,12 @@ let print_memory_stat () =
 
 let _ = at_exit print_memory_stat
 
-let engagement = ref None
-let set_engagement c = engagement := Some c
+let impredicative_set = ref Declarations.PredicativeSet
+let set_impredicative_set c = impredicative_set := Declarations.ImpredicativeSet
+let type_in_type = ref Declarations.StratifiedType
+let set_type_in_type () = type_in_type := Declarations.TypeInType
 let engage () =
-  match !engagement with Some c -> Global.set_engagement c | None -> ()
-
-let type_in_type = ref false
-let set_type_in_type () = type_in_type := true
-let set_hierarchy () = if !type_in_type then Global.set_type_in_type ()
+  Global.set_engagement (!impredicative_set,!type_in_type)
 
 let set_batch_mode () = batch_mode := true
 
@@ -328,8 +326,8 @@ let get_priority opt s =
     prerr_endline ("Error: low/high expected after "^opt); exit 1
 
 let get_async_proofs_mode opt = function
-  | "off" -> Flags.APoff
-  | "on" -> Flags.APon
+  | "no" | "off" -> Flags.APoff
+  | "yes" | "on" -> Flags.APon
   | "lazy" -> Flags.APonLazy
   | _ -> prerr_endline ("Error: on/off/lazy expected after "^opt); exit 1
 
@@ -343,8 +341,8 @@ let set_worker_id opt s =
   Flags.async_proofs_worker_id := s
 
 let get_bool opt = function
-  | "yes" -> true
-  | "no" -> false
+  | "yes" | "on" -> true
+  | "no" | "off" -> false
   | _ -> prerr_endline ("Error: yes/no expected after option "^opt); exit 1
 
 let get_int opt n =
@@ -521,7 +519,7 @@ let parse_args arglist =
     |"-filteropts" -> filter_opts := true
     |"-h"|"-H"|"-?"|"-help"|"--help" -> usage ()
     |"-ideslave" -> toploop := Some "coqidetop"; Flags.ide_slave := true
-    |"-impredicative-set" -> set_engagement Declarations.ImpredicativeSet
+    |"-impredicative-set" -> set_impredicative_set ()
     |"-indices-matter" -> Indtypes.enforce_indices_matter ()
     |"-just-parsing" -> Vernac.just_parsing := true
     |"-m"|"--memory" -> memory_stat := true
@@ -605,7 +603,6 @@ let init arglist =
       Mltop.init_known_plugins ();
       set_vm_opt ();
       engage ();
-      set_hierarchy ();
       (* Be careful to set these variables after the inputstate *)
       Syntax_def.set_verbose_compat_notations !verb_compat_ntn;
       Syntax_def.set_compat_notations (not !no_compat_ntn);

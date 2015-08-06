@@ -308,6 +308,7 @@ type to_patch = emitcodes * (patch list) * fv
 let rec subst_strcst s sc =
   match sc with
   | Const_sorts _ | Const_b0 _ -> sc
+  | Const_proj p -> Const_proj (subst_constant s p)
   | Const_bn(tag,args) -> Const_bn(tag,Array.map (subst_strcst s) args)
   | Const_ind(ind,u) -> let kn,i = ind in Const_ind((subst_mind s kn, i), u)
 
@@ -327,36 +328,36 @@ let subst_pconstant s (kn, u) = (fst (subst_con_kn s kn), u)
 
 type body_code =
   | BCdefined of to_patch
-  | BCallias of pconstant
+  | BCalias of pconstant
   | BCconstant
 
 type to_patch_substituted =
 | PBCdefined of to_patch substituted
-| PBCallias of pconstant substituted
+| PBCalias of pconstant substituted
 | PBCconstant
 
 let from_val = function
 | BCdefined tp -> PBCdefined (from_val tp)
-| BCallias cu -> PBCallias (from_val cu)
+| BCalias cu -> PBCalias (from_val cu)
 | BCconstant -> PBCconstant
 
 let force = function
 | PBCdefined tp -> BCdefined (force subst_to_patch tp)
-| PBCallias cu -> BCallias (force subst_pconstant cu)
+| PBCalias cu -> BCalias (force subst_pconstant cu)
 | PBCconstant -> BCconstant
 
 let subst_to_patch_subst s = function
 | PBCdefined tp -> PBCdefined (subst_substituted s tp)
-| PBCallias cu -> PBCallias (subst_substituted s cu)
+| PBCalias cu -> PBCalias (subst_substituted s cu)
 | PBCconstant -> PBCconstant
 
 let repr_body_code = function
 | PBCdefined tp ->
   let (s, tp) = repr_substituted tp in
   (s, BCdefined tp)
-| PBCallias cu ->
+| PBCalias cu ->
   let (s, cu) = repr_substituted cu in
-  (s, BCallias cu)
+  (s, BCalias cu)
 | PBCconstant -> (None, BCconstant)
 
 let to_memory (init_code, fun_code, fv) =
