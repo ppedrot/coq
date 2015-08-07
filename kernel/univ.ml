@@ -778,10 +778,15 @@ let rec safe_repr g u =
     let g = use_index g u in
     g, repr g u
 
-(* [idx_of_can u] returns a pair of integers. Using lexicographical order
-   over this pair for different nodes can be used to know the relative
-   position of both nodes in the topological order. *)
-let idx_of_can u = u.klvl, u.ilvl
+(* Returns 1 if u is higher than v in topological order.
+           -1        lower
+           0 if u = v *)
+let topo_compare u v =
+  if u.klvl > v.klvl then 1
+  else if u.klvl < v.klvl then -1
+  else if u.ilvl > v.ilvl then 1
+  else if u.ilvl < v.ilvl then -1
+  else (assert (u==v); 0)
 
 (* Checks most of the invariants of the graph. For debugging purposes. *)
 let check_universes_invariants g =
@@ -793,7 +798,7 @@ let check_universes_invariants g =
       LMap.iter (fun v strict ->
           incr n_edges;
           let v = repr g v in
-          assert (idx_of_can u < idx_of_can v);
+          assert (topo_compare u v = -1);
           if u.klvl = v.klvl then
             assert (LSet.mem u.univ v.gtge ||
                     LSet.exists (fun l -> u == repr g l) v.gtge))
@@ -873,12 +878,13 @@ exception CycleDetected
    new approach to incremental cycle detection and related
    problems. arXiv preprint arXiv:1112.0784. *)
 (* Assumes [u] and [v] are already in the graph. *)
+(* Does NOT assume that ucan != vcan. *)
 let insert_edge strict ucan vcan g =
   try
     let u = ucan.univ and v = vcan.univ in
     let g =
       (* STEP 1: do we need to reorder nodes ? *)
-      if idx_of_can ucan <= idx_of_can vcan then g
+      if topo_compare ucan vcan <= 0 then g
       else begin
         (* STEP 2: backward search in the k-level of u. *)
         (* [delta] is the timeout for backward search. It might be
@@ -1106,7 +1112,7 @@ let get_explanation strict u v g =
   let rec traverse strict u =
     if u == v then
       if strict then None else Some []
-    else if idx_of_can u > idx_of_can v then None
+    else if topo_compare u v = 1 then None
     else
       let visited =
         try not (LMap.find u.univ !visited_strict) || strict
@@ -1165,7 +1171,7 @@ let search_path strict u v g =
                 let strict = not strictu && strict in
                 let u = repr g u in
                 if u == v && not strict then raise (Found to_revert)
-                else if idx_of_can u > idx_of_can v then next_todo
+                else if topo_compare u v = 1 then next_todo
                 else (u, strict)::next_todo)
                u.ltle next_todo
             in
@@ -1265,7 +1271,7 @@ let error_inconsistency o u v (p:explanation option) =
 let rec enforce_univ_eq u v g =
   let g,ucan = safe_repr g u in
   let g,vcan = safe_repr g v in
-  if idx_of_can ucan > idx_of_can vcan then enforce_univ_eq v u g
+  if topo_compare ucan vcan = 1 then enforce_univ_eq v u g
   else
     let g = insert_edge false ucan vcan g in  (* Cannot fail *)
     try insert_edge false vcan ucan g
@@ -1506,8 +1512,6 @@ let constraints_of_universes g =
 
 let constraints_of_universes g =
   constraints_of_universes (normalize_universes g)
-
-let topo_compare u v = Pervasives.compare (idx_of_can u) (idx_of_can v)
 
 (** [sort_universes g] builds a totally ordered universe graph.  The
     output graph should imply the input graph (and the implication
