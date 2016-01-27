@@ -431,7 +431,7 @@ let extract_mrectype t =
     | _ -> raise Not_found
 
 let find_mrectype env sigma c =
-  let (t, l) = decompose_app (whd_betadeltaiota env sigma c) in
+  let (t, l) = decompose_app (Reduction.whd_betadeltaiota ~evars:(safe_evar_value sigma) env c) in
   match kind_of_term t with
     | Ind ind -> (ind, l)
     | _ -> raise Not_found

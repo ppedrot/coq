@@ -110,11 +110,11 @@ let whd_betaiotazeta env x =
        Prod _|Lambda _|Fix _|CoFix _) -> x
     | _ -> whd_val (create_clos_infos betaiotazeta env) (inject x)
 
-let whd_betadeltaiota env t =
+let whd_betadeltaiota ?evars env t =
   match kind_of_term t with
     | (Sort _|Meta _|Evar _|Ind _|Construct _|
        Prod _|Lambda _|Fix _|CoFix _) -> t
-    | _ -> whd_val (create_clos_infos betadeltaiota env) (inject t)
+    | _ -> whd_val (create_clos_infos ?evars betadeltaiota env) (inject t)
 
 let whd_betadeltaiota_nolet env t =
   match kind_of_term t with
