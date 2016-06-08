@@ -99,7 +99,9 @@ let print_graph edges locs =
   in
   let values = IntPairMap.bindings edges in
   let values = List.sort (fun (_, n) (_, m) -> Int.compare n m) values in
-  List.iter iter values
+  Printf.printf "digraph G {\n";
+  List.iter iter values;
+  Printf.printf "}\n"
 
 let () =
   let edges = Sys.argv.(1) in
