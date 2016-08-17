@@ -331,8 +331,9 @@ grammar/%.cmi: grammar/%.mli
 
 ## Explicit dependencies for ppx stuff
 
-PPXCMX := ppx/ppx_driver.cmx ppx/ppx_coq.cmx
-ppx/ppx_coq.cmx : ppx/ppx_driver.cmx
+PPXCMX := ppx/ppx_utils.cmx ppx/ppx_driver.cmx ppx/ppx_tacextend.cmx ppx/ppx_coq.cmx
+ppx/ppx_tacextend.cmx : ppx/ppx_utils.cmx
+ppx/ppx_coq.cmx : ppx/ppx_driver.cmx ppx/ppx_tacextend.cmx
 
 ## Ocaml compiler with the right options and -I for grammar
 

@@ -1,0 +1,212 @@
+(************************************************************************)
+(*  v      *   The Coq Proof Assistant  /  The Coq Development Team     *)
+(* <O___,, *   INRIA - CNRS - LIX - LRI - PPS - Copyright 1999-2016     *)
+(*   \VV/  **************************************************************)
+(*    //   *      This file is distributed under the terms of the       *)
+(*         *       GNU Lesser General Public License Version 2.1        *)
+(************************************************************************)
+
+open Ast_mapper
+open Ast_helper
+open Asttypes
+open Parsetree
+open Longident
+
+open Ppx_utils
+
+(**
+
+let foo%tacextend = function
+| [ "tok"; `entry c ] -> tac
+| [ "tuk"; `foo x; `bar y ] -> tic
+
+*)
+
+(** Generating extension from the data *)
+
+let coq_plugin_name = ref None
+
+let default_loc = [%expr Loc.ghost ]
+let plugin_name () = match !coq_plugin_name with
+| None ->
+  raise (Location.Error (Location.error ("Missing [%%plugin ...] statement")))
+| Some e -> e
+let cannot_occur () =
+  [%expr failwith "Extension: cannot occur" ]
+
+let mlexpr_of_ident id =
+  (** Workaround for badly-designed generic arguments lacking a closure *)
+  let id = Ast_convenience.str ("$" ^ id) in
+  [%expr (Names.Id.of_string_soft [%e id ]) ]
+
+let rec make_patt = function
+| [] -> [%pat? [] ]
+| ExtNonTerminal (_, p) :: l ->
+  let pv = Ast_convenience.pvar p in
+  let l = make_patt l in
+  [%pat? [%p pv ] :: [%p l ] ]
+| _ :: l -> make_patt l
+
+let rec make_let e = function
+| [] -> [%expr fun ist -> [%e e] ]
+| ExtNonTerminal (g, p) :: l ->
+  let t = type_of_user_symbol g in
+  let e = make_let e l in
+  let v = [%expr Tacinterp.Value.cast [%e make_topwit t ] [%e Ast_convenience.evar p ] ] in
+  let vb = Vb.mk (Ast_convenience.pvar p) v in
+  Ast_convenience.let_in [vb] e
+| _ :: l -> make_let e l
+
+let make_fun_clauses s l =
+  let default = [ [%pat? _ ], cannot_occur () ] in
+  let map (pt, e) = Ast_convenience.func ((make_patt pt, make_let e pt) :: default) in
+  mlexpr_of_list map l
+
+let get_argt e = [%expr match [%e e ] with Genarg.ExtraArg tag -> tag | _ -> assert false ]
+
+let rec mlexpr_of_symbol = function
+| Ulist1 s -> [%expr Extend.Ulist1 [%e mlexpr_of_symbol s ] ]
+| Ulist1sep (s,sep) -> [%expr Extend.Ulist1sep ([%e mlexpr_of_symbol s ], [%e mlexpr_of_string sep ]) ]
+| Ulist0 s -> [%expr Extend.Ulist0 [%e mlexpr_of_symbol s ] ]
+| Ulist0sep (s,sep) -> [%expr Extend.Ulist0sep ([%e mlexpr_of_symbol s ], [%e mlexpr_of_string sep ]) ]
+| Uopt s -> [%expr Extend.Uopt [%e mlexpr_of_symbol s ] ]
+| Uentry e ->
+  let arg = get_argt (mk_extraarg e) in
+  [%expr Extend.Uentry (Genarg.ArgT.Any [%e arg ]) ]
+| Uentryl (e, l) ->
+  assert (e = "tactic");
+  let arg = get_argt [%expr Constrarg.wit_tactic ] in
+  [%expr Extend.Uentryl (Genarg.ArgT.Any [%e arg ], [%e mlexpr_of_int l ])]
+
+let make_prod_item = function
+  | ExtTerminal s -> [%expr Tacentries.TacTerm [%e mlexpr_of_string s ] ]
+  | ExtNonTerminal (g, id) ->
+    [%expr Tacentries.TacNonTerm ([%e default_loc ], [%e mlexpr_of_symbol g ], [%e mlexpr_of_ident id ]) ]
+
+let mlexpr_of_clause cl =
+  mlexpr_of_list (fun (a, _) -> mlexpr_of_list make_prod_item a) cl
+
+(** Special treatment of constr entries *)
+let is_constr_gram = function
+| ExtTerminal _ -> false
+| ExtNonTerminal (Uentry "constr", _) -> true
+| _ -> false
+
+let make_var = function
+  | ExtNonTerminal (_, p) -> Some p
+  | _ -> assert false
+
+let declare_tactic s cl = match cl with
+| [(ExtTerminal name) :: rem, tac] when List.for_all is_constr_gram rem ->
+  (** The extension is only made of a name followed by constr entries: we do not
+      add any grammar nor printing rule and add it as a true Ltac definition. *)
+  let patt = make_patt rem in
+  let vars = List.map make_var rem in
+  let vars = mlexpr_of_list (mlexpr_of_option mlexpr_of_ident) vars in
+  let entry = mlexpr_of_string s in
+  let se = [%expr { Tacexpr.mltac_tactic = [%e entry ]; Tacexpr.mltac_plugin = [%e plugin_name () ] } ] in
+  let ml = [%expr { Tacexpr.mltac_name = [%e se ]; Tacexpr.mltac_index = 0 } ] in
+  let name = mlexpr_of_string name in
+  let tac = match rem with
+  | [] ->
+    (** Special handling of tactics without arguments: such tactics do not do
+        a Proofview.Goal.nf_enter to compute their arguments. It matters for some
+        whole-prof tactics like [shelve_unifiable]. *)
+      [%expr fun _ ist -> [%e tac ] ]
+  | _ ->
+      let f = [%expr fun ist -> [%e tac ] ] in
+      let f = [%expr function [%p patt ] -> [%e f ] | _ -> [%e cannot_occur () ] ] in
+      [%expr Tacinterp.lift_constr_tac_to_ml_tac [%e vars ] [%e f ] ]
+  in
+  (** Arguments are not passed directly to the ML tactic in the TacML node,
+      the ML tactic retrieves its arguments in the [ist] environment instead.
+      This is the rôle of the [lift_constr_tac_to_ml_tac] function. *)
+  let body = [%expr Tacexpr.TacFun ([%e vars ], Tacexpr.TacML ([%e default_loc ], [%e ml ], [])) ] in
+  let name = [%expr Names.Id.of_string [%e name ] ] in
+  [%stri
+    let () =
+      let obj () = Tacenv.register_ltac true false [%e name ] [%e body ] in
+      let () = Tacenv.register_ml_tactic [%e se ] [|[%e tac ]|] in
+      let () = Mltop.declare_cache_obj obj [%e plugin_name () ] in
+      ()
+  ]
+| _ ->
+  (** Otherwise we add parsing and printing rules to generate a call to a
+      TacML tactic. *)
+  let entry = mlexpr_of_string s in
+  let se = [%expr { Tacexpr.mltac_tactic = [%e entry ]; Tacexpr.mltac_plugin = [%e plugin_name () ] } ] in
+  let gl = mlexpr_of_clause cl in
+  let obj = [%expr fun () -> Tacentries.add_ml_tactic_notation [%e se ] [%e gl ] ] in
+  [%stri
+    let () =
+      let () = Tacenv.register_ml_tactic [%e se ] (Array.of_list [%e make_fun_clauses s cl ]) in
+      let () = Mltop.declare_cache_obj [%e obj ] [%e plugin_name () ] in
+      ()
+  ]
+
+(** Extracting data from the syntax *)
+
+let error loc obj =
+  raise (Location.Error (Location.error ~loc ("Syntax error: " ^ obj ^ " expected")))
+
+let pat_to_var = function
+| { ppat_desc = Ppat_var v } -> v.txt
+| pat -> error pat.ppat_loc "variable"
+
+let pat_to_string = function
+| { ppat_desc = Ppat_constant (Const_string (s, _)) } -> s
+| pat -> error pat.ppat_loc "string"
+
+let rec pat_to_list = function
+| [%pat? []] -> []
+| [%pat? ([%p? x] :: [%p? l]) ] -> x :: pat_to_list l
+| pat -> error pat.ppat_loc "list pattern"
+
+let extract_token = function
+| { ppat_desc = Ppat_constant _ } as p -> ExtTerminal (pat_to_string p)
+| { ppat_desc = Ppat_variant (s, Some p) } ->
+  let (v, sep) = match p with
+  | { ppat_desc = Ppat_var v } -> (v.txt, "")
+  | { ppat_desc = Ppat_tuple [v; sep] } -> (pat_to_var v, pat_to_string sep)
+  | pat -> error pat.ppat_loc "variable"
+  in
+  let tok = parse_user_entry s sep in
+  ExtNonTerminal (tok, v)
+| pat -> error pat.ppat_loc "tactic token"
+
+let extract_tokens tokens =
+  List.map extract_token (pat_to_list tokens)
+
+let extract_branch = function
+| { pc_lhs = pat; pc_rhs = e; pc_guard = None } ->
+  let toks = extract_tokens pat in
+  (toks, e)
+| { pc_guard = Some e } -> error e.pexp_loc "no guard"
+
+let extract_branches = function
+| { pexp_desc = Pexp_function cs } -> List.map extract_branch cs
+| e -> error e.pexp_loc "'function'"
+
+let extract_tacextend = function
+| { pstr_desc = Pstr_value (_, [v]) } ->
+  let name = pat_to_var v.pvb_pat in
+  let branches = extract_branches v.pvb_expr in
+  (name, branches)
+| e -> error e.pstr_loc "simple let-binding"
+
+let tacextend loc pstr = match pstr with
+| PStr [e] ->
+  Ast_helper.with_default_loc loc begin fun () ->
+  let (name, branches) = extract_tacextend e in
+  declare_tactic name branches
+  end
+| _ -> error loc "one structure item"
+
+let plugin loc pstr = match pstr with
+| PStr [{ pstr_desc = Pstr_eval (e, _) }] ->
+  let name = match Ast_convenience.get_str e with
+  | None -> error loc "string"
+  | Some s -> coq_plugin_name := Some e; s
+  in
+  [%stri let _ = Mltop.add_known_module [%e mlexpr_of_string name ] ]
+| _ -> error loc "string"

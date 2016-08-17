@@ -8,6 +8,8 @@
 
 (** List of mappers to apply in order *)
 let mappers = [
+  "coq.tacextend", Ppx_tacextend.tacextend;
+  "coq.plugin", Ppx_tacextend.plugin;
 ]
 
 let mapper =
