@@ -1,0 +1,34 @@
+(************************************************************************)
+(*  v      *   The Coq Proof Assistant  /  The Coq Development Team     *)
+(* <O___,, *   INRIA - CNRS - LIX - LRI - PPS - Copyright 1999-2016     *)
+(*   \VV/  **************************************************************)
+(*    //   *      This file is distributed under the terms of the       *)
+(*         *       GNU Lesser General Public License Version 2.1        *)
+(************************************************************************)
+
+open Ast_mapper
+open Asttypes
+open Parsetree
+
+type extension = {
+  ext_name : string;
+  ext_struct : Location.t -> Parsetree.payload -> Parsetree.structure_item;
+}
+
+let apply_ext ext super = { super with
+(*  expr = begin fun self expr -> match expr with
+  | { pexp_desc = Pexp_extension ({ txt; loc }, pstr)} when txt = ext.ext_name ->
+    let expr = ext.ext_expr loc pstr in
+    super.expr self expr
+  | _ -> super.expr self expr
+  end;*)
+  structure_item = begin fun self item -> match item with
+  | { pstr_desc = Pstr_extension (({ txt; loc }, pstr), _)} when txt = ext.ext_name ->
+    let expr = ext.ext_struct loc pstr in
+    super.structure_item self expr
+  | _ -> super.structure_item self item
+  end;
+}
+
+let compose : extension list -> mapper =
+  fun l -> List.fold_right apply_ext l default_mapper

@@ -1,0 +1,18 @@
+(************************************************************************)
+(*  v      *   The Coq Proof Assistant  /  The Coq Development Team     *)
+(* <O___,, *   INRIA - CNRS - LIX - LRI - PPS - Copyright 1999-2016     *)
+(*   \VV/  **************************************************************)
+(*    //   *      This file is distributed under the terms of the       *)
+(*         *       GNU Lesser General Public License Version 2.1        *)
+(************************************************************************)
+
+(** List of mappers to apply in order *)
+let mappers = [
+]
+
+let mapper =
+  let map (name, f) = { Ppx_driver.ext_name = name; ext_struct = f } in
+  let mapper = Ppx_driver.compose (List.map map mappers) in
+  fun _ -> mapper
+
+let () = Ast_mapper.register "ppx_coq" mapper

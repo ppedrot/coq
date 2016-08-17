@@ -186,7 +186,7 @@ let parse_args () =
     (* Extra options with arity 0 or 1, directly passed to ocamlc/ocamlopt *)
     | ("-noassert"|"-compact"|"-g"|"-p"|"-thread"|"-dtypes" as o) :: rem ->
         parse (o::op,fl) rem
-    | ("-cclib"|"-ccopt"|"-I"|"-o"|"-w" as o) :: rem' ->
+    | ("-cclib"|"-ccopt"|"-I"|"-o"|"-w"|"-ppx" as o) :: rem' ->
 	begin
 	  match rem' with
 	    | a :: rem -> parse (a::o::op,fl) rem

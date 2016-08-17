@@ -96,6 +96,10 @@ STDTIME=/usr/bin/time -f "$* (user: %U mem: %M ko)"
 
 TIMER=$(if $(TIMED), $(STDTIME), $(TIMECMD))
 
+# PPX settings
+
+PPX_COQ := ppx/ppx_coq
+
 # NB: do not use a variable named TIME, since this variable controls
 # the output format of the unix command time. For instance:
 #   TIME="%C (%U user, %S sys, %e total, %M maxres)"
@@ -109,9 +113,9 @@ MLINCLUDES=$(LOCALINCLUDES) -I $(MYCAMLP4LIB)
 OCAMLC := $(OCAMLFIND) ocamlc $(CAMLFLAGS)
 OCAMLOPT := $(OCAMLFIND) opt $(CAMLFLAGS)
 
-BYTEFLAGS=-thread $(CAMLDEBUG) $(USERFLAGS)
-OPTFLAGS=-thread $(CAMLDEBUGOPT) $(CAMLTIMEPROF) $(USERFLAGS)
-DEPFLAGS= $(LOCALINCLUDES) -I ide -I ide/utils
+BYTEFLAGS=-ppx $(PPX_COQ) -thread $(CAMLDEBUG) $(USERFLAGS)
+OPTFLAGS=-ppx $(PPX_COQ) -thread $(CAMLDEBUGOPT) $(CAMLTIMEPROF) $(USERFLAGS)
+DEPFLAGS=-ppx $(PPX_COQ) $(LOCALINCLUDES) -I ide -I ide/utils
 
 # On MacOS, the binaries are signed, except our private ones
 ifeq ($(shell which codesign > /dev/null 2>&1 && echo $(ARCH)),Darwin)
@@ -320,6 +324,32 @@ grammar/%.cmi: grammar/%.mli
 	$(SHOW)'OCAMLC -c $<'
 	$(HIDE)$(GRAMC) -c $<
 
+
+###########################################################################
+#  ppx
+###########################################################################
+
+## Explicit dependencies for ppx stuff
+
+PPXCMX := ppx/ppx_driver.cmx ppx/ppx_coq.cmx
+ppx/ppx_coq.cmx : ppx/ppx_driver.cmx
+
+## Ocaml compiler with the right options and -I for grammar
+
+PPXOPT := $(OCAMLFIND) ocamlopt $(CAMLFLAGS) $(CAMLDEBUG) $(USERFLAGS) \
+ -I ppx/ -package compiler-libs.common -package ppx_tools.metaquot
+
+## Specific rules for ppx_coq
+
+$(PPX_COQ): $(PPXCMX)
+	$(SHOW)'OCAMLOPT $@'
+	$(HIDE)$(PPXOPT) $^ -linkpkg -linkall -o $@
+
+## Rules for .ml files in ppx/
+
+ppx/%.cmx: ppx/%.mlp
+	$(SHOW)'OCAMLOPT -c $<'
+	$(HIDE)$(PPXOPT) -c -impl $<
 
 ###########################################################################
 # Main targets (coqmktop, coqtop.opt, coqtop.byte)
@@ -577,11 +607,11 @@ plugins/micromega/sos_FORPACK:=
 plugins/micromega/sos_print_FORPACK:=
 plugins/micromega/csdpcert_FORPACK:=
 
-plugins/%.cmx: plugins/%.ml
+plugins/%.cmx: plugins/%.ml | $(PPX_COQ)
 	$(SHOW)'OCAMLOPT  $<'
 	$(HIDE)$(OCAMLOPT) $(COND_OPTFLAGS) $(HACKMLI) $($(@:.cmx=_FORPACK)) -c $<
 
-%.cmx: %.ml
+%.cmx: %.ml | $(PPX_COQ)
 	$(SHOW)'OCAMLOPT  $<'
 	$(HIDE)$(OCAMLOPT) $(COND_OPTFLAGS) $(HACKMLI) -c $<
 
@@ -610,11 +640,11 @@ plugins/%.cmx: plugins/%.ml
 # Ocamldep is now used directly again (thanks to -ml-synonym in OCaml >= 3.12)
 OCAMLDEP = $(OCAMLFIND) ocamldep -slash -ml-synonym .ml4 -ml-synonym .mlpack
 
-%.ml.d: $(D_DEPEND_BEFORE_SRC) %.ml $(D_DEPEND_AFTER_SRC) $(GENFILES)
+%.ml.d: $(D_DEPEND_BEFORE_SRC) %.ml $(D_DEPEND_AFTER_SRC) $(GENFILES) $(PPX_COQ)
 	$(SHOW)'OCAMLDEP  $<'
 	$(HIDE)$(OCAMLDEP) $(DEPFLAGS) "$<" $(TOTARGET)
 
-%.mli.d: $(D_DEPEND_BEFORE_SRC) %.mli $(D_DEPEND_AFTER_SRC) $(GENFILES)
+%.mli.d: $(D_DEPEND_BEFORE_SRC) %.mli $(D_DEPEND_AFTER_SRC) $(GENFILES) $(PPX_COQ)
 	$(SHOW)'OCAMLDEP  $<'
 	$(HIDE)$(OCAMLDEP) $(DEPFLAGS) "$<" $(TOTARGET)
 
