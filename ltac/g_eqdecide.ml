@@ -12,16 +12,12 @@
 (*                           by Eduardo Gimenez                        *)
 (************************************************************************)
 
-(*i camlp4deps: "grammar/grammar.cma" i*)
-
 open Eqdecide
 
-DECLARE PLUGIN "g_eqdecide"
+[%%coq.plugin "g_eqdecide"]
 
-TACTIC EXTEND decide_equality
-| [ "decide" "equality" ] -> [ decideEqualityGoal ]
-END
+let%coq.tacextend decide_equality = function
+| [ "decide"; "equality" ] -> decideEqualityGoal
 
-TACTIC EXTEND compare
-| [ "compare" constr(c1) constr(c2) ] -> [ compare c1 c2 ]
-END
+let%coq.tacextend compare = function
+| [ "compare"; `constr(c1); `constr(c2) ] -> compare c1 c2

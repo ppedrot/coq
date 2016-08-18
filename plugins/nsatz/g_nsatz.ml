@@ -1,5 +1,3 @@
-DECLARE PLUGIN "nsatz_plugin"
-
 (************************************************************************)
 (*  v      *   The Coq Proof Assistant  /  The Coq Development Team     *)
 (* <O___,, *   INRIA - CNRS - LIX - LRI - PPS - Copyright 1999-2016     *)
@@ -8,10 +6,7 @@ DECLARE PLUGIN "nsatz_plugin"
 (*         *       GNU Lesser General Public License Version 2.1        *)
 (************************************************************************)
 
-(*i camlp4deps: "grammar/grammar.cma" i*)
+[%%coq.plugin "nsatz_plugin"]
 
-DECLARE PLUGIN "nsatz_plugin"
-
-TACTIC EXTEND nsatz_compute
-| [ "nsatz_compute"  constr(lt) ] -> [ Nsatz.nsatz_compute lt ]
-END
+let%coq.tacextend nsatz_compute = function
+| [ "nsatz_compute";  `constr(lt) ] -> Nsatz.nsatz_compute lt
