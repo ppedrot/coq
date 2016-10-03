@@ -33,5 +33,6 @@ exec $OCAMLDEBUG \
 	-I $COQTOP/plugins/rtauto     -I $COQTOP/plugins/setoid_ring \
         -I $COQTOP/plugins/subtac     -I $COQTOP/plugins/syntax \
         -I $COQTOP/plugins/xml        -I $COQTOP/plugins/ltac \
+        -I $COQTOP/plugins/ltac2 \
         -I $COQTOP/ide \
 	"$@"
