@@ -505,7 +505,7 @@ struct
 
   let match_mode m arg =
     match m with
-    | ModeInput -> not (occur_existential arg)
+    | ModeInput -> not (occur_existential Evd.empty (EConstr.of_constr arg)) (** FIXME *)
     | ModeNoHeadEvar ->
        Evarutil.(try ignore(head_evar arg); false
                  with NoHeadEvar -> true)
@@ -1200,7 +1200,7 @@ let prepare_hint check (poly,local) env init (sigma,c) =
       let t = List.fold_right (fun (e,id) c -> replace_term e id c) !subst t in
       if not (closed0 c) then
 	error "Hints with holes dependent on a bound variable not supported.";
-      if occur_existential t then
+      if occur_existential sigma (EConstr.of_constr t) then
 	(* Not clever enough to construct dependency graph of evars *)
 	error "Not clever enough to deal with evars dependent in other evars.";
       raise (Found (c,t))
@@ -1394,13 +1394,13 @@ let pr_hint_ref ref = pr_hint_list_for_head ref
 
 (* Print all hints associated to head id in any database *)
 
-let pr_hint_term cl =
+let pr_hint_term sigma cl =
   try
     let dbs = current_db () in
     let valid_dbs =
       let fn = try
 	  let hdc = decompose_app_bound cl in
-	    if occur_existential cl then
+	    if occur_existential sigma (EConstr.of_constr cl) then
 	      Hint_db.map_existential ~secvars:Id.Pred.full hdc cl
 	    else Hint_db.map_auto ~secvars:Id.Pred.full hdc cl
 	with Bound -> Hint_db.map_none ~secvars:Id.Pred.full
@@ -1423,7 +1423,7 @@ let pr_applicable_hint () =
   match glss.Evd.it with
   | [] -> CErrors.error "No focused goal."
   | g::_ ->
-    pr_hint_term (Goal.V82.concl glss.Evd.sigma g)
+    pr_hint_term glss.Evd.sigma (Goal.V82.concl glss.Evd.sigma g)
 
 let pp_hint_mode = function
   | ModeInput -> str"+"

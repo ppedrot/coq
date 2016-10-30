@@ -1009,7 +1009,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
 	  | VMcast ->
  	    let cj = pretype empty_tycon env evdref lvar c in
 	    let cty = nf_evar !evdref cj.uj_type and tval = nf_evar !evdref tval in
-	      if not (occur_existential cty || occur_existential tval) then
+	      if not (occur_existential !evdref (EConstr.of_constr cty) || occur_existential !evdref (EConstr.of_constr tval)) then
 		let (evd,b) = Reductionops.vm_infer_conv env.ExtraEnv.env !evdref cty tval in
 		if b then (evdref := evd; cj, tval)
 		else

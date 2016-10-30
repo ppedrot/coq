@@ -1285,7 +1285,7 @@ let open_new_goal build_proof sigma using_lemmas ref_ goal_name (gls_type,decomp
           anomaly (Pp.str "open_new_goal with an unamed theorem")
   in
   let na = next_global_ident_away name [] in
-  if Termops.occur_existential gls_type then
+  if Termops.occur_existential sigma (EConstr.of_constr gls_type) then
     CErrors.error "\"abstract\" cannot handle existentials";
   let hook _ _ =
     let opacity =

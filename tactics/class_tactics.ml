@@ -666,7 +666,7 @@ module V85 = struct
 
   let needs_backtrack env evd oev concl =
     if Option.is_empty oev || is_Prop env evd concl then
-      occur_existential concl
+      occur_existential evd (EConstr.of_constr concl)
     else true
 
   let hints_tac hints sk fk {it = gl,info; sigma = s} =
@@ -740,7 +740,7 @@ module V85 = struct
              let fk' =
                (fun e ->
                  let do_backtrack =
-                   if unique then occur_existential concl
+                   if unique then occur_existential s' (EConstr.of_constr concl)
                    else if info.unique then true
                    else if List.is_empty gls' then
                      needs_backtrack env s' info.is_evar concl
@@ -975,7 +975,7 @@ module Search = struct
       NOT backtrack. *)
   let needs_backtrack env evd unique concl =
     if unique || is_Prop env evd concl then
-      occur_existential concl
+      occur_existential evd (EConstr.of_constr concl)
     else true
 
   let mark_unresolvables sigma goals =

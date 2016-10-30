@@ -302,7 +302,7 @@ let hintmap_of secvars hdc concl =
   match hdc with
   | None -> Hint_db.map_none ~secvars
   | Some hdc ->
-     if occur_existential concl then
+     if occur_existential Evd.empty (EConstr.of_constr concl) then (** FIXME *)
        Hint_db.map_existential ~secvars hdc concl
      else Hint_db.map_auto ~secvars hdc concl
 
@@ -346,7 +346,7 @@ and my_find_search mod_delta =
 
 and my_find_search_delta db_list local_db secvars hdc concl =
   let f = hintmap_of secvars hdc concl in
-    if occur_existential concl then
+    if occur_existential Evd.empty (EConstr.of_constr concl) (** FIXME *) then
       List.map_append
 	(fun db ->
 	  if Hint_db.use_dn db then
