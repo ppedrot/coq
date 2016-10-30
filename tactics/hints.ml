@@ -1191,7 +1191,7 @@ let prepare_hint check (poly,local) env init (sigma,c) =
   let sigma, subst = Evd.nf_univ_variables sigma in
   let c = Vars.subst_univs_constr subst (Evarutil.nf_evar sigma c) in
   let c = drop_extra_implicit_args c in
-  let vars = ref (collect_vars c) in
+  let vars = ref (collect_vars sigma (EConstr.of_constr c)) in
   let subst = ref [] in
   let rec find_next_evar c = match kind_of_term c with
     | Evar (evk,args as ev) ->

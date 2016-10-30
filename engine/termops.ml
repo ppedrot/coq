@@ -596,10 +596,10 @@ let collect_metas sigma c =
 
 (* collects all vars; warning: this is only visible vars, not dependencies in
    all section variables; for the latter, use global_vars_set *)
-let collect_vars c =
-  let rec aux vars c = match kind_of_term c with
+let collect_vars sigma c =
+  let rec aux vars c = match EConstr.kind sigma c with
   | Var id -> Id.Set.add id vars
-  | _ -> fold_constr aux vars c in
+  | _ -> EConstr.fold sigma aux vars c in
   aux Id.Set.empty c
 
 let vars_of_global_reference env gr =

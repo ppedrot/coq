@@ -978,9 +978,9 @@ let filter_possible_projections evd c ty ctxt args =
      fv of args to have a well-typed filter; don't know how necessary
      it is however to have a well-typed filter here *)
   let fv1 = free_rels evd (EConstr.of_constr (mkApp (c,args))) (* Hack: locally untyped *) in
-  let fv2 = collect_vars (mkApp (c,args)) in
+  let fv2 = collect_vars evd (EConstr.of_constr (mkApp (c,args))) in
   let len = Array.length args in
-  let tyvars = collect_vars ty in
+  let tyvars = collect_vars evd (EConstr.of_constr ty) in
   List.map_i (fun i decl ->
     let () = assert (i < len) in
     let a = Array.unsafe_get args i in

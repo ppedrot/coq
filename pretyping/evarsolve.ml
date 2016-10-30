@@ -923,12 +923,12 @@ let invert_invertible_arg fullenv evd aliases k (evk,argsv) args' =
 let set_of_evctx l =
   List.fold_left (fun s decl -> Id.Set.add (get_id decl) s) Id.Set.empty l
 
-let filter_effective_candidates evi filter candidates =
+let filter_effective_candidates evd evi filter candidates =
   match filter with
   | None -> candidates
   | Some filter ->
       let ids = set_of_evctx (Filter.filter_list filter (evar_context evi)) in
-      List.filter (fun a -> Id.Set.subset (collect_vars a) ids) candidates
+      List.filter (fun a -> Id.Set.subset (collect_vars evd (EConstr.of_constr a)) ids) candidates
 
 let filter_candidates evd evk filter candidates_update =
   let evi = Evd.find_undefined evd evk in
@@ -939,7 +939,7 @@ let filter_candidates evd evk filter candidates_update =
   match candidates with
   | None -> NoUpdate
   | Some l ->
-      let l' = filter_effective_candidates evi filter l in
+      let l' = filter_effective_candidates evd evi filter l in
       if List.length l = List.length l' && candidates_update = NoUpdate then
         NoUpdate
       else
@@ -952,7 +952,7 @@ let closure_of_filter evd evk = function
   | None -> None
   | Some filter ->
   let evi = Evd.find_undefined evd evk in
-  let vars = collect_vars (Evarutil.nf_evar evd (evar_concl evi)) in
+  let vars = collect_vars evd (EConstr.of_constr (evar_concl evi)) in
   let test b decl = b || Idset.mem (get_id decl) vars ||
                     match decl with
                     | LocalAssum _ ->
@@ -1060,7 +1060,7 @@ let restrict_candidates conv_algo env evd filter1 (evk1,argsv1) (evk2,argsv2) =
   | _, None -> filter_candidates evd evk1 filter1 NoUpdate
   | None, Some _ -> raise DoesNotPreserveCandidateRestriction
   | Some l1, Some l2 ->
-      let l1 = filter_effective_candidates evi1 filter1 l1 in
+      let l1 = filter_effective_candidates evd evi1 filter1 l1 in
       let l1' = List.filter (fun c1 ->
         let c1' = instantiate_evar_array evi1 c1 argsv1 in
         let filter c2 =
@@ -1498,7 +1498,7 @@ let rec invert_definition conv_algo choose env evd pbty (evk,argsv as ev) rhs =
     in
       is_id_subst filter_ctxt (Array.to_list argsv) &&
       closed0 rhs &&
-      Idset.subset (collect_vars rhs) !names 
+      Idset.subset (collect_vars evd (EConstr.of_constr rhs)) !names 
   in
   let body =
     if fast rhs then nf_evar evd rhs
