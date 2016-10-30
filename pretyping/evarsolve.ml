@@ -73,7 +73,7 @@ let refresh_universes ?(status=univ_rigid) ?(onlyalg=false) ?(refreshset=false)
   (** Refresh the types of evars under template polymorphic references *)
   and refresh_term_evars onevars top t =
     match kind_of_term (whd_evar !evdref t) with
-    | App (f, args) when is_template_polymorphic env f ->
+    | App (f, args) when is_template_polymorphic env !evdref (EConstr.of_constr f) ->
       let pos = get_polymorphic_positions f in
 	refresh_polymorphic_positions args pos
     | App (f, args) when top && isEvar f -> 

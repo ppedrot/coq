@@ -751,7 +751,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
       match evar_kind_of_term !evdref resj.uj_val with
       | App (f,args) ->
         let f = whd_evar !evdref f in
-          if is_template_polymorphic env.ExtraEnv.env f then
+          if is_template_polymorphic env.ExtraEnv.env !evdref (EConstr.of_constr f) then
 	    (* Special case for inductive type applications that must be 
 	       refreshed right away. *)
 	    let sigma = !evdref in

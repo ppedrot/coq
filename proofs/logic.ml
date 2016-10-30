@@ -367,7 +367,7 @@ let rec mk_refgoals sigma goal goalacc conclty trm =
 
       | App (f,l) ->
 	let (acc',hdty,sigma,applicand) =
-	  if is_template_polymorphic env f then
+	  if is_template_polymorphic env sigma (EConstr.of_constr f) then
 	    let ty = 
 	      (* Template sort-polymorphism of definition and inductive types *)
 	      let firstmeta = Array.findi (fun i x -> occur_meta sigma (EConstr.of_constr x)) l in
@@ -432,7 +432,7 @@ and mk_hdgoals sigma goal goalacc trm =
 
     | App (f,l) ->
 	let (acc',hdty,sigma,applicand) =
-	  if is_template_polymorphic env f
+	  if is_template_polymorphic env sigma (EConstr.of_constr f)
 	  then
 	    let l' = meta_free_prefix sigma l in
 	   (goalacc,type_of_global_reference_knowing_parameters env sigma f l',sigma,f)

@@ -263,7 +263,7 @@ val is_section_variable : Id.t -> bool
 
 val isGlobalRef : Evd.evar_map -> EConstr.t -> bool
 
-val is_template_polymorphic : env -> constr -> bool
+val is_template_polymorphic : env -> Evd.evar_map -> EConstr.t -> bool
 
 (** Combinators on judgments *)
 

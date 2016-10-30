@@ -810,8 +810,8 @@ let isGlobalRef sigma c =
   | Const _ | Ind _ | Construct _ | Var _ -> true
   | _ -> false
 
-let is_template_polymorphic env f =
-  match kind_of_term f with
+let is_template_polymorphic env sigma f =
+  match EConstr.kind sigma f with
   | Ind ind -> Environ.template_polymorphic_pind ind env
   | Const c -> Environ.template_polymorphic_pconstant c env
   | _ -> false
