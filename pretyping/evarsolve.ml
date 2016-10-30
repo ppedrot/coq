@@ -1530,7 +1530,7 @@ and evar_define conv_algo ?(choose=false) env evd pbty (evk,argsv as ev) rhs =
   with NoCandidates ->
   try
     let (evd',body) = invert_definition conv_algo choose env evd pbty ev rhs in
-    if occur_meta body then raise MetaOccurInBodyInternal;
+    if occur_meta evd' (EConstr.of_constr body) then raise MetaOccurInBodyInternal;
     (* invert_definition may have instantiate some evars of rhs with evk *)
     (* so we recheck acyclicity *)
     if occur_evar_upto_types evd' evk body then raise (OccurCheckIn (evd',body));

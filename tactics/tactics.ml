@@ -1285,7 +1285,7 @@ let clenv_refine_in ?(sidecond_first=false) with_evars ?(with_classes=true)
   in
   let new_hyp_typ = clenv_type clenv in
   if not with_evars then check_unresolved_evars_of_metas sigma0 clenv;
-  if not with_evars && occur_meta new_hyp_typ then
+  if not with_evars && occur_meta clenv.evd (EConstr.of_constr new_hyp_typ) then
     error_uninstantiated_metas new_hyp_typ clenv;
   let new_hyp_prf = clenv_value clenv in
   let exact_tac = Proofview.V82.tactic (Tacmach.refine_no_check new_hyp_prf) in
@@ -2901,11 +2901,11 @@ let specialize (c,lbind) ipat =
       let (thd,tstack) = whd_nored_stack clause.evd (clenv_value clause) in
       let rec chk = function
       | [] -> []
-      | t::l -> if occur_meta t then [] else t :: chk l
+      | t::l -> if occur_meta clause.evd (EConstr.of_constr t) then [] else t :: chk l
       in
       let tstack = chk tstack in
       let term = applist(thd,List.map (nf_evar clause.evd) tstack) in
-      if occur_meta term then
+      if occur_meta clause.evd (EConstr.of_constr term) then
 	user_err  (str "Cannot infer an instance for " ++
 
           pr_name (meta_name clause.evd (List.hd (collect_metas term))) ++
@@ -4246,7 +4246,7 @@ let use_bindings env sigma elim must_be_closed (c,lbind) typ =
   let rec find_clause typ =
     try
       let indclause = make_clenv_binding env sigma (c,typ) lbind in
-      if must_be_closed && occur_meta (clenv_value indclause) then
+      if must_be_closed && occur_meta indclause.evd (EConstr.of_constr (clenv_value indclause)) then
         error "Need a fully applied argument.";
       (* We lose the possibility of coercions in with-bindings *)
       let (sigma, c) = pose_all_metas_as_evars env indclause.evd (clenv_value indclause) in

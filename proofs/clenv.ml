@@ -332,7 +332,7 @@ let clenv_pose_metas_as_evars clenv dep_mvs =
       let ty = clenv_meta_type clenv mv in
       (* Postpone the evar-ization if dependent on another meta *)
       (* This assumes no cycle in the dependencies - is it correct ? *)
-      if occur_meta ty then fold clenv (mvs@[mv])
+      if occur_meta clenv.evd (EConstr.of_constr ty) then fold clenv (mvs@[mv])
       else
         let src = evar_source_of_meta mv clenv.evd in
         let src = adjust_meta_source clenv.evd mv src in

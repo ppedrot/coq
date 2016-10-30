@@ -320,10 +320,10 @@ let check_conv_leq_goal env sigma arg ty conclty =
   else sigma
 
 exception Stop of constr list
-let meta_free_prefix a =
+let meta_free_prefix sigma a =
   try
     let _ = Array.fold_left (fun acc a -> 
-      if occur_meta a then raise (Stop acc)
+      if occur_meta sigma (EConstr.of_constr a) then raise (Stop acc)
       else a :: acc) [] a
     in a
   with Stop acc -> Array.rev_of_list acc
@@ -338,7 +338,7 @@ let rec mk_refgoals sigma goal goalacc conclty trm =
   let mk_goal hyps concl =
     Goal.V82.mk_goal sigma hyps concl (Goal.V82.extra sigma goal)
   in
-    if (not !check) && not (occur_meta trm) then
+    if (not !check) && not (occur_meta sigma (EConstr.of_constr trm)) then
       let t'ty = Retyping.get_type_of env sigma trm in
       let sigma = check_conv_leq_goal env sigma trm t'ty conclty in
         (goalacc,t'ty,sigma,trm)
@@ -346,7 +346,7 @@ let rec mk_refgoals sigma goal goalacc conclty trm =
       match kind_of_term trm with
       | Meta _ ->
 	let conclty = nf_betaiota sigma conclty in
-	  if !check && occur_meta conclty then
+	  if !check && occur_meta sigma (EConstr.of_constr conclty) then
 	    raise (RefinerError (MetaInType conclty));
 	  let (gl,ev,sigma) = mk_goal hyps conclty in
 	  gl::goalacc, conclty, sigma, ev
@@ -370,7 +370,7 @@ let rec mk_refgoals sigma goal goalacc conclty trm =
 	  if is_template_polymorphic env f then
 	    let ty = 
 	      (* Template sort-polymorphism of definition and inductive types *)
-	      let firstmeta = Array.findi (fun i x -> occur_meta x) l in
+	      let firstmeta = Array.findi (fun i x -> occur_meta sigma (EConstr.of_constr x)) l in
 	      let args, _ = Option.cata (fun i -> CArray.chop i l) (l, [||]) firstmeta in
 	        type_of_global_reference_knowing_parameters env sigma f args
 	    in
@@ -406,7 +406,7 @@ let rec mk_refgoals sigma goal goalacc conclty trm =
 	(acc'',conclty',sigma, ans)
 
       | _ ->
-	if occur_meta trm then
+	if occur_meta sigma (EConstr.of_constr trm) then
 	  anomaly (Pp.str "refiner called with a meta in non app/case subterm");
 	let t'ty = goal_type_of env sigma trm in
 	let sigma = check_conv_leq_goal env sigma trm t'ty conclty in
@@ -434,7 +434,7 @@ and mk_hdgoals sigma goal goalacc trm =
 	let (acc',hdty,sigma,applicand) =
 	  if is_template_polymorphic env f
 	  then
-	    let l' = meta_free_prefix l in	      
+	    let l' = meta_free_prefix sigma l in
 	   (goalacc,type_of_global_reference_knowing_parameters env sigma f l',sigma,f)
 	  else mk_hdgoals sigma goal goalacc f
 	in
@@ -464,7 +464,7 @@ and mk_hdgoals sigma goal goalacc trm =
 	   (acc',ty,sigma,c)
 
     | _ ->
-	if !check && occur_meta trm then
+	if !check && occur_meta sigma (EConstr.of_constr trm) then
 	  anomaly (Pp.str "refine called with a dependent meta");
 	goalacc, goal_type_of env sigma trm, sigma, trm
 

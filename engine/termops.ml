@@ -520,10 +520,10 @@ let iter_constr_with_full_binders g f l c =
 
 exception Occur
 
-let occur_meta c =
-  let rec occrec c = match kind_of_term c with
+let occur_meta sigma c =
+  let rec occrec c = match EConstr.kind sigma c with
     | Meta _ -> raise Occur
-    | _ -> iter_constr occrec c
+    | _ -> EConstr.iter sigma occrec c
   in try occrec c; false with Occur -> true
 
 let occur_existential c =

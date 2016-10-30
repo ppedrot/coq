@@ -87,7 +87,7 @@ let abstract_scheme env evd c l lname_typ =
    are unclear...
        if occur_meta ta then error "cannot find a type for the generalisation"
        else *) 
-       if occur_meta a then mkLambda_name env (na,ta,t), evd
+       if occur_meta evd (EConstr.of_constr a) then mkLambda_name env (na,ta,t), evd
        else
 	 let t', evd' = Find_subterm.subst_closed_term_occ env evd locc a t in
 	   mkLambda_name env (na,ta,t'), evd')
@@ -1295,7 +1295,7 @@ let w_merge env with_types flags (evd,metas,evars) =
 	  (* This can make rhs' ill-typed if metas are *)
           let rhs' = subst_meta_instances metas rhs in
           match kind_of_term rhs with
-	  | App (f,cl) when occur_meta rhs' ->
+	  | App (f,cl) when occur_meta evd (EConstr.of_constr rhs') ->
 	      if occur_evar evk rhs' then
                 error_occur_check curenv evd evk rhs';
 	      if is_mimick_head flags.modulo_delta f then
