@@ -1839,7 +1839,7 @@ let w_unify_to_subterm_list env evd flags hdmeta oplist t =
       else
         let allow_K = flags.allow_K_in_toplevel_higher_order_unification in
         let flags =
-          if occur_meta_or_existential op || !keyed_unification then
+          if occur_meta_or_existential evd (EConstr.of_constr op) || !keyed_unification then
 	    (* This is up to delta for subterms w/o metas ... *)
             flags
           else

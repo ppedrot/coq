@@ -532,11 +532,11 @@ let occur_existential sigma c =
     | _ -> EConstr.iter sigma occrec c
   in try occrec c; false with Occur -> true
 
-let occur_meta_or_existential c =
-  let rec occrec c = match kind_of_term c with
+let occur_meta_or_existential sigma c =
+  let rec occrec c = match EConstr.kind sigma c with
     | Evar _ -> raise Occur
     | Meta _ -> raise Occur
-    | _ -> iter_constr occrec c
+    | _ -> EConstr.iter sigma occrec c
   in try occrec c; false with Occur -> true
 
 let occur_evar n c =

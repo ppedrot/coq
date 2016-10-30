@@ -430,8 +430,8 @@ let constr_list_distinct l =
     | [] -> true
   in loop l
 
-let get_actual_deps aliases l t =
-  if occur_meta_or_existential t then
+let get_actual_deps evd aliases l t =
+  if occur_meta_or_existential evd (EConstr.of_constr t) then
     (* Probably no restrictions on allowed vars in presence of evars *)
     l
   else
@@ -460,20 +460,20 @@ let remove_instance_local_defs evd evk args =
 
 (* Check if an applied evar "?X[args] l" is a Miller's pattern *)
 
-let find_unification_pattern_args env l t =
+let find_unification_pattern_args env evd l t =
   if List.for_all (fun x -> isRel x || isVar x) l (* common failure case *) then
     let aliases = make_alias_map env in
     match (try Some (expand_and_check_vars aliases l) with Exit -> None) with
-    | Some l as x when constr_list_distinct (get_actual_deps aliases l t) -> x
+    | Some l as x when constr_list_distinct (get_actual_deps evd aliases l t) -> x
     | _ -> None
   else
     None
 
-let is_unification_pattern_meta env nb m l t =
+let is_unification_pattern_meta env evd nb m l t =
   (* Variables from context and rels > nb are implicitly all there *)
   (* so we need to be a rel <= nb *)
   if List.for_all (fun x -> isRel x && destRel x <= nb) l then
-    match find_unification_pattern_args env l t with
+    match find_unification_pattern_args env evd l t with
     | Some _ as x when not (dependent (mkMeta m) t) -> x
     | _ -> None
   else
@@ -485,7 +485,7 @@ let is_unification_pattern_evar env evd (evk,args) l t =
   then
     let args = remove_instance_local_defs evd evk args in
     let n = List.length args in
-      match find_unification_pattern_args env (args @ l) t with
+      match find_unification_pattern_args env evd (args @ l) t with
       | Some l -> Some (List.skipn n l)
       | _ -> None
   else None
@@ -498,7 +498,7 @@ let is_unification_pattern_pure_evar env evd (evk,args) t =
 
 let is_unification_pattern (env,nb) evd f l t =
   match kind_of_term f with
-  | Meta m -> is_unification_pattern_meta env nb m l t
+  | Meta m -> is_unification_pattern_meta env evd nb m l t
   | Evar ev -> is_unification_pattern_evar env evd ev l t
   | _ -> None
 
