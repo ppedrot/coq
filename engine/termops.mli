@@ -80,11 +80,12 @@ val map_constr_with_full_binders :
    each binder traversal; it is not recursive *)
 
 val fold_constr_with_binders :
-  ('a -> 'a) -> ('a -> 'b -> constr -> 'b) -> 'a -> 'b -> constr -> 'b
+  Evd.evar_map -> ('a -> 'a) ->
+    ('a -> 'b -> EConstr.t -> 'b) -> 'a -> 'b -> EConstr.t -> 'b
 
 val fold_constr_with_full_binders :
-  (Context.Rel.Declaration.t -> 'a -> 'a) -> ('a -> 'b -> constr -> 'b) ->
-    'a -> 'b -> constr -> 'b
+  Evd.evar_map -> (Context.Rel.Declaration.t -> 'a -> 'a) ->
+    ('a -> 'b -> EConstr.t -> 'b) -> 'a -> 'b -> EConstr.t -> 'b
 
 val iter_constr_with_full_binders :
   (Context.Rel.Declaration.t -> 'a -> 'a) -> ('a -> constr -> unit) -> 'a ->
@@ -110,7 +111,7 @@ val occur_var_in_decl :
 (** As {!occur_var} but assume the identifier not to be a section variable *)
 val local_occur_var : Evd.evar_map -> Id.t -> EConstr.t -> bool
 
-val free_rels : constr -> Int.Set.t
+val free_rels : Evd.evar_map -> EConstr.t -> Int.Set.t
 
 (** [dependent m t] tests whether [m] is a subterm of [t] *)
 val dependent : constr -> constr -> bool

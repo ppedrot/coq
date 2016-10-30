@@ -1101,9 +1101,9 @@ let make_tuple env sigma (rterm,rty) lind =
    normalization *)
 
 let minimal_free_rels env sigma (c,cty) =
-  let cty_rels = free_rels cty in
+  let cty_rels = free_rels sigma (EConstr.of_constr cty) in
   let cty' = simpl env sigma cty in
-  let rels' = free_rels cty' in
+  let rels' = free_rels sigma (EConstr.of_constr cty') in
   if Int.Set.subset cty_rels rels' then
     (cty,cty_rels)
   else

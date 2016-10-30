@@ -462,30 +462,31 @@ let map_constr_with_full_binders g f l cstr =
    index) which is processed by [g] (which typically add 1 to [n]) at
    each binder traversal; it is not recursive *)
 
-let fold_constr_with_full_binders g f n acc c =
+let fold_constr_with_full_binders sigma g f n acc c =
   let open RelDecl in
-  match kind_of_term c with
+  let inj c = EConstr.Unsafe.to_constr c in
+  match EConstr.kind sigma c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
     | Construct _) -> acc
   | Cast (c,_, t) -> f n (f n acc c) t
-  | Prod (na,t,c) -> f (g (LocalAssum (na,t)) n) (f n acc t) c
-  | Lambda (na,t,c) -> f (g (LocalAssum (na,t)) n) (f n acc t) c
-  | LetIn (na,b,t,c) -> f (g (LocalDef (na,b,t)) n) (f n (f n acc b) t) c
+  | Prod (na,t,c) -> f (g (LocalAssum (na, inj t)) n) (f n acc t) c
+  | Lambda (na,t,c) -> f (g (LocalAssum (na, inj t)) n) (f n acc t) c
+  | LetIn (na,b,t,c) -> f (g (LocalDef (na, inj b, inj t)) n) (f n (f n acc b) t) c
   | App (c,l) -> Array.fold_left (f n) (f n acc c) l
   | Proj (p,c) -> f n acc c
   | Evar (_,l) -> Array.fold_left (f n) acc l
   | Case (_,p,c,bl) -> Array.fold_left (f n) (f n (f n acc p) c) bl
   | Fix (_,(lna,tl,bl)) ->
-      let n' = CArray.fold_left2 (fun c n t -> g (LocalAssum (n,t)) c) n lna tl in
+      let n' = CArray.fold_left2 (fun c n t -> g (LocalAssum (n, inj t)) c) n lna tl in
       let fd = Array.map2 (fun t b -> (t,b)) tl bl in
       Array.fold_left (fun acc (t,b) -> f n' (f n acc t) b) acc fd
   | CoFix (_,(lna,tl,bl)) ->
-      let n' = CArray.fold_left2 (fun c n t -> g (LocalAssum (n,t)) c) n lna tl in
+      let n' = CArray.fold_left2 (fun c n t -> g (LocalAssum (n, inj t)) c) n lna tl in
       let fd = Array.map2 (fun t b -> (t,b)) tl bl in
       Array.fold_left (fun acc (t,b) -> f n' (f n acc t) b) acc fd
 
-let fold_constr_with_binders g f n acc c =
-  fold_constr_with_full_binders (fun _ x -> g x) f n acc c
+let fold_constr_with_binders sigma g f n acc c =
+  fold_constr_with_full_binders sigma (fun _ x -> g x) f n acc c
 
 (* [iter_constr_with_full_binders g f acc c] iters [f acc] on the immediate
    subterms of [c]; it carries an extra data [acc] which is processed by [g] at
@@ -575,10 +576,10 @@ let local_occur_var sigma id c =
 
   (* returns the list of free debruijn indices in a term *)
 
-let free_rels m =
-  let rec frec depth acc c = match kind_of_term c with
+let free_rels sigma m =
+  let rec frec depth acc c = match EConstr.kind sigma c with
     | Rel n       -> if n >= depth then Int.Set.add (n-depth+1) acc else acc
-    | _ -> fold_constr_with_binders succ frec depth acc c
+    | _ -> fold_constr_with_binders sigma succ frec depth acc c
   in
   frec 1 Int.Set.empty m
 

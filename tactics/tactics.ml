@@ -3849,7 +3849,7 @@ let compute_elim_sig ?elimc elimt =
 
   let ccl = exchange_hd_app (mkVar (Id.of_string "__QI_DUMMY__")) conclusion in
   let concl_with_args = it_mkProd_or_LetIn ccl args_indargs in
-  let nparams = Int.Set.cardinal (free_rels concl_with_args) in
+  let nparams = Int.Set.cardinal (free_rels Evd.empty (** FIXME *) (EConstr.of_constr concl_with_args)) in
   let preds,params = List.chop (List.length params_preds - nparams) params_preds in
 
   (* A first approximation, further analysis will tweak it *)

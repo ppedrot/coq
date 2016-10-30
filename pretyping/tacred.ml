@@ -177,7 +177,7 @@ let eval_table = Summary.ref (Cmap.empty : frozen) ~name:"evaluation"
    the xp..x1.
 *)
 
-let check_fix_reversibility labs args ((lv,i),(_,tys,bds)) =
+let check_fix_reversibility sigma labs args ((lv,i),(_,tys,bds)) =
   let n = List.length labs in
   let nargs = List.length args in
   if nargs > n then raise Elimconst;
@@ -202,7 +202,7 @@ let check_fix_reversibility labs args ((lv,i),(_,tys,bds)) =
     raise Elimconst;
   List.iteri (fun i t_i ->
     if not (Int.List.mem_assoc (i+1) li) then
-      let fvs = List.map ((+) (i+1)) (Int.Set.elements (free_rels t_i)) in
+      let fvs = List.map ((+) (i+1)) (Int.Set.elements (free_rels sigma (EConstr.of_constr t_i))) in
       match List.intersect Int.equal fvs reversible_rels with
       | [] -> ()
       | _ -> raise Elimconst)
@@ -261,7 +261,7 @@ let compute_consteval_direct env sigma ref =
           let open Context.Rel.Declaration in
 	  srec (push_rel (LocalAssum (id,t)) env) (n+1) (t::labs) onlyproj g
       | Fix fix when not onlyproj ->
-	  (try check_fix_reversibility labs l fix
+	  (try check_fix_reversibility sigma labs l fix
 	  with Elimconst -> NotAnElimination)
       | Case (_,_,d,_) when isRel d && not onlyproj -> EliminationCases n
       | Case (_,_,d,_) -> srec env n labs true d

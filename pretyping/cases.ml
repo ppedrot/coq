@@ -1652,7 +1652,7 @@ let abstract_tycon loc env evdref subst tycon extenv t =
 	  Evarutil.evd_comb1 (refresh_universes (Some false) env) evdref ty
       in
       let ty = lift (-k) (aux x ty) in
-      let depvl = free_rels ty in
+      let depvl = free_rels !evdref (EConstr.of_constr ty) in
       let inst =
 	List.map_i
 	  (fun i _ -> if Int.List.mem i vl then u else mkRel i) 1

@@ -973,11 +973,11 @@ let apply_on_subterm env evdref f c t =
   in
   applyrec (env,(0,c)) t
 
-let filter_possible_projections c ty ctxt args =
+let filter_possible_projections evd c ty ctxt args =
   (* Since args in the types will be replaced by holes, we count the
      fv of args to have a well-typed filter; don't know how necessary
      it is however to have a well-typed filter here *)
-  let fv1 = free_rels (mkApp (c,args)) (* Hack: locally untyped *) in
+  let fv1 = free_rels evd (EConstr.of_constr (mkApp (c,args))) (* Hack: locally untyped *) in
   let fv2 = collect_vars (mkApp (c,args)) in
   let len = Array.length args in
   let tyvars = collect_vars ty in
@@ -1039,7 +1039,7 @@ let second_order_matching ts env_rhs evd (evk,args) argoccs rhs =
       let t = NamedDecl.get_type decl' in
       let evs = ref [] in
       let ty = Retyping.get_type_of env_rhs evd c in
-      let filter' = filter_possible_projections c ty ctxt args in
+      let filter' = filter_possible_projections evd c ty ctxt args in
       (id,t,c,ty,evs,Filter.make filter',occs) :: make_subst (ctxt',l,occsl)
   | _, _, [] -> []
   | _ -> anomaly (Pp.str "Signature or instance are shorter than the occurrences list") in
