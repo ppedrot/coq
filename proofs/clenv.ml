@@ -682,9 +682,9 @@ let solve_evar_clause env sigma hyp_only clause = function
     if h.hole_deps then
       (** Some subsequent term uses the hole *)
       let (ev, _) = destEvar h.hole_evar in
-      let is_dep hole = occur_evar ev hole.hole_type in
+      let is_dep hole = occur_evar sigma ev (EConstr.of_constr hole.hole_type) in
       let in_hyp = List.exists is_dep holes in
-      let in_ccl = occur_evar ev clause.cl_concl in
+      let in_ccl = occur_evar sigma ev (EConstr.of_constr clause.cl_concl) in
       let dep = if hyp_only then in_hyp && not in_ccl else in_hyp || in_ccl in
       let h = { h with hole_deps = dep } in
       h :: holes

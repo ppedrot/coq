@@ -728,14 +728,14 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst) conv_at_top env cv_pb 
 	      sigma,metasubst,((curenv,ev,cN)::evarsubst)
 	| Evar (evk,_ as ev), _
             when not (Evar.Set.mem evk flags.frozen_evars) 
-	      && not (occur_evar evk cN) ->
+	      && not (occur_evar sigma evk (EConstr.of_constr cN)) ->
 	    let cmvars = free_rels cM and cnvars = free_rels cN in
 	      if Int.Set.subset cnvars cmvars then
 		sigma,metasubst,((curenv,ev,cN)::evarsubst)
 	      else error_cannot_unify_local curenv sigma (m,n,cN)
 	| _, Evar (evk,_ as ev)
             when not (Evar.Set.mem evk flags.frozen_evars)
-	      && not (occur_evar evk cM) ->
+	      && not (occur_evar sigma evk (EConstr.of_constr cM)) ->
 	    let cmvars = free_rels cM and cnvars = free_rels cN in
 	      if Int.Set.subset cmvars cnvars then
 		sigma,metasubst,((curenv,ev,cM)::evarsubst)
@@ -1296,7 +1296,7 @@ let w_merge env with_types flags (evd,metas,evars) =
           let rhs' = subst_meta_instances metas rhs in
           match kind_of_term rhs with
 	  | App (f,cl) when occur_meta evd (EConstr.of_constr rhs') ->
-	      if occur_evar evk rhs' then
+	      if occur_evar evd evk (EConstr.of_constr rhs') then
                 error_occur_check curenv evd evk rhs';
 	      if is_mimick_head flags.modulo_delta f then
 		let evd' =

@@ -101,7 +101,7 @@ exception Occur
 val occur_meta : Evd.evar_map -> EConstr.t -> bool
 val occur_existential : Evd.evar_map -> EConstr.t -> bool
 val occur_meta_or_existential : Evd.evar_map -> EConstr.t -> bool
-val occur_evar : existential_key -> types -> bool
+val occur_evar : Evd.evar_map -> existential_key -> EConstr.t -> bool
 val occur_var : env -> Id.t -> types -> bool
 val occur_var_in_decl :
   env ->
