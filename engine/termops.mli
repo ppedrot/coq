@@ -261,7 +261,7 @@ val dependency_closure : env -> Context.Named.t -> Id.Set.t -> Id.t list
 (** Test if an identifier is the basename of a global reference *)
 val is_section_variable : Id.t -> bool
 
-val isGlobalRef : constr -> bool
+val isGlobalRef : Evd.evar_map -> EConstr.t -> bool
 
 val is_template_polymorphic : env -> constr -> bool
 

@@ -805,8 +805,8 @@ let is_section_variable id =
   try let _ = Global.lookup_named id in true
   with Not_found -> false
 
-let isGlobalRef c =
-  match kind_of_term c with
+let isGlobalRef sigma c =
+  match EConstr.kind sigma c with
   | Const _ | Ind _ | Construct _ | Var _ -> true
   | _ -> false
 
