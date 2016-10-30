@@ -586,11 +586,11 @@ let free_rels sigma m =
 (* collects all metavar occurrences, in left-to-right order, preserving
  * repetitions and all. *)
 
-let collect_metas c =
+let collect_metas sigma c =
   let rec collrec acc c =
-    match kind_of_term c with
+    match EConstr.kind sigma c with
       | Meta mv -> List.add_set Int.equal mv acc
-      | _       -> fold_constr collrec acc c
+      | _       -> EConstr.fold sigma collrec acc c
   in
   List.rev (collrec [] c)
 

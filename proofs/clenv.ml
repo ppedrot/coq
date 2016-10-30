@@ -404,7 +404,7 @@ type arg_bindings = constr explicit_bindings
  * of cval, ctyp. *)
 
 let clenv_independent clenv =
-  let mvs = collect_metas (clenv_value clenv) in
+  let mvs = collect_metas clenv.evd (EConstr.of_constr (clenv_value clenv)) in
   let ctyp_mvs = (mk_freelisted (clenv_type clenv)).freemetas in
   let deps = Metaset.union (dependent_in_type_of_metas clenv mvs) ctyp_mvs in
   List.filter (fun mv -> not (Metaset.mem mv deps)) mvs
@@ -522,7 +522,7 @@ let clenv_match_args bl clenv =
 exception NoSuchBinding
 
 let clenv_constrain_last_binding c clenv =
-  let all_mvs = collect_metas clenv.templval.rebus in
+  let all_mvs = collect_metas clenv.evd (EConstr.of_constr clenv.templval.rebus) in
   let k = try List.last all_mvs with Failure _ -> raise NoSuchBinding in
   clenv_assign_binding clenv k c
 
