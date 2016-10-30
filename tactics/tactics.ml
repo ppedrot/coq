@@ -3553,7 +3553,7 @@ let make_abstract_generalize env id typ concl dep ctx body c eqs args refls =
   Sigma (mkApp (appeqs, abshypt), sigma, p)
   end }
 
-let hyps_of_vars env sign nogen hyps =
+let hyps_of_vars env sigma sign nogen hyps =
   if Id.Set.is_empty hyps then []
   else
     let (_,lh) =
@@ -3563,7 +3563,7 @@ let hyps_of_vars env sign nogen hyps =
 	  if Id.Set.mem x nogen then (hs,hl)
 	  else if Id.Set.mem x hs then (hs,x::hl)
 	  else
-	    let xvars = global_vars_set_of_decl env d in
+	    let xvars = global_vars_set_of_decl env sigma d in
 	      if not (Id.Set.is_empty (Id.Set.diff xvars hs)) then
 		(Id.Set.add x hs, x :: hl)
 	      else (hs, hl))
@@ -3663,7 +3663,7 @@ let abstract_args gl generalize_vars dep id defined f args =
       let vars =
 	if generalize_vars then
 	  let nogen = Id.Set.add id nogen in
-	    hyps_of_vars (pf_env gl) (pf_hyps gl) nogen vars
+	    hyps_of_vars (pf_env gl) (project gl) (pf_hyps gl) nogen vars
 	else []
       in
       let body, c' =

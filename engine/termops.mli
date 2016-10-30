@@ -251,12 +251,12 @@ val compact_named_context : Context.Named.t -> Context.Compacted.t
 
 val clear_named_body : Id.t -> env -> env
 
-val global_vars : env -> constr -> Id.t list
-val global_vars_set_of_decl : env -> Context.Named.Declaration.t -> Id.Set.t
+val global_vars : env -> Evd.evar_map -> EConstr.t -> Id.t list
+val global_vars_set_of_decl : env -> Evd.evar_map -> Context.Named.Declaration.t -> Id.Set.t
 
 (** Gives an ordered list of hypotheses, closed by dependencies,
    containing a given set *)
-val dependency_closure : env -> Context.Named.t -> Id.Set.t -> Id.t list
+val dependency_closure : env -> Evd.evar_map -> Context.Named.t -> Id.Set.t -> Id.t list
 
 (** Test if an identifier is the basename of a global reference *)
 val is_section_variable : Id.t -> bool

@@ -1032,22 +1032,33 @@ let clear_named_body id env =
   | d -> push_named d in
   fold_named_context aux env ~init:(reset_context env)
 
-let global_vars env ids = Id.Set.elements (global_vars_set env ids)
+let global_vars_set env sigma constr =
+  let rec filtrec acc c =
+    let acc = match EConstr.kind sigma c with
+    | Var _ | Const _ | Ind _ | Construct _ ->
+      Id.Set.union (vars_of_global env (EConstr.Unsafe.to_constr c)) acc
+    | _ -> acc
+    in
+    EConstr.fold sigma filtrec acc c
+  in
+  filtrec Id.Set.empty constr
 
-let global_vars_set_of_decl env = function
-  | NamedDecl.LocalAssum (_,t) -> global_vars_set env t
+let global_vars env sigma ids = Id.Set.elements (global_vars_set env sigma ids)
+
+let global_vars_set_of_decl env sigma = function
+  | NamedDecl.LocalAssum (_,t) -> global_vars_set env sigma (EConstr.of_constr t)
   | NamedDecl.LocalDef (_,c,t) ->
-      Id.Set.union (global_vars_set env t)
-        (global_vars_set env c)
+      Id.Set.union (global_vars_set env sigma (EConstr.of_constr t))
+        (global_vars_set env sigma (EConstr.of_constr c))
 
-let dependency_closure env sign hyps =
+let dependency_closure env sigma sign hyps =
   if Id.Set.is_empty hyps then [] else
     let (_,lh) =
       Context.Named.fold_inside
         (fun (hs,hl) d ->
           let x = NamedDecl.get_id d in
           if Id.Set.mem x hs then
-            (Id.Set.union (global_vars_set_of_decl env d) (Id.Set.remove x hs),
+            (Id.Set.union (global_vars_set_of_decl env sigma d) (Id.Set.remove x hs),
             x::hl)
           else (hs,hl))
         ~init:(hyps,[])

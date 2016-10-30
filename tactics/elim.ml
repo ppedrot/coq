@@ -133,7 +133,7 @@ let induction_trailer abs_i abs_j bargs =
        (fun id ->
           Proofview.Goal.nf_enter { enter = begin fun gl ->
 	  let idty = pf_unsafe_type_of gl (mkVar id) in
-	  let fvty = global_vars (pf_env gl) idty in
+	  let fvty = global_vars (pf_env gl) (project gl) (EConstr.of_constr idty) in
 	  let possible_bring_hyps =
 	    (List.tl (nLastDecls gl (abs_j - abs_i))) @ bargs.Tacticals.assums
           in

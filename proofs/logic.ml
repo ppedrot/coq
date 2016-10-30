@@ -138,12 +138,12 @@ let find_q x (m,q) =
         else find (Id.Set.union l accs) (i::acc) itl in
   find Id.Set.empty [] q
 
-let occur_vars_in_decl env hyps d =
+let occur_vars_in_decl env sigma hyps d =
   if Id.Set.is_empty hyps then false else
-    let ohyps = global_vars_set_of_decl env d in
+    let ohyps = global_vars_set_of_decl env sigma d in
     Id.Set.exists (fun h -> Id.Set.mem h ohyps) hyps
 
-let reorder_context env sign ord =
+let reorder_context env sigma sign ord =
   let ords = List.fold_right Id.Set.add ord Id.Set.empty in
   if not (Int.equal (List.length ord) (Id.Set.cardinal ords)) then
     error "Order list has duplicates";
@@ -152,13 +152,13 @@ let reorder_context env sign ord =
       | [] -> List.rev ctxt_tail @ ctxt_head
       | top::ord' when mem_q top moved_hyps ->
           let ((d,h),mh) = find_q top moved_hyps in
-          if occur_vars_in_decl env h d then
+          if occur_vars_in_decl env sigma h d then
             user_err ~hdr:"reorder_context"
               (str "Cannot move declaration " ++ pr_id top ++ spc() ++
               str "before " ++
               pr_sequence pr_id
                 (Id.Set.elements (Id.Set.inter h
-                  (global_vars_set_of_decl env d))));
+                  (global_vars_set_of_decl env sigma d))));
           step ord' expected ctxt_head mh (d::ctxt_tail)
       | _ ->
           (match ctxt_head with
@@ -173,16 +173,16 @@ let reorder_context env sign ord =
                     ctxt (push_val x moved_hyps) (d::ctxt_tail)) in
   step ord ords sign mt_q []
 
-let reorder_val_context env sign ord =
-  val_of_named_context (reorder_context env (named_context_of_val sign) ord)
+let reorder_val_context env sigma sign ord =
+  val_of_named_context (reorder_context env sigma (named_context_of_val sign) ord)
 
 
 
 
-let check_decl_position env sign d =
+let check_decl_position env sigma sign d =
   let x = NamedDecl.get_id d in
-  let needed = global_vars_set_of_decl env d in
-  let deps = dependency_closure env (named_context_of_val sign) needed in
+  let needed = global_vars_set_of_decl env sigma d in
+  let deps = dependency_closure env sigma (named_context_of_val sign) needed in
   if Id.List.mem x deps then
     user_err ~hdr:"Logic.check_decl_position"
       (str "Cannot create self-referring hypothesis " ++ pr_id x);
@@ -511,9 +511,9 @@ let convert_hyp check sign sigma d =
         if check && not (Option.equal (is_conv env sigma) b c) then
 	  user_err ~hdr:"Logic.convert_hyp"
             (str "Incorrect change of the body of "++ pr_id id ++ str ".");
-       if check then reorder := check_decl_position env sign d;
+       if check then reorder := check_decl_position env sigma sign d;
        d) in
-  reorder_val_context env sign' !reorder
+  reorder_val_context env sigma sign' !reorder
 
 
 
