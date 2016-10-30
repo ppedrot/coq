@@ -323,10 +323,11 @@ let apply_clear_request clear_flag dft c =
 let move_hyp id dest =
   Proofview.Goal.enter { enter = begin fun gl ->
     let env = Proofview.Goal.env gl in
+    let sigma = Tacmach.New.project gl in
     let ty = Proofview.Goal.raw_concl gl in
     let store = Proofview.Goal.extra gl in
     let sign = named_context_val env in
-    let sign' = move_hyp_in_named_context id dest sign in
+    let sign' = move_hyp_in_named_context sigma id dest sign in
     let env = reset_with_named_context sign' env in
     Refine.refine ~unsafe:true { run = begin fun sigma ->
       Evarutil.new_evar env sigma ~principal:true ~store ty
@@ -2049,7 +2050,7 @@ let clear_body ids =
           (** Do no recheck hypotheses that do not depend *)
           let sigma =
             if not seen then sigma
-            else if List.exists (fun id -> occur_var_in_decl env id decl) ids then
+            else if List.exists (fun id -> occur_var_in_decl env sigma id decl) ids then
               check_decl env sigma decl
             else sigma
           in
@@ -2058,7 +2059,7 @@ let clear_body ids =
         in
         let (env, sigma, _) = List.fold_left check (base_env, sigma, false) (List.rev ctx) in
         let sigma =
-          if List.exists (fun id -> occur_var env id concl) ids then
+          if List.exists (fun id -> occur_var env sigma id (EConstr.of_constr concl)) ids then
             check_is_type env sigma concl
           else sigma
         in
@@ -2096,12 +2097,13 @@ let keep hyps =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
   Proofview.tclENV >>= fun env ->
   let ccl = Proofview.Goal.concl gl in
+  let sigma = Tacmach.New.project gl in
   let cl,_ =
     fold_named_context_reverse (fun (clear,keep) decl ->
       let hyp = NamedDecl.get_id decl in
       if Id.List.mem hyp hyps
-        || List.exists (occur_var_in_decl env hyp) keep
-	|| occur_var env hyp ccl
+        || List.exists (occur_var_in_decl env sigma hyp) keep
+	|| occur_var env sigma hyp (EConstr.of_constr ccl)
       then (clear,decl::keep)
       else (hyp::clear,keep))
       ~init:([],[]) (Proofview.Goal.env gl)
@@ -2310,15 +2312,16 @@ let rewrite_hyp_then assert_style with_evars thin l2r id tac =
     List.filter (fun (_,id) -> not (Id.equal id id')) thin in
   Proofview.Goal.enter { enter = begin fun gl ->
     let env = Proofview.Goal.env gl in
+    let sigma = Tacmach.New.project gl in
     let type_of = Tacmach.New.pf_unsafe_type_of gl in
     let whd_all = Tacmach.New.pf_apply whd_all gl in
     let t = whd_all (type_of (mkVar id)) in
     let eqtac, thin = match match_with_equality_type t with
     | Some (hdcncl,[_;lhs;rhs]) ->
-        if l2r && isVar lhs && not (occur_var env (destVar lhs) rhs) then
+        if l2r && isVar lhs && not (occur_var env sigma (destVar lhs) (EConstr.of_constr rhs)) then
           let id' = destVar lhs in
           subst_on l2r id' rhs, early_clear id' thin
-        else if not l2r && isVar rhs && not (occur_var env (destVar rhs) lhs) then
+        else if not l2r && isVar rhs && not (occur_var env sigma (destVar rhs) (EConstr.of_constr lhs)) then
           let id' = destVar rhs in
           subst_on l2r id' lhs, early_clear id' thin
         else
@@ -2782,9 +2785,10 @@ let generalize_goal gl i ((occs,c,b),na as o) (cl,sigma) =
 let old_generalize_dep ?(with_let=false) c gl =
   let env = pf_env gl in
   let sign = pf_hyps gl in
+  let sigma = project gl in
   let init_ids = ids_of_named_context (Global.named_context()) in
   let seek (d:Context.Named.Declaration.t) (toquant:Context.Named.t) =
-    if List.exists (fun d' -> occur_var_in_decl env (NamedDecl.get_id d') d) toquant
+    if List.exists (fun d' -> occur_var_in_decl env sigma (NamedDecl.get_id d') d) toquant
       || dependent_in_decl c d then
       d::toquant
     else
@@ -3173,8 +3177,8 @@ let atomize_param_of_ind_then (indref,nparams,_) hyp0 tac =
     else
       let c = List.nth argl (i-1) in
       match kind_of_term c with
-	| Var id when not (List.exists (occur_var env id) args') &&
-                      not (List.exists (occur_var env id) params') ->
+	| Var id when not (List.exists (fun c -> occur_var env (Sigma.to_evar_map sigma) id (EConstr.of_constr c)) args') &&
+                      not (List.exists (fun c -> occur_var env (Sigma.to_evar_map sigma) id (EConstr.of_constr c)) params') ->
             (* Based on the knowledge given by the user, all
                constraints on the variable are generalizable in the
                current environment so that it is clearable after destruction *)
@@ -3272,7 +3276,7 @@ let atomize_param_of_ind_then (indref,nparams,_) hyp0 tac =
 
 exception Shunt of Id.t move_location
 
-let cook_sign hyp0_opt inhyps indvars env =
+let cook_sign hyp0_opt inhyps indvars env sigma =
   (* First phase from L to R: get [toclear], [decldep] and [statuslist]
      for the hypotheses before (= more ancient than) hyp0 (see above) *)
   let toclear = ref [] in
@@ -3299,11 +3303,11 @@ let cook_sign hyp0_opt inhyps indvars env =
       rhyp
     end else
       let dephyp0 = List.is_empty inhyps && 
-	(Option.cata (fun id -> occur_var_in_decl env id decl) false hyp0_opt)
+	(Option.cata (fun id -> occur_var_in_decl env sigma id decl) false hyp0_opt)
       in
       let depother = List.is_empty inhyps &&
-	(List.exists (fun id -> occur_var_in_decl env id decl) indvars ||
-         List.exists (fun decl' -> occur_var_in_decl env (NamedDecl.get_id decl') decl) !decldeps)
+	(List.exists (fun id -> occur_var_in_decl env sigma id decl) indvars ||
+         List.exists (fun decl' -> occur_var_in_decl env sigma (NamedDecl.get_id decl') decl) !decldeps)
       in
       if not (List.is_empty inhyps) && Id.List.mem hyp inhyps
          || dephyp0 || depother
@@ -4118,8 +4122,8 @@ let apply_induction_in_context with_evars hyp0 inhyps elim indvars names induct_
     let env = Proofview.Goal.env gl in
     let sigma = Sigma.to_evar_map sigma in
     let concl = Tacmach.New.pf_nf_concl gl in
-    let statuslists,lhyp0,toclear,deps,avoid,dep_in_hyps = cook_sign hyp0 inhyps indvars env in
-    let dep_in_concl = Option.cata (fun id -> occur_var env id concl) false hyp0 in
+    let statuslists,lhyp0,toclear,deps,avoid,dep_in_hyps = cook_sign hyp0 inhyps indvars env sigma in
+    let dep_in_concl = Option.cata (fun id -> occur_var env sigma id (EConstr.of_constr concl)) false hyp0 in
     let dep = dep_in_hyps || dep_in_concl in
     let tmpcl = it_mkNamedProd_or_LetIn concl deps in
     let s = Retyping.get_sort_family_of env sigma tmpcl in
@@ -4207,7 +4211,7 @@ let induction_without_atomization isrec with_evars elim names lid =
 (* assume that no occurrences are selected *)
 let clear_unselected_context id inhyps cls =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
-  if occur_var (Tacmach.New.pf_env gl) id (Tacmach.New.pf_concl gl) &&
+  if occur_var (Tacmach.New.pf_env gl) (Tacmach.New.project gl) id (EConstr.of_constr (Tacmach.New.pf_concl gl)) &&
     cls.concl_occs == NoOccurrences
   then user_err 
     (str "Conclusion must be mentioned: it depends on " ++ pr_id id
@@ -4219,7 +4223,7 @@ let clear_unselected_context id inhyps cls =
 	if Id.List.mem id' inhyps then (* if selected, do not erase *) None
 	else
 	  (* erase if not selected and dependent on id or selected hyps *)
-	  let test id = occur_var_in_decl (Tacmach.New.pf_env gl) id d in
+	  let test id = occur_var_in_decl (Tacmach.New.pf_env gl) (Tacmach.New.project gl) id d in
 	  if List.exists test (id::inhyps) then Some id' else None in
       let ids = List.map_filter to_erase (Proofview.Goal.hyps gl) in
       clear ids
@@ -4351,10 +4355,10 @@ let pose_induction_arg_then isrec with_evars (is_arg_pure_hyp,from_prefix) elim
       Sigma (tac, sigma', p +> q)
   end }
 
-let has_generic_occurrences_but_goal cls id env ccl =
+let has_generic_occurrences_but_goal cls id env sigma ccl =
   clause_with_generic_context_selection cls &&
   (* TODO: whd_evar of goal *)
-  (cls.concl_occs != NoOccurrences || not (occur_var env id ccl))
+  (cls.concl_occs != NoOccurrences || not (occur_var env sigma id (EConstr.of_constr ccl)))
 
 let induction_gen clear_flag isrec with_evars elim
     ((_pending,(c,lbind)),(eqname,names) as arg) cls =
@@ -4371,7 +4375,7 @@ let induction_gen clear_flag isrec with_evars elim
     isVar c && not (mem_named_context_val (destVar c) (Global.named_context_val ()))
     && lbind == NoBindings && not with_evars && Option.is_empty eqname
     && clear_flag == None
-    && has_generic_occurrences_but_goal cls (destVar c) env ccl in
+    && has_generic_occurrences_but_goal cls (destVar c) env (Sigma.to_evar_map sigma) ccl in
   let enough_applied = check_enough_applied env sigma elim t in
   if is_arg_pure_hyp && enough_applied then
     (* First case: induction on a variable already in an inductive type and

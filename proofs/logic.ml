@@ -233,12 +233,12 @@ let hyp_of_move_location = function
   | MoveBefore id -> id
   | _ -> assert false
 
-let move_hyp toleft (left,declfrom,right) hto =
+let move_hyp sigma toleft (left,declfrom,right) hto =
   let env = Global.env() in
   let test_dep d d2 =
     if toleft
-    then occur_var_in_decl env (NamedDecl.get_id d2) d
-    else occur_var_in_decl env (NamedDecl.get_id d) d2
+    then occur_var_in_decl env sigma (NamedDecl.get_id d2) d
+    else occur_var_in_decl env sigma (NamedDecl.get_id d) d2
   in
   let rec moverec first middle = function
     | [] ->
@@ -278,10 +278,10 @@ let move_hyp toleft (left,declfrom,right) hto =
     List.fold_left (fun sign d -> push_named_context_val d sign)
       right left
 
-let move_hyp_in_named_context hfrom hto sign =
+let move_hyp_in_named_context sigma hfrom hto sign =
   let (left,right,declfrom,toleft) =
     split_sign hfrom hto (named_context_of_val sign) in
-  move_hyp toleft (left,declfrom,right) hto
+  move_hyp sigma toleft (left,declfrom,right) hto
 
 (**********************************************************************)
 
@@ -537,7 +537,7 @@ let prim_refiner r sigma goal =
 	  if replace then
 	    let nexthyp = get_hyp_after id (named_context_of_val sign) in
 	    let sign,t,cl,sigma = clear_hyps2 env sigma (Id.Set.singleton id) sign t cl in
-	    move_hyp false ([], LocalAssum (id,t),named_context_of_val sign)
+	    move_hyp sigma false ([], LocalAssum (id,t),named_context_of_val sign)
 	      nexthyp,
 	      t,cl,sigma
 	  else

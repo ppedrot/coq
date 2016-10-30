@@ -550,21 +550,21 @@ let occur_in_global env id constr =
   let vars = vars_of_global env constr in
   if Id.Set.mem id vars then raise Occur
 
-let occur_var env id c =
+let occur_var env sigma id c =
   let rec occur_rec c =
-    match kind_of_term c with
-    | Var _ | Const _ | Ind _ | Construct _ -> occur_in_global env id c
-    | _ -> iter_constr occur_rec c
+    match EConstr.kind sigma c with
+    | Var _ | Const _ | Ind _ | Construct _ -> occur_in_global env id (EConstr.to_constr sigma c)
+    | _ -> EConstr.iter sigma occur_rec c
   in
   try occur_rec c; false with Occur -> true
 
-let occur_var_in_decl env hyp decl =
+let occur_var_in_decl env sigma hyp decl =
   let open NamedDecl in
   match decl with
-    | LocalAssum (_,typ) -> occur_var env hyp typ
+    | LocalAssum (_,typ) -> occur_var env sigma hyp (EConstr.of_constr typ)
     | LocalDef (_, body, typ) ->
-        occur_var env hyp typ ||
-        occur_var env hyp body
+        occur_var env sigma hyp (EConstr.of_constr typ) ||
+        occur_var env sigma hyp (EConstr.of_constr body)
 
 let local_occur_var id c =
   let rec occur c = match kind_of_term c with

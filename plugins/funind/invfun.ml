@@ -467,7 +467,7 @@ let generalize_dependent_of x hyp g =
   tclMAP
     (function
        | LocalAssum (id,t) when not (Id.equal id hyp) &&
-	   (Termops.occur_var (pf_env g) x t) -> tclTHEN (Proofview.V82.of_tactic (Tactics.generalize [mkVar id])) (thin [id])
+	   (Termops.occur_var (pf_env g) (project g) x (EConstr.of_constr t)) -> tclTHEN (Proofview.V82.of_tactic (Tactics.generalize [mkVar id])) (thin [id])
        | _ -> tclIDTAC
     )
     (pf_hyps g)

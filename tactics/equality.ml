@@ -1685,6 +1685,7 @@ let is_eq_x gl x d =
 let subst_one dep_proof_ok x (hyp,rhs,dir) =
   Proofview.Goal.enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
+  let sigma = Tacmach.New.project gl in
   let hyps = Proofview.Goal.hyps (Proofview.Goal.assume gl) in
   let concl = Proofview.Goal.concl (Proofview.Goal.assume gl) in
   (* The set of hypotheses using x *)
@@ -1692,7 +1693,7 @@ let subst_one dep_proof_ok x (hyp,rhs,dir) =
     List.rev (pi3 (List.fold_right (fun dcl (dest,deps,allhyps) ->
       let id = NamedDecl.get_id dcl in
       if not (Id.equal id hyp)
-         && List.exists (fun y -> occur_var_in_decl env y dcl) deps
+         && List.exists (fun y -> occur_var_in_decl env sigma y dcl) deps
       then
         let id_dest = if !regular_subst_tactic then dest else MoveLast in
         (dest,id::deps,(id_dest,id)::allhyps)
@@ -1701,7 +1702,7 @@ let subst_one dep_proof_ok x (hyp,rhs,dir) =
       hyps
       (MoveBefore x,[x],[]))) in (* In practice, no dep hyps before x, so MoveBefore x is good enough *)
   (* Decides if x appears in conclusion *)
-  let depconcl = occur_var env x concl in
+  let depconcl = occur_var env sigma x (EConstr.of_constr concl) in
   let need_rewrite = not (List.is_empty dephyps) || depconcl in
   tclTHENLIST
     ((if need_rewrite then

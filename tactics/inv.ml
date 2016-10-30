@@ -32,8 +32,9 @@ module NamedDecl = Context.Named.Declaration
 
 let var_occurs_in_pf gl id =
   let env = Proofview.Goal.env gl in
-  occur_var env id (Proofview.Goal.concl gl) ||
-  List.exists (occur_var_in_decl env id) (Proofview.Goal.hyps gl)
+  let sigma = project gl in
+  occur_var env sigma id (EConstr.of_constr (Proofview.Goal.concl gl)) ||
+  List.exists (occur_var_in_decl env sigma id) (Proofview.Goal.hyps gl)
 
 (* [make_inv_predicate (ity,args) C]
 
@@ -75,7 +76,7 @@ let make_inv_predicate env evd indf realargs id status concl =
 	  let hyps_arity,_ = get_arity env indf in
 	    (hyps_arity,concl)
       | Dep dflt_concl ->
-	  if not (occur_var env id concl) then
+	  if not (occur_var env !evd id (EConstr.of_constr concl)) then
 	    user_err ~hdr:"make_inv_predicate"
               (str "Current goal does not depend on " ++ pr_id id ++ str".");
           (* We abstract the conclusion of goal with respect to
@@ -183,7 +184,7 @@ let dependent_hyps env id idlist gl =
     | d::l ->
 	(* Update the type of id1: it may have been subject to rewriting *)
 	let d = pf_get_hyp (NamedDecl.get_id d) gl in
-	if occur_var_in_decl env id d
+	if occur_var_in_decl env (project gl) id d
         then d :: dep_rec l
         else dep_rec l
   in

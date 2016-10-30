@@ -927,8 +927,8 @@ let generalize_non_dep hyp g =
     Environ.fold_named_context_reverse (fun (clear,keep) decl ->
       let hyp = get_id decl in
       if Id.List.mem hyp hyps
-        || List.exists (Termops.occur_var_in_decl env hyp) keep
-	|| Termops.occur_var env hyp hyp_typ
+        || List.exists (Termops.occur_var_in_decl env (project g) hyp) keep
+	|| Termops.occur_var env (project g) hyp (EConstr.of_constr hyp_typ)
 	|| Termops.is_section_variable hyp (* should be dangerous *)
       then (clear,decl::keep)
       else (hyp::clear,keep))

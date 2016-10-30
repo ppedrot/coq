@@ -102,9 +102,9 @@ val occur_meta : Evd.evar_map -> EConstr.t -> bool
 val occur_existential : Evd.evar_map -> EConstr.t -> bool
 val occur_meta_or_existential : Evd.evar_map -> EConstr.t -> bool
 val occur_evar : Evd.evar_map -> existential_key -> EConstr.t -> bool
-val occur_var : env -> Id.t -> types -> bool
+val occur_var : env -> Evd.evar_map -> Id.t -> EConstr.t -> bool
 val occur_var_in_decl :
-  env ->
+  env -> Evd.evar_map ->
   Id.t -> Context.Named.Declaration.t -> bool
 
 (** As {!occur_var} but assume the identifier not to be a section variable *)
