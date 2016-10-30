@@ -566,10 +566,10 @@ let occur_var_in_decl env sigma hyp decl =
         occur_var env sigma hyp (EConstr.of_constr typ) ||
         occur_var env sigma hyp (EConstr.of_constr body)
 
-let local_occur_var id c =
-  let rec occur c = match kind_of_term c with
+let local_occur_var sigma id c =
+  let rec occur c = match EConstr.kind sigma c with
   | Var id' -> if Id.equal id id' then raise Occur
-  | _ -> Constr.iter occur c
+  | _ -> EConstr.iter sigma occur c
   in
   try occur c; false with Occur -> true
 

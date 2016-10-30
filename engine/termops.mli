@@ -108,7 +108,7 @@ val occur_var_in_decl :
   Id.t -> Context.Named.Declaration.t -> bool
 
 (** As {!occur_var} but assume the identifier not to be a section variable *)
-val local_occur_var : Id.t -> types -> bool
+val local_occur_var : Evd.evar_map -> Id.t -> EConstr.t -> bool
 
 val free_rels : constr -> Int.Set.t
 

@@ -1674,8 +1674,8 @@ let is_eq_x gl x d =
     in
     let c = pf_nf_evar gl (NamedDecl.get_type d) in
     let (_,lhs,rhs) = pi3 (find_eq_data_decompose gl c) in
-    if (is_var x lhs) && not (local_occur_var x rhs) then raise (FoundHyp (id,rhs,true));
-    if (is_var x rhs) && not (local_occur_var x lhs) then raise (FoundHyp (id,lhs,false))
+    if (is_var x lhs) && not (local_occur_var (project gl) x (EConstr.of_constr rhs)) then raise (FoundHyp (id,rhs,true));
+    if (is_var x rhs) && not (local_occur_var (project gl) x (EConstr.of_constr lhs)) then raise (FoundHyp (id,lhs,false))
   with Constr_matching.PatternMatchingFailure ->
     ()
 
