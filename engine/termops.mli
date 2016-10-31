@@ -94,7 +94,7 @@ val iter_constr_with_full_binders :
 (**********************************************************************)
 
 val strip_head_cast : Evd.evar_map -> EConstr.t -> EConstr.t
-val drop_extra_implicit_args : constr -> constr
+val drop_extra_implicit_args : Evd.evar_map -> EConstr.t -> constr
 
 (** occur checks *)
 

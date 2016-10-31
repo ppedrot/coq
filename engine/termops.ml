@@ -247,13 +247,13 @@ let rec strip_head_cast sigma c = match EConstr.kind sigma c with
   | Cast (c,_,_) -> strip_head_cast sigma c
   | _ -> c
 
-let rec drop_extra_implicit_args c = match kind_of_term c with
+let rec drop_extra_implicit_args sigma c = match EConstr.kind sigma c with
   (* Removed trailing extra implicit arguments, what improves compatibility
      for constants with recently added maximal implicit arguments *)
-  | App (f,args) when isEvar (Array.last args) ->
-      drop_extra_implicit_args
-	(mkApp (f,fst (Array.chop (Array.length args - 1) args)))
-  | _ -> c
+  | App (f,args) when EConstr.isEvar sigma (Array.last args) ->
+      drop_extra_implicit_args sigma
+	(EConstr.mkApp (f,fst (Array.chop (Array.length args - 1) args)))
+  | _ -> EConstr.Unsafe.to_constr c
 
 (* Get the last arg of an application *)
 let last_arg c = match kind_of_term c with
