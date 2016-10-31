@@ -236,15 +236,15 @@ let it_mkLambda_or_LetIn_from_no_LetIn c decls =
 (* *)
 
 (* strips head casts and flattens head applications *)
-let rec strip_head_cast c = match kind_of_term c with
+let rec strip_head_cast sigma c = match EConstr.kind sigma c with
   | App (f,cl) ->
-      let rec collapse_rec f cl2 = match kind_of_term f with
+      let rec collapse_rec f cl2 = match EConstr.kind sigma f with
 	| App (g,cl1) -> collapse_rec g (Array.append cl1 cl2)
 	| Cast (c,_,_) -> collapse_rec c cl2
-	| _ -> if Int.equal (Array.length cl2) 0 then f else mkApp (f,cl2)
+	| _ -> if Int.equal (Array.length cl2) 0 then f else EConstr.mkApp (f,cl2)
       in
       collapse_rec f cl
-  | Cast (c,_,_) -> strip_head_cast c
+  | Cast (c,_,_) -> strip_head_cast sigma c
   | _ -> c
 
 let rec drop_extra_implicit_args c = match kind_of_term c with
