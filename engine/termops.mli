@@ -133,7 +133,7 @@ val subst_meta : meta_value_map -> constr -> constr
 type meta_type_map = (metavariable * types) list
 
 (** [pop c] lifts by -1 the positive indexes in [c] *)
-val pop : constr -> constr
+val pop : EConstr.t -> constr
 
 (** {6 ... } *)
 (** Substitution of an arbitrary large term. Uses equality modulo

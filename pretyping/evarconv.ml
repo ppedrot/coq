@@ -143,7 +143,7 @@ let check_conv_record env sigma (t1,sk1) (t2,sk2) =
 	  let _, a, b = destProd (Evarutil.nf_evar sigma t2) in
       	  if dependent (mkRel 1) b then raise Not_found
 	  else lookup_canonical_conversion (proji, Prod_cs),
-	    (Stack.append_app [|a;pop b|] Stack.empty)
+	    (Stack.append_app [|a;pop (EConstr.of_constr b)|] Stack.empty)
       | Sort s ->
 	lookup_canonical_conversion
 	  (proji, Sort_cs (family_of_sort s)),[]

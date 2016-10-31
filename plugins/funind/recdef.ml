@@ -1251,7 +1251,7 @@ let clear_goals =
       | Prod(Name id as na,t',b) ->
 	  let b' = clear_goal b in
 	  if noccurn 1 b' && (is_rec_res id)
-	  then Termops.pop b'
+	  then Termops.pop (EConstr.of_constr b')
 	  else if b' == b then t
 	  else mkProd(na,t',b')
       | _ -> Term.map_constr clear_goal t

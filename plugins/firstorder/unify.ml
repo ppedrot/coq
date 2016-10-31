@@ -60,7 +60,7 @@ let unif t1 t2=
 	  | Cast(_,_,_),_->Queue.add (strip_outer_cast nt1,nt2) bige
  	  | _,Cast(_,_,_)->Queue.add (nt1,strip_outer_cast nt2) bige
 	  | (Prod(_,a,b),Prod(_,c,d))|(Lambda(_,a,b),Lambda(_,c,d))->
-	      Queue.add (a,c) bige;Queue.add (pop b,pop d) bige
+	      Queue.add (a,c) bige;Queue.add (pop (EConstr.of_constr b),pop (EConstr.of_constr d)) bige
 	  | Case (_,pa,ca,va),Case (_,pb,cb,vb)->
 	      Queue.add (pa,pb) bige;
 	      Queue.add (ca,cb) bige;

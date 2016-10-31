@@ -145,7 +145,7 @@ let rec chop_product n t =
   if Int.equal n 0 then Some t
   else
     match kind_of_term t with
-      | Prod (_, _, b) ->  if noccurn 1 b then chop_product (pred n) (Termops.pop b) else None
+      | Prod (_, _, b) ->  if noccurn 1 b then chop_product (pred n) (Termops.pop (EConstr.of_constr b)) else None
       | _ -> None
 
 let evar_dependencies evm oev =

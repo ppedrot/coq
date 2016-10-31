@@ -59,7 +59,7 @@ let rec decompose_term env sigma t=
 	let targs=Array.map (decompose_term env sigma) args in
 	  Array.fold_left (fun s t->Appli (s,t)) tf targs
     | Prod (_,a,_b) when not (Termops.dependent (mkRel 1) _b) ->
-	let b = Termops.pop _b in
+	let b = Termops.pop (EConstr.of_constr _b) in
 	let sort_b = sf_of env sigma b in
 	let sort_a = sf_of env sigma a in
 	Appli(Appli(Product (sort_a,sort_b) ,
@@ -113,7 +113,7 @@ let rec pattern_of_constr env sigma c =
 	  PApp (pf,List.rev pargs),
 	List.fold_left Int.Set.union Int.Set.empty lrels
     | Prod (_,a,_b) when not (Termops.dependent (mkRel 1) _b) ->
-	let b = Termops.pop _b in
+	let b = Termops.pop (EConstr.of_constr _b) in
 	let pa,sa = pattern_of_constr env sigma a in
 	let pb,sb = pattern_of_constr env sigma b in
 	let sort_b = sf_of env sigma b in

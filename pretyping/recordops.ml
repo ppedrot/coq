@@ -179,7 +179,7 @@ let cs_pattern_of_constr t =
           with e when CErrors.noncritical e -> raise Not_found
 	end
     | Rel n -> Default_cs, Some n, []
-    | Prod (_,a,b) when not (Termops.dependent (mkRel 1) b) -> Prod_cs, None, [a; Termops.pop b]
+    | Prod (_,a,b) when not (Termops.dependent (mkRel 1) b) -> Prod_cs, None, [a; Termops.pop (EConstr.of_constr b)]
     | Sort s -> Sort_cs (family_of_sort s), None, []
     | _ ->
 	begin

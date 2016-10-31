@@ -947,7 +947,7 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
             | Rel 1, [] ->
 	      let lc = Array.sub cl 0 (napp-1) in
 	      let u = if Int.equal napp 1 then f else appvect (f,lc) in
-	      if noccurn 1 u then (pop u,Stack.empty),Cst_stack.empty else fold ()
+	      if noccurn 1 u then (pop (EConstr.of_constr u),Stack.empty),Cst_stack.empty else fold ()
             | _ -> fold ()
 	  else fold ()
 	| _ -> fold ())
@@ -1043,7 +1043,7 @@ let local_whd_state_gen flags sigma =
             | Rel 1, [] ->
 	      let lc = Array.sub cl 0 (napp-1) in
 	      let u = if Int.equal napp 1 then f else appvect (f,lc) in
-	      if noccurn 1 u then (pop u,Stack.empty) else s
+	      if noccurn 1 u then (pop (EConstr.of_constr u),Stack.empty) else s
             | _ -> s
 	  else s
 	| _ -> s)

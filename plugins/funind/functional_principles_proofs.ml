@@ -287,7 +287,7 @@ let change_eq env sigma hyp_id (context:Context.Rel.t) x t end_of_type  =
     in
     let sub = compute_substitution Int.Map.empty (snd t1) (snd t2) in
     let sub = compute_substitution sub (fst t1) (fst t2) in
-    let end_of_type_with_pop = Termops.pop end_of_type in (*the equation will be removed *)
+    let end_of_type_with_pop = Termops.pop (EConstr.of_constr end_of_type) in (*the equation will be removed *)
     let new_end_of_type =
       (* Ugly hack to prevent Map.fold order change between ocaml-3.08.3 and ocaml-3.08.4
 	 Can be safely replaced by the next comment for Ocaml >= 3.08.4
@@ -309,7 +309,7 @@ let change_eq env sigma hyp_id (context:Context.Rel.t) x t end_of_type  =
 	   try
 	     let witness = Int.Map.find i sub in
 	     if is_local_def decl then anomaly (Pp.str "can not redefine a rel!");
-	     (Termops.pop end_of_type,ctxt_size,mkLetIn (RelDecl.get_name decl, witness, RelDecl.get_type decl, witness_fun))
+	     (Termops.pop (EConstr.of_constr end_of_type),ctxt_size,mkLetIn (RelDecl.get_name decl, witness, RelDecl.get_type decl, witness_fun))
 	   with Not_found  ->
 	     (mkProd_or_LetIn decl end_of_type, ctxt_size + 1, mkLambda_or_LetIn decl witness_fun)
 	)
@@ -430,7 +430,7 @@ let clean_hyp_with_heq ptes_infos eq_hyps hyp_id env sigma =
 	  begin
 	    let pte,pte_args =  (destApp t_x) in
 	    let (* fix_info *) prove_rec_hyp = (Id.Map.find (destVar pte) ptes_infos).proving_tac in
-	    let popped_t' = Termops.pop t' in
+	    let popped_t' = Termops.pop (EConstr.of_constr t') in
 	    let real_type_of_hyp = it_mkProd_or_LetIn popped_t' context in
 	    let prove_new_type_of_hyp =
 	      let context_length = List.length context in
@@ -480,7 +480,7 @@ let clean_hyp_with_heq ptes_infos eq_hyps hyp_id env sigma =
 (* 	    observe (str "In "++Ppconstr.pr_id hyp_id++  *)
 (* 		       str " removing useless precond True" *)
 (* 		    );  *)
-	  let popped_t' = Termops.pop t' in
+	  let popped_t' = Termops.pop (EConstr.of_constr t') in
 	  let real_type_of_hyp =
 	    it_mkProd_or_LetIn popped_t' context
 	  in
@@ -508,7 +508,7 @@ let clean_hyp_with_heq ptes_infos eq_hyps hyp_id env sigma =
 	  ]
 	else if is_trivial_eq t_x
 	then (*  t_x :=  t = t   => we remove this precond *)
-	  let popped_t' = Termops.pop t' in
+	  let popped_t' = Termops.pop (EConstr.of_constr t') in
 	  let real_type_of_hyp =
 	    it_mkProd_or_LetIn popped_t' context
 	  in

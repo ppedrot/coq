@@ -80,7 +80,7 @@ let kind_of_formula gl term =
   let normalize=special_nf gl in
   let cciterm=special_whd gl term in
     match match_with_imp_term cciterm with
-	Some (a,b)-> Arrow(a,(pop b))
+	Some (a,b)-> Arrow(a,(pop (EConstr.of_constr b)))
       |_->
 	 match match_with_forall_term cciterm with
 	     Some (_,a,b)-> Forall(a,b)

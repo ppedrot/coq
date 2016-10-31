@@ -215,11 +215,11 @@ let lookup_name_as_displayed env t s =
     | Prod (name,_,c') ->
 	(match compute_displayed_name_in RenamingForGoal avoid name c' with
            | (Name id,avoid') -> if Id.equal id s then Some n else lookup avoid' (n+1) c'
-	   | (Anonymous,avoid') -> lookup avoid' (n+1) (pop c'))
+	   | (Anonymous,avoid') -> lookup avoid' (n+1) (pop (EConstr.of_constr c')))
     | LetIn (name,_,_,c') ->
 	(match compute_displayed_name_in RenamingForGoal avoid name c' with
            | (Name id,avoid') -> if Id.equal id s then Some n else lookup avoid' (n+1) c'
-	   | (Anonymous,avoid') -> lookup avoid' (n+1) (pop c'))
+	   | (Anonymous,avoid') -> lookup avoid' (n+1) (pop (EConstr.of_constr c')))
     | Cast (c,_,_) -> lookup avoid n c
     | _ -> None
   in lookup (ids_of_named_context (named_context env)) 1 t

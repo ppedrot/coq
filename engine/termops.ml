@@ -664,7 +664,7 @@ let count_occurrences m t =
 (* Synonymous *)
 let occur_term = dependent
 
-let pop t = lift (-1) t
+let pop t = EConstr.Unsafe.to_constr (EConstr.Vars.lift (-1) t)
 
 (***************************)
 (*  bindings functions *)
