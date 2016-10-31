@@ -887,7 +887,7 @@ let extract_std_constant env kn body typ =
      break user's clever let-ins and partial applications). *)
   let rels, c =
     let n = List.length s
-    and m = nb_lam body in
+    and m = nb_lam Evd.empty (EConstr.of_constr body) (** FIXME *) in
     if n <= m then decompose_lam_n n body
     else
       let s,s' = List.chop m s in

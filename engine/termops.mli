@@ -188,7 +188,7 @@ val align_prod_letin : Evd.evar_map -> EConstr.t -> EConstr.t -> Context.Rel.t *
 
 (** [nb_lam] {% $ %}[x_1:T_1]...[x_n:T_n]c{% $ %} where {% $ %}c{% $ %} is not an abstraction
    gives {% $ %}n{% $ %} (casts are ignored) *)
-val nb_lam : constr -> int
+val nb_lam : Evd.evar_map -> EConstr.t -> int
 
 (** Similar to [nb_lam], but gives the number of products instead *)
 val nb_prod : constr -> int

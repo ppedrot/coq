@@ -894,13 +894,13 @@ let decompose_prod_letin sigma c =
 
 (* (nb_lam [na1:T1]...[nan:Tan]c) where c is not an abstraction
  * gives n (casts are ignored) *)
-let nb_lam =
-  let rec nbrec n c = match kind_of_term c with
+let nb_lam sigma c =
+  let rec nbrec n c = match EConstr.kind sigma c with
     | Lambda (_,_,c) -> nbrec (n+1) c
     | Cast (c,_,_) -> nbrec n c
     | _ -> n
   in
-  nbrec 0
+  nbrec 0 c
 
 (* similar to nb_lam, but gives the number of products instead *)
 let nb_prod =
