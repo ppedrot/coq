@@ -4053,7 +4053,7 @@ let get_eliminator elim dep s gl =
   | ElimOver (isrec,id) ->
       let evd, (elimc,elimt),_ as elims = guess_elim isrec dep s id gl in
       let _, (l, s) = compute_elim_signature elims id in
-      let branchlengthes = List.map (fun d -> assert (RelDecl.is_local_assum d); pi1 (decompose_prod_letin (RelDecl.get_type d)))
+      let branchlengthes = List.map (fun d -> assert (RelDecl.is_local_assum d); pi1 (decompose_prod_letin (Tacmach.New.project gl) (EConstr.of_constr (RelDecl.get_type d))))
                                     (List.rev s.branches)
       in
       evd, isrec, ({elimindex = None; elimbody = elimc; elimrename = Some (isrec,Array.of_list branchlengthes)}, elimt), l

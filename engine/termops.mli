@@ -183,8 +183,8 @@ exception CannotFilter
 type subst = (Context.Rel.t * constr) Evar.Map.t
 val filtering : Context.Rel.t -> Reduction.conv_pb -> constr -> constr -> subst
 
-val decompose_prod_letin : constr -> int * Context.Rel.t * constr
-val align_prod_letin : constr -> constr -> Context.Rel.t * constr
+val decompose_prod_letin : Evd.evar_map -> EConstr.t -> int * Context.Rel.t * constr
+val align_prod_letin : Evd.evar_map -> EConstr.t -> EConstr.t -> Context.Rel.t * constr
 
 (** [nb_lam] {% $ %}[x_1:T_1]...[x_n:T_n]c{% $ %} where {% $ %}c{% $ %} is not an abstraction
    gives {% $ %}n{% $ %} (casts are ignored) *)

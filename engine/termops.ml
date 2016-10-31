@@ -883,13 +883,14 @@ let filtering env cv_pb c1 c2 =
   in
   aux env cv_pb c1 c2; !evm
 
-let decompose_prod_letin : constr -> int * Context.Rel.t * constr =
-  let rec prodec_rec i l c = match kind_of_term c with
-    | Prod (n,t,c)    -> prodec_rec (succ i) (RelDecl.LocalAssum (n,t)::l) c
-    | LetIn (n,d,t,c) -> prodec_rec (succ i) (RelDecl.LocalDef (n,d,t)::l) c
-    | Cast (c,_,_)    -> prodec_rec i l c
-    | _               -> i,l,c in
-  prodec_rec 0 []
+let decompose_prod_letin sigma c =
+  let inj c = EConstr.Unsafe.to_constr c in
+  let rec prodec_rec i l sigma c = match EConstr.kind sigma c with
+    | Prod (n,t,c)    -> prodec_rec (succ i) (RelDecl.LocalAssum (n, inj t)::l) sigma c
+    | LetIn (n,d,t,c) -> prodec_rec (succ i) (RelDecl.LocalDef (n, inj d, inj t)::l) sigma c
+    | Cast (c,_,_)    -> prodec_rec i l sigma c
+    | _               -> i,l, inj c in
+  prodec_rec 0 [] sigma c
 
 (* (nb_lam [na1:T1]...[nan:Tan]c) where c is not an abstraction
  * gives n (casts are ignored) *)
@@ -919,9 +920,9 @@ let nb_prod_modulo_zeta x =
       | _ -> n
   in count 0 x
 
-let align_prod_letin c a : Context.Rel.t * constr =
-  let (lc,_,_) = decompose_prod_letin c in
-  let (la,l,a) = decompose_prod_letin a in
+let align_prod_letin sigma c a : Context.Rel.t * constr =
+  let (lc,_,_) = decompose_prod_letin sigma c in
+  let (la,l,a) = decompose_prod_letin sigma a in
   if not (la >= lc) then invalid_arg "align_prod_letin";
   let (l1,l2) = Util.List.chop lc l in
   l2,it_mkProd_or_LetIn a l1
