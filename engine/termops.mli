@@ -197,7 +197,7 @@ val nb_prod : constr -> int
 val nb_prod_modulo_zeta : constr -> int
 
 (** Get the last arg of a constr intended to be an application *)
-val last_arg : constr -> constr
+val last_arg : Evd.evar_map -> EConstr.t -> constr
 
 (** Force the decomposition of a term as an applicative one *)
 val decompose_app_vect : constr -> constr * constr array

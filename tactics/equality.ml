@@ -973,7 +973,7 @@ let apply_on_clause (f,t) clause =
   let sigma =  clause.evd in
   let f_clause = mk_clenv_from_env clause.env sigma None (f,t) in
   let argmv =
-    (match kind_of_term (last_arg f_clause.templval.Evd.rebus) with
+    (match kind_of_term (last_arg f_clause.evd (EConstr.of_constr f_clause.templval.Evd.rebus)) with
      | Meta mv -> mv
      | _  -> user_err  (str "Ill-formed clause applicator.")) in
   clenv_fchain ~with_univs:false argmv f_clause clause
