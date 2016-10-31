@@ -911,11 +911,11 @@ let nb_prod sigma c =
   in
   nbrec 0 c
 
-let nb_prod_modulo_zeta x =
+let nb_prod_modulo_zeta sigma x =
   let rec count n c =
-    match kind_of_term c with
+    match EConstr.kind sigma c with
         Prod(_,_,t) -> count (n+1) t
-      | LetIn(_,a,_,t) -> count n (subst1 a t)
+      | LetIn(_,a,_,t) -> count n (EConstr.Vars.subst1 a t)
       | Cast(c,_,_) -> count n c
       | _ -> n
   in count 0 x

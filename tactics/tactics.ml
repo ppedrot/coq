@@ -1690,12 +1690,13 @@ let tclORELSEOPT t k =
 let general_apply with_delta with_destruct with_evars clear_flag (loc,(c,lbind)) =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
   let concl = Proofview.Goal.concl gl in
+  let sigma = Tacmach.New.project gl in
   let flags =
     if with_delta then default_unify_flags () else default_no_delta_unify_flags () in
   (* The actual type of the theorem. It will be matched against the
   goal. If this fails, then the head constant will be unfolded step by
   step. *)
-  let concl_nprod = nb_prod_modulo_zeta concl in
+  let concl_nprod = nb_prod_modulo_zeta sigma (EConstr.of_constr concl) in
   let rec try_main_apply with_destruct c =
     Proofview.Goal.enter { enter = begin fun gl ->
     let env = Proofview.Goal.env gl in
@@ -1704,7 +1705,7 @@ let general_apply with_delta with_destruct with_evars clear_flag (loc,(c,lbind))
     let thm_ty0 = nf_betaiota sigma (Retyping.get_type_of env sigma c) in
     let try_apply thm_ty nprod =
       try
-        let n = nb_prod_modulo_zeta thm_ty - nprod in
+        let n = nb_prod_modulo_zeta sigma (EConstr.of_constr thm_ty) - nprod in
         if n<0 then error "Applied theorem has not enough premisses.";
         let clause = make_clenv_binding_apply env sigma (Some n) (c,thm_ty) lbind in
         Clenvtac.res_pf clause ~with_evars ~flags

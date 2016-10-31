@@ -194,7 +194,7 @@ val nb_lam : Evd.evar_map -> EConstr.t -> int
 val nb_prod : Evd.evar_map -> EConstr.t -> int
 
 (** Similar to [nb_prod], but zeta-contracts let-in on the way *)
-val nb_prod_modulo_zeta : constr -> int
+val nb_prod_modulo_zeta : Evd.evar_map -> EConstr.t -> int
 
 (** Get the last arg of a constr intended to be an application *)
 val last_arg : Evd.evar_map -> EConstr.t -> constr
