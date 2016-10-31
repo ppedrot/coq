@@ -1102,13 +1102,13 @@ let fold_one_com com env sigma c =
   (* Reason first on the beta-iota-zeta normal form of the constant as
      unfold produces it, so that the "unfold f; fold f" configuration works
      to refold fix expressions *)
-  let a = subst_term (clos_norm_flags unfold_side_red env sigma rcom) c in
+  let a = subst_term sigma (EConstr.of_constr (clos_norm_flags unfold_side_red env sigma rcom)) (EConstr.of_constr c) in
   if not (eq_constr a c) then
     subst1 com a
   else
     (* Then reason on the non beta-iota-zeta form for compatibility -
        even if it is probably a useless configuration *)
-    let a = subst_term rcom c in
+    let a = subst_term sigma (EConstr.of_constr rcom) (EConstr.of_constr c) in
     subst1 com a
 
 let fold_commands cl env sigma c =

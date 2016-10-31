@@ -141,20 +141,20 @@ val pop : constr -> constr
 
 (** [subst_term_gen eq d c] replaces [d] by [Rel 1] in [c] using [eq]
    as equality *)
-val subst_term_gen :
-  (constr -> constr -> bool) -> constr -> constr -> constr
+val subst_term_gen : Evd.evar_map ->
+  (Evd.evar_map -> EConstr.t -> EConstr.t -> bool) -> EConstr.t -> EConstr.t -> constr
 
 (** [replace_term_gen eq d e c] replaces [d] by [e] in [c] using [eq]
    as equality *)
 val replace_term_gen :
-  (constr -> constr -> bool) ->
-    constr -> constr -> constr -> constr
+  Evd.evar_map -> (Evd.evar_map -> EConstr.t -> EConstr.t -> bool) ->
+    EConstr.t -> EConstr.t -> EConstr.t -> constr
 
 (** [subst_term d c] replaces [d] by [Rel 1] in [c] *)
-val subst_term : constr -> constr -> constr
+val subst_term : Evd.evar_map -> EConstr.t -> EConstr.t -> constr
 
 (** [replace_term d e c] replaces [d] by [e] in [c] *)
-val replace_term : constr -> constr -> constr -> constr
+val replace_term : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> constr
 
 (** Alternative term equalities *)
 val base_sort_cmp : Reduction.conv_pb -> sorts -> sorts -> bool
@@ -166,11 +166,11 @@ val eq_constr : constr -> constr -> bool (* FIXME rename: erases universes*)
 val eta_reduce_head : constr -> constr
 
 (** Flattens application lists *)
-val collapse_appl : constr -> constr
+val collapse_appl : Evd.evar_map -> EConstr.t -> constr
 
 (** Remove recursively the casts around a term i.e.
    [strip_outer_cast (Cast (Cast ... (Cast c, t) ... ))] is [c]. *)
-val strip_outer_cast : constr -> constr
+val strip_outer_cast : Evd.evar_map -> EConstr.t -> constr
 
 exception CannotFilter
 

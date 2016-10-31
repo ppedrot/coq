@@ -372,7 +372,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
       | None -> fallback ()
       | Some l1' -> (* Miller-Pfenning's patterns unification *)
 	let t2 = nf_evar evd tM in
-	let t2 = solve_pattern_eqn env l1' t2 in
+	let t2 = solve_pattern_eqn env evd l1' t2 in
 	  solve_simple_eqn (evar_conv_x ts) env evd
 	    (position_problem on_left pbty,ev,t2) 
   in

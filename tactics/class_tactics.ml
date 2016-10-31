@@ -454,13 +454,13 @@ and e_my_find_search db_list local_db secvars hdc complete only_classes sigma co
 and e_trivial_resolve db_list local_db secvars only_classes sigma concl =
   try
     e_my_find_search db_list local_db secvars
-     (decompose_app_bound concl) true only_classes sigma concl
+     (decompose_app_bound sigma concl) true only_classes sigma concl
   with Bound | Not_found -> []
 
 let e_possible_resolve db_list local_db secvars only_classes sigma concl =
   try
     e_my_find_search db_list local_db secvars
-      (decompose_app_bound concl) false only_classes sigma concl
+      (decompose_app_bound sigma concl) false only_classes sigma concl
   with Bound | Not_found -> []
 
 let cut_of_hints h =
@@ -1486,16 +1486,17 @@ let _ =
 (** Take the head of the arity of a constr.
     Used in the partial application tactic. *)
 
-let rec head_of_constr t =
-  let t = strip_outer_cast(collapse_appl t) in
+let rec head_of_constr sigma t =
+  let t = strip_outer_cast sigma (EConstr.of_constr (collapse_appl sigma (EConstr.of_constr t))) in
     match kind_of_term t with
-    | Prod (_,_,c2)  -> head_of_constr c2
-    | LetIn (_,_,_,c2) -> head_of_constr c2
-    | App (f,args)  -> head_of_constr f
+    | Prod (_,_,c2)  -> head_of_constr sigma c2
+    | LetIn (_,_,_,c2) -> head_of_constr sigma c2
+    | App (f,args)  -> head_of_constr sigma f
     | _      -> t
 
 let head_of_constr h c =
-  let c = head_of_constr c in
+  Proofview.tclEVARMAP >>= fun sigma ->
+  let c = head_of_constr sigma c in
   letin_tac None (Name h) c None Locusops.allHyps
 
 let not_evar c =

@@ -93,7 +93,7 @@ let retype ?(polyprop=true) sigma =
   let rec type_of env cstr =
     match kind_of_term cstr with
     | Meta n ->
-      (try strip_outer_cast (Evd.meta_ftype sigma n).Evd.rebus
+      (try strip_outer_cast sigma (EConstr.of_constr (Evd.meta_ftype sigma n).Evd.rebus)
        with Not_found -> retype_error (BadMeta n))
     | Rel n ->
 	let ty = RelDecl.get_type (lookup_rel n env) in
@@ -125,11 +125,12 @@ let retype ?(polyprop=true) sigma =
     | Fix ((_,i),(_,tys,_)) -> tys.(i)
     | CoFix (i,(_,tys,_)) -> tys.(i)
     | App(f,args) when is_template_polymorphic env sigma (EConstr.of_constr f) ->
+        let f = whd_evar sigma f in
 	let t = type_of_global_reference_knowing_parameters env f args in
-        strip_outer_cast (subst_type env sigma t (Array.to_list args))
+        strip_outer_cast sigma (EConstr.of_constr (subst_type env sigma t (Array.to_list args)))
     | App(f,args) ->
-        strip_outer_cast
-          (subst_type env sigma (type_of env f) (Array.to_list args))
+        strip_outer_cast sigma
+          (EConstr.of_constr (subst_type env sigma (type_of env f) (Array.to_list args)))
     | Proj (p,c) ->
        let ty = type_of env c in
        (try
@@ -153,6 +154,7 @@ let retype ?(polyprop=true) sigma =
 	  | Prop Null, (Type _ as s) -> s
 	  | Type u1, Type u2 -> Type (Univ.sup u1 u2))
     | App(f,args) when is_template_polymorphic env sigma (EConstr.of_constr f) ->
+      let f = whd_evar sigma f in
       let t = type_of_global_reference_knowing_parameters env f args in
         sort_of_atomic_type env sigma t args
     | App(f,args) -> sort_of_atomic_type env sigma (type_of env f) args
@@ -169,6 +171,7 @@ let retype ?(polyprop=true) sigma =
 	if not (is_impredicative_set env) &&
 	   s2 == InSet && sort_family_of env t == InType then InType else s2
     | App(f,args) when is_template_polymorphic env sigma (EConstr.of_constr f) ->
+        let f = whd_evar sigma f in
 	let t = type_of_global_reference_knowing_parameters env f args in
         family_of_sort (sort_of_atomic_type env sigma t args)
     | App(f,args) ->

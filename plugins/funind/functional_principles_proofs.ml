@@ -608,7 +608,7 @@ let treat_new_case ptes_infos nb_prod continue_tac term dyn_infos =
 	 let fun_body =
 	   mkLambda(Anonymous,
 		    pf_unsafe_type_of g' term,
-		    Termops.replace_term term (mkRel 1) dyn_infos.info
+		    Termops.replace_term (project g') (EConstr.of_constr term) (EConstr.mkRel 1) (EConstr.of_constr dyn_infos.info)
 		   )
 	 in
 	 let new_body = pf_nf_betaiota g' (mkApp(fun_body,[| new_term_value |])) in

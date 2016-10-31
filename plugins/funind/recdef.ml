@@ -407,7 +407,7 @@ let treat_case forbid_new_ids to_intros finalize_tac nb_lam e infos : tactic =
 		let _,args = try destApp ty_teq with DestKO -> assert false in
 		args.(1),args.(2)
 	      in
-	      let new_b' = Termops.replace_term teq_lhs teq_rhs new_b in 
+	      let new_b' = Termops.replace_term (project g') (EConstr.of_constr teq_lhs) (EConstr.of_constr teq_rhs) (EConstr.of_constr new_b) in 
 	      let new_infos = {
 		infos with 
 		  info = new_b';

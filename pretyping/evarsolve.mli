@@ -62,7 +62,7 @@ val is_unification_pattern_evar : env -> evar_map -> existential -> constr list 
 val is_unification_pattern : env * int -> evar_map -> constr -> constr list ->
   constr -> constr list option
 
-val solve_pattern_eqn : env -> constr list -> constr -> constr
+val solve_pattern_eqn : env -> evar_map -> constr list -> constr -> constr
 
 val noccur_evar : env -> evar_map -> Evar.t -> constr -> bool
 

@@ -182,7 +182,7 @@ let solve_pattern_eqn_array (env,nb) f l c (sigma,metasubst,evarsubst) =
 	   extra assumptions added by unification to the context *)
         let env' = pop_rel_context nb env in
 	let sigma,c = pose_all_metas_as_evars env' sigma c in
-	let c = solve_pattern_eqn env l c in
+	let c = solve_pattern_eqn env sigma l c in
 	let pb = (Conv,TypeNotProcessed) in
 	  if noccur_between 1 nb c then
             sigma,(k,lift (-nb) c,pb)::metasubst,evarsubst
@@ -190,7 +190,7 @@ let solve_pattern_eqn_array (env,nb) f l c (sigma,metasubst,evarsubst) =
     | Evar ev ->
         let env' = pop_rel_context nb env in
 	let sigma,c = pose_all_metas_as_evars env' sigma c in
-	sigma,metasubst,(env,ev,solve_pattern_eqn env l c)::evarsubst
+	sigma,metasubst,(env,ev,solve_pattern_eqn env sigma l c)::evarsubst
     | _ -> assert false
 
 let push d (env,n) = (push_rel_assum d env,n+1)
@@ -1695,7 +1695,7 @@ let w_unify_to_subterm env evd ?(flags=default_unify_flags ()) (op,cl) =
   let bestexn = ref None in
   let kop = Keys.constr_key op in
   let rec matchrec cl =
-    let cl = strip_outer_cast cl in
+    let cl = strip_outer_cast evd (EConstr.of_constr cl) in
     (try
        if closed0 cl && not (isEvar cl) && keyed_unify env evd kop cl then
        (try
@@ -1788,7 +1788,7 @@ let w_unify_to_subterm_all env evd ?(flags=default_unify_flags ()) (op,cl) =
     in ffail 0
   in
   let rec matchrec cl =
-    let cl = strip_outer_cast cl in
+    let cl = strip_outer_cast evd (EConstr.of_constr cl) in
       (bind
 	  (if closed0 cl
 	  then return (fun () -> w_typed_unify env evd CONV flags op cl,cl)
@@ -1848,7 +1848,7 @@ let w_unify_to_subterm_list env evd flags hdmeta oplist t =
                unify pre-existing non frozen evars of the goal or of the
                pattern *)
           set_no_delta_flags flags in
-	let t' = (strip_outer_cast op,t) in
+	let t' = (strip_outer_cast evd (EConstr.of_constr op),t) in
         let (evd',cl) =
           try
   	    if is_keyed_unification () then

@@ -509,9 +509,9 @@ let is_unification_pattern (env,nb) evd f l t =
    *implicitly* depend on Vars but lambda abstraction will not reflect this
    dependency: ?X x = ?1 (?1 is a meta) will return \_.?1 while it should
    return \y. ?1{x\y} (non constant function if ?1 depends on x) (BB) *)
-let solve_pattern_eqn env l c =
+let solve_pattern_eqn env sigma l c =
   let c' = List.fold_right (fun a c ->
-    let c' = subst_term (lift 1 a) (lift 1 c) in
+    let c' = subst_term sigma (EConstr.of_constr (lift 1 a)) (EConstr.of_constr (lift 1 c)) in
     match kind_of_term a with
       (* Rem: if [a] links to a let-in, do as if it were an assumption *)
       | Rel n ->

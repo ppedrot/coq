@@ -33,7 +33,7 @@ let clenv_cast_meta clenv =
       | _  -> map_constr crec u
 
   and crec_hd u =
-    match kind_of_term (strip_outer_cast u) with
+    match kind_of_term (strip_outer_cast clenv.evd (EConstr.of_constr u)) with
       | Meta mv ->
 	  (try
             let b = Typing.meta_type clenv.evd mv in

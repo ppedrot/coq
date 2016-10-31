@@ -21,6 +21,8 @@ exception UFAIL of constr*constr
    to the equation set. Raises UFAIL with a pair of  terms
 *)
 
+let strip_outer_cast t = strip_outer_cast Evd.empty (EConstr.of_constr t) (** FIXME *)
+
 let unif t1 t2=
   let bige=Queue.create ()
   and sigma=ref [] in

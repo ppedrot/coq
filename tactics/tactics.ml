@@ -498,7 +498,7 @@ fun env sigma p -> function
   let Sigma (rem, sigma, r) = mk_holes env sigma (p +> q) rem in
   Sigma (arg :: rem, sigma, r)
 
-let rec check_mutind env sigma k cl = match kind_of_term (strip_outer_cast cl) with
+let rec check_mutind env sigma k cl = match kind_of_term (strip_outer_cast sigma (EConstr.of_constr cl)) with
 | Prod (na, c1, b) ->
   if Int.equal k 1 then
     try
@@ -2767,8 +2767,8 @@ let generalized_name c t ids cl = function
 let generalize_goal_gen env sigma ids i ((occs,c,b),na) t cl =
   let open Context.Rel.Declaration in
   let decls,cl = decompose_prod_n_assum i cl in
-  let dummy_prod = it_mkProd_or_LetIn mkProp decls in
-  let newdecls,_ = decompose_prod_n_assum i (subst_term_gen eq_constr_nounivs c dummy_prod) in
+  let dummy_prod = EConstr.of_constr (it_mkProd_or_LetIn mkProp decls) in
+  let newdecls,_ = decompose_prod_n_assum i (subst_term_gen sigma EConstr.eq_constr_nounivs (EConstr.of_constr c) dummy_prod) in
   let cl',sigma' = subst_closed_term_occ env sigma (AtOccs occs) c (it_mkProd_or_LetIn cl newdecls) in
   let na = generalized_name c t ids cl' na in
   let decl = match b with
@@ -4428,11 +4428,12 @@ let induction_gen_l isrec with_evars elim names lc =
 	    | _ ->
                 Proofview.Goal.enter { enter = begin fun gl ->
                 let type_of = Tacmach.New.pf_unsafe_type_of gl in
+                let sigma = Tacmach.New.project gl in
                 let x =
 		  id_of_name_using_hdchar (Global.env()) (type_of c) Anonymous in
 
                 let id = new_fresh_id [] x gl in
-		let newl' = List.map (replace_term c (mkVar id)) l' in
+		let newl' = List.map (fun r -> replace_term sigma (EConstr.of_constr c) (EConstr.mkVar id) (EConstr.of_constr r)) l' in
 		let _ = newlc:=id::!newlc in
 		Tacticals.New.tclTHEN
 		  (letin_tac None (Name id) c None allHypsAndConcl)

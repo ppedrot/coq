@@ -2279,7 +2279,7 @@ let lift_ctx n ctx =
   in ctx'
 
 (* Turn matched terms into variables. *)
-let abstract_tomatch env tomatchs tycon =
+let abstract_tomatch env sigma tomatchs tycon =
   let prev, ctx, names, tycon =
     List.fold_left
       (fun (prev, ctx, names, tycon) (c, t) ->
@@ -2288,7 +2288,7 @@ let abstract_tomatch env tomatchs tycon =
 	     Rel n -> (lift lenctx c, lift_tomatch_type lenctx t) :: prev, ctx, names, tycon
 	   | _ ->
 	       let tycon = Option.map
-		 (fun t -> subst_term (lift 1 c) (lift 1 t)) tycon in
+		 (fun t -> subst_term sigma (EConstr.of_constr (lift 1 c)) (EConstr.of_constr (lift 1 t))) tycon in
 	       let name = next_ident_away (Id.of_string "filtered_var") names in
 		 (mkRel 1, lift_tomatch_type (succ lenctx) t) :: lift_ctx 1 prev,
 	       LocalDef (Name name, lift lenctx c, lift lenctx $ type_of_tomatch t) :: ctx,
@@ -2406,7 +2406,7 @@ let compile_program_cases loc style (typing_function, evdref) tycon env
   (* constructors found in patterns *)
   let tomatchs = coerce_to_indtype typing_function evdref env matx tomatchl in
   let tycon = valcon_of_tycon tycon in
-  let tomatchs, tomatchs_lets, tycon' = abstract_tomatch env tomatchs tycon in
+  let tomatchs, tomatchs_lets, tycon' = abstract_tomatch env !evdref tomatchs tycon in
   let env = push_rel_context tomatchs_lets env in
   let len = List.length eqns in
   let sign, allnames, signlen, eqs, neqs, args =

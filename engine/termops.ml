@@ -679,45 +679,45 @@ let rec subst_meta bl c =
     | Meta i -> (try Int.List.assoc i bl with Not_found -> c)
     | _ -> map_constr (subst_meta bl) c
 
-let rec strip_outer_cast c = match kind_of_term c with
-  | Cast (c,_,_) -> strip_outer_cast c
-  | _ -> c
+let rec strip_outer_cast sigma c = match EConstr.kind sigma c with
+  | Cast (c,_,_) -> strip_outer_cast sigma c
+  | _ -> EConstr.Unsafe.to_constr c
 
 (* flattens application lists throwing casts in-between *)
-let collapse_appl c = match kind_of_term c with
+let collapse_appl sigma c = match EConstr.kind sigma c with
   | App (f,cl) ->
       let rec collapse_rec f cl2 =
-        match kind_of_term (strip_outer_cast f) with
+        match EConstr.kind sigma (EConstr.of_constr (strip_outer_cast sigma f)) with
         | App (g,cl1) -> collapse_rec g (Array.append cl1 cl2)
-        | _ -> mkApp (f,cl2)
+        | _ -> EConstr.mkApp (f,cl2)
       in
-      collapse_rec f cl
-  | _ -> c
+      EConstr.Unsafe.to_constr (collapse_rec f cl)
+  | _ -> EConstr.Unsafe.to_constr c
 
 (* First utilities for avoiding telescope computation for subst_term *)
 
-let prefix_application eq_fun (k,c) (t : constr) =
-  let c' = collapse_appl c and t' = collapse_appl t in
-  match kind_of_term c', kind_of_term t' with
+let prefix_application sigma eq_fun (k,c) t =
+  let c' = EConstr.of_constr (collapse_appl sigma c) and t' = EConstr.of_constr (collapse_appl sigma t) in
+  match EConstr.kind sigma c', EConstr.kind sigma t' with
     | App (f1,cl1), App (f2,cl2) ->
 	let l1 = Array.length cl1
 	and l2 = Array.length cl2 in
 	if l1 <= l2
-	   && eq_fun c' (mkApp (f2, Array.sub cl2 0 l1)) then
-	  Some (mkApp (mkRel k, Array.sub cl2 l1 (l2 - l1)))
+	   && eq_fun sigma c' (EConstr.mkApp (f2, Array.sub cl2 0 l1)) then
+	  Some (EConstr.mkApp (EConstr.mkRel k, Array.sub cl2 l1 (l2 - l1)))
 	else
 	  None
     | _ -> None
 
-let my_prefix_application eq_fun (k,c) (by_c : constr) (t : constr) =
-  let c' = collapse_appl c and t' = collapse_appl t in
-  match kind_of_term c', kind_of_term t' with
+let my_prefix_application sigma eq_fun (k,c) by_c t =
+  let c' = EConstr.of_constr (collapse_appl sigma c) and t' = EConstr.of_constr (collapse_appl sigma t) in
+  match EConstr.kind sigma c', EConstr.kind sigma t' with
     | App (f1,cl1), App (f2,cl2) ->
 	let l1 = Array.length cl1
 	and l2 = Array.length cl2 in
 	if l1 <= l2
-	   && eq_fun c' (mkApp (f2, Array.sub cl2 0 l1)) then
-	  Some (mkApp ((lift k by_c), Array.sub cl2 l1 (l2 - l1)))
+	   && eq_fun sigma c' (EConstr.mkApp (f2, Array.sub cl2 0 l1)) then
+	  Some (EConstr.mkApp ((EConstr.Vars.lift k by_c), Array.sub cl2 l1 (l2 - l1)))
 	else
 	  None
     | _ -> None
@@ -726,35 +726,35 @@ let my_prefix_application eq_fun (k,c) (by_c : constr) (t : constr) =
    substitutes [(Rel 1)] for all occurrences of term [c] in a term [t];
    works if [c] has rels *)
 
-let subst_term_gen eq_fun c t =
+let subst_term_gen sigma eq_fun c t =
   let rec substrec (k,c as kc) t =
-    match prefix_application eq_fun kc t with
+    match prefix_application sigma eq_fun kc t with
       | Some x -> x
       | None ->
-    if eq_fun c t then mkRel k
+    if eq_fun sigma c t then EConstr.mkRel k
     else
-      map_constr_with_binders (fun (k,c) -> (k+1,lift 1 c)) substrec kc t
+      EConstr.map_with_binders sigma (fun (k,c) -> (k+1, EConstr.Vars.lift 1 c)) substrec kc t
   in
-  substrec (1,c) t
+  EConstr.Unsafe.to_constr (substrec (1,c) t)
 
-let subst_term = subst_term_gen eq_constr
+let subst_term sigma c t = subst_term_gen sigma EConstr.eq_constr c t
 
 (* Recognizing occurrences of a given subterm in a term :
    [replace_term c1 c2 t] substitutes [c2] for all occurrences of
    term [c1] in a term [t]; works if [c1] and [c2] have rels *)
 
-let replace_term_gen eq_fun c by_c in_t =
+let replace_term_gen sigma eq_fun c by_c in_t =
   let rec substrec (k,c as kc) t =
-    match my_prefix_application eq_fun kc by_c t with
+    match my_prefix_application sigma eq_fun kc by_c t with
       | Some x -> x
       | None ->
-    (if eq_fun c t then (lift k by_c) else
-      map_constr_with_binders (fun (k,c) -> (k+1,lift 1 c))
+    (if eq_fun sigma c t then (EConstr.Vars.lift k by_c) else
+      EConstr.map_with_binders sigma (fun (k,c) -> (k+1,EConstr.Vars.lift 1 c))
 	substrec kc t)
   in
-  substrec (0,c) in_t
+  EConstr.Unsafe.to_constr (substrec (0,c) in_t)
 
-let replace_term = replace_term_gen eq_constr
+let replace_term sigma c byc t = replace_term_gen sigma EConstr.eq_constr c byc t
 
 let vars_of_env env =
   let s =

@@ -1543,7 +1543,7 @@ let subst_tuple_term env sigma dep_pair1 dep_pair2 b =
   (* We build the expected goal *)
   let abst_B =
     List.fold_right
-      (fun (e,t) body -> lambda_create env (t,subst_term e body)) e1_list b in
+      (fun (e,t) body -> lambda_create env (t,subst_term sigma (EConstr.of_constr e) (EConstr.of_constr body))) e1_list b in
   let pred_body = beta_applist(abst_B,proj_list) in
   let body = mkApp (lambda_create env (typ,pred_body),[|dep_pair1|]) in
   let expected_goal = beta_applist (abst_B,List.map fst e2_list) in
