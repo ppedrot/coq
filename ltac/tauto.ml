@@ -16,6 +16,7 @@ open Tacexpr
 open Tacinterp
 open Util
 open Tacticals.New
+open Proofview.Notations
 
 let tauto_plugin = "tauto"
 let () = Mltop.add_known_module tauto_plugin
@@ -116,9 +117,10 @@ let is_empty _ ist =
 (* Strictly speaking, this exceeds the propositional fragment as it
    matches also equality types (and solves them if a reflexivity) *)
 let is_unit_or_eq _ ist =
+  Proofview.tclEVARMAP >>= fun sigma ->
   let flags = assoc_flags ist in
-  let test = if flags.strict_unit then is_unit_type else is_unit_or_eq_type in
-  if test (assoc_var "X1" ist) then idtac else fail
+  let test = if flags.strict_unit then fun _ -> is_unit_type else is_unit_or_eq_type in
+  if test sigma (assoc_var "X1" ist) then idtac else fail
 
 let bugged_is_binary t =
   isApp t &&

@@ -279,9 +279,9 @@ let clenv_of_prods poly nprods (c, clenv) gl =
   let (c, _, _) = c in
   if poly || Int.equal nprods 0 then Some (None, clenv)
   else
-    let ty = Retyping.get_type_of (Proofview.Goal.env gl)
-                                  (Sigma.to_evar_map (Proofview.Goal.sigma gl)) c in
-    let diff = nb_prod ty - nprods in
+    let sigma = Tacmach.New.project gl in
+    let ty = Retyping.get_type_of (Proofview.Goal.env gl) sigma c in
+    let diff = nb_prod sigma (EConstr.of_constr ty) - nprods in
     if Pervasives.(>=) diff 0 then
       (* Was Some clenv... *)
       Some (Some diff,

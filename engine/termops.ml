@@ -903,13 +903,13 @@ let nb_lam sigma c =
   nbrec 0 c
 
 (* similar to nb_lam, but gives the number of products instead *)
-let nb_prod =
-  let rec nbrec n c = match kind_of_term c with
+let nb_prod sigma c =
+  let rec nbrec n c = match EConstr.kind sigma c with
     | Prod (_,_,c) -> nbrec (n+1) c
     | Cast (c,_,_) -> nbrec n c
     | _ -> n
   in
-  nbrec 0
+  nbrec 0 c
 
 let nb_prod_modulo_zeta x =
   let rec count n c =

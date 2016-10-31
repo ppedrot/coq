@@ -699,7 +699,7 @@ let build_proof
 		  let t = dyn_info'.info in
 		  let dyn_infos = {dyn_info' with info =
 		      mkCase(ci,ct,t,cb)} in
-		  let g_nb_prod = nb_prod (pf_concl g) in
+		  let g_nb_prod = nb_prod (project g) (EConstr.of_constr (pf_concl g)) in
 		  let type_of_term = pf_unsafe_type_of g t in
 		  let term_eq =
 		    make_refl_eq (Lazy.force refl_equal) type_of_term t
@@ -712,7 +712,7 @@ let build_proof
 		      (fun g -> observe_tac "toto" (
 			 tclTHENSEQ [Proofview.V82.of_tactic (Simple.case t);
 				     (fun g' ->
-					let g'_nb_prod = nb_prod (pf_concl g') in
+					let g'_nb_prod = nb_prod (project g') (EConstr.of_constr (pf_concl g')) in
 					let nb_instanciate_partial = g'_nb_prod - g_nb_prod in
 			 		observe_tac "treat_new_case"
 					  (treat_new_case
@@ -1042,7 +1042,7 @@ let do_replace (evd:Evd.evar_map ref) params rec_arg_num rev_args_id f fun_num a
       let _ = Typing.e_type_of ~refresh:true (Global.env ()) evd res in 
       res
   in
-  let nb_intro_to_do = nb_prod (pf_concl g) in
+  let nb_intro_to_do = nb_prod (project g) (EConstr.of_constr (pf_concl g)) in
     tclTHEN
       (tclDO nb_intro_to_do (Proofview.V82.of_tactic intro))
       (

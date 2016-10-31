@@ -515,12 +515,14 @@ let invIn k names ids id =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
     let hyps = List.map (fun id -> pf_get_hyp id gl) ids in
     let concl = Proofview.Goal.concl gl in
-    let nb_prod_init = nb_prod concl in
+    let sigma = project gl in
+    let nb_prod_init = nb_prod sigma (EConstr.of_constr concl) in
     let intros_replace_ids =
       Proofview.Goal.enter { enter = begin fun gl ->
         let concl = pf_nf_concl gl in
+        let sigma = project gl in
         let nb_of_new_hyp =
-          nb_prod concl - (List.length hyps + nb_prod_init)
+          nb_prod sigma (EConstr.of_constr concl) - (List.length hyps + nb_prod_init)
         in
         if nb_of_new_hyp < 1 then
           intros_replacing ids

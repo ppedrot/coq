@@ -1422,7 +1422,7 @@ let start_equation (f:global_reference) (term_f:global_reference)
   (cont_tactic:Id.t list -> tactic) g =
   let ids = pf_ids_of_hyps g in
   let terminate_constr = constr_of_global term_f in
-  let nargs = nb_prod (fst (type_of_const terminate_constr)) (*FIXME*) in
+  let nargs = nb_prod (project g) (EConstr.of_constr (fst (type_of_const terminate_constr))) (*FIXME*) in
   let x = n_x_id ids nargs in
   observe_tac (str "start_equation") (observe_tclTHENLIST (str "start_equation") [
     h_intros x;
@@ -1552,7 +1552,7 @@ let recursive_definition is_mes function_name rec_impls type_of_f r rec_arg_num 
       and functional_ref = destConst (constr_of_global functional_ref)
       and eq_ref = destConst (constr_of_global eq_ref) in
       generate_induction_principle f_ref tcc_lemma_constr
-	functional_ref eq_ref rec_arg_num rec_arg_type (nb_prod res) relation;
+	functional_ref eq_ref rec_arg_num rec_arg_type (nb_prod evm (EConstr.of_constr res)) relation;
       if Flags.is_verbose ()
       then msgnl (h 1 (Ppconstr.pr_id function_name ++
 			 spc () ++ str"is defined" )++ fnl () ++

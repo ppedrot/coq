@@ -207,21 +207,21 @@ let is_empty_type t = op2bool (match_with_empty_type t)
 (* This filters inductive types with one constructor with no arguments;
    Parameters and indices are allowed *)
 
-let match_with_unit_or_eq_type t =
+let match_with_unit_or_eq_type sigma t =
   let (hdapp,args) = decompose_app t in
   match (kind_of_term hdapp) with
     | Ind ind  ->
         let (mib,mip) = Global.lookup_pinductive ind in
         let constr_types = mip.mind_nf_lc in
         let nconstr = Array.length mip.mind_consnames in
-        let zero_args c = Int.equal (nb_prod c) mib.mind_nparams in
+        let zero_args c = Int.equal (nb_prod sigma (EConstr.of_constr c)) mib.mind_nparams in
 	if Int.equal nconstr 1 && zero_args constr_types.(0) then
 	  Some hdapp
 	else
 	  None
     | _ -> None
 
-let is_unit_or_eq_type t = op2bool (match_with_unit_or_eq_type t)
+let is_unit_or_eq_type sigma t = op2bool (match_with_unit_or_eq_type sigma t)
 
 (* A unit type is an inductive type with no indices but possibly
    (useless) parameters, and that has no arguments in its unique

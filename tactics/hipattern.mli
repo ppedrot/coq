@@ -69,8 +69,8 @@ val match_with_empty_type  : constr matching_function
 val is_empty_type          : testing_function
 
 (** type with only one constructor and no arguments, possibly with indices *)
-val match_with_unit_or_eq_type : constr matching_function
-val is_unit_or_eq_type     : testing_function
+val match_with_unit_or_eq_type : Evd.evar_map -> constr matching_function
+val is_unit_or_eq_type     : Evd.evar_map -> testing_function
 
 (** type with only one constructor and no arguments, no indices *)
 val is_unit_type           : testing_function

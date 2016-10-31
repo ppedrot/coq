@@ -71,7 +71,7 @@ let contradiction_context =
 	  else match kind_of_term typ with
 	  | Prod (na,t,u) when is_empty_type u ->
              let is_unit_or_eq =
-               if use_negated_unit_or_eq_type () then match_with_unit_or_eq_type t
+               if use_negated_unit_or_eq_type () then match_with_unit_or_eq_type sigma t
                else None in
 	     Tacticals.New.tclORELSE
                (match is_unit_or_eq with

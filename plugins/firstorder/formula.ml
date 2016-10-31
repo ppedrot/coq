@@ -96,7 +96,7 @@ let kind_of_formula gl term =
 			let has_realargs=(n>0) in
 			let is_trivial=
 			  let is_constant c =
-			    Int.equal (nb_prod c) mib.mind_nparams in
+			    Int.equal (nb_prod (project gl) (EConstr.of_constr c)) mib.mind_nparams in
 			    Array.exists is_constant mip.mind_nf_lc in
 			  if Inductiveops.mis_is_recursive (ind,mib,mip) ||
 			    (has_realargs && not is_trivial)

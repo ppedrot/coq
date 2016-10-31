@@ -191,7 +191,7 @@ val align_prod_letin : Evd.evar_map -> EConstr.t -> EConstr.t -> Context.Rel.t *
 val nb_lam : Evd.evar_map -> EConstr.t -> int
 
 (** Similar to [nb_lam], but gives the number of products instead *)
-val nb_prod : constr -> int
+val nb_prod : Evd.evar_map -> EConstr.t -> int
 
 (** Similar to [nb_prod], but zeta-contracts let-in on the way *)
 val nb_prod_modulo_zeta : constr -> int
