@@ -492,7 +492,7 @@ let find_coinductive env sigma c =
 
 let is_predicate_explicitly_dep env pred arsign =
   let rec srec env pval arsign =
-    let pv' = whd_all env Evd.empty pval in
+    let pv' = whd_all env Evd.empty (EConstr.of_constr pval) in
     match kind_of_term pv', arsign with
       | Lambda (na,t,b), (LocalAssum _)::arsign ->
 	  srec (push_rel_assum (na,t) env) b arsign

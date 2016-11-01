@@ -95,7 +95,7 @@ let head_in indl t gl =
   try
     let ity,_ =
       if !up_to_delta
-      then find_mrectype env sigma t
+      then find_mrectype env sigma (EConstr.of_constr t)
       else extract_mrectype t
     in List.exists (fun i -> eq_ind (fst i) (fst ity)) indl
   with Not_found -> false

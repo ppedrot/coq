@@ -68,7 +68,7 @@ let occur_meta_or_undefined_evar evd c =
 let occur_meta_evd sigma mv c =
   let rec occrec c =
     (* Note: evars are not instantiated by terms with metas *)
-    let c = whd_evar sigma (whd_meta sigma c) in
+    let c = whd_evar sigma (whd_meta sigma (EConstr.of_constr c)) in
     match kind_of_term c with
     | Meta mv' when Int.equal mv mv' -> raise Occur
     | _ -> Constr.iter occrec c
@@ -977,24 +977,24 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst) conv_at_top env cv_pb 
 	    (match expand_key flags.modulo_delta curenv sigma cf1 with
 	    | Some c ->
 		unirec_rec curenvnb pb opt substn
-                  (whd_betaiotazeta sigma (mkApp(c,l1))) cN
+                  (whd_betaiotazeta sigma (EConstr.of_constr (mkApp(c,l1)))) cN
 	    | None ->
 		(match expand_key flags.modulo_delta curenv sigma cf2 with
 		| Some c ->
 		    unirec_rec curenvnb pb opt substn cM
-                      (whd_betaiotazeta sigma (mkApp(c,l2)))
+                      (whd_betaiotazeta sigma (EConstr.of_constr (mkApp(c,l2))))
 		| None ->
 		    error_cannot_unify curenv sigma (cM,cN)))
 	| Some false ->
 	    (match expand_key flags.modulo_delta curenv sigma cf2 with
 	    | Some c ->
 		unirec_rec curenvnb pb opt substn cM
-                  (whd_betaiotazeta sigma (mkApp(c,l2)))
+                  (whd_betaiotazeta sigma (EConstr.of_constr (mkApp(c,l2))))
 	    | None ->
 		(match expand_key flags.modulo_delta curenv sigma cf1 with
 		| Some c ->
 		    unirec_rec curenvnb pb opt substn
-                      (whd_betaiotazeta sigma (mkApp(c,l1))) cN
+                      (whd_betaiotazeta sigma (EConstr.of_constr (mkApp(c,l1)))) cN
 		| None ->
 		    error_cannot_unify curenv sigma (cM,cN)))
 
@@ -1206,7 +1206,7 @@ let applyHead env (type r) (evd : r Sigma.t) n c =
     if Int.equal n 0 then
       Sigma (c, evd, p)
     else
-      match kind_of_term (whd_all env (Sigma.to_evar_map evd) cty) with
+      match kind_of_term (whd_all env (Sigma.to_evar_map evd) (EConstr.of_constr cty)) with
       | Prod (_,c1,c2) ->
         let Sigma (evar, evd', q) = Evarutil.new_evar env evd ~src:(Loc.ghost,Evar_kinds.GoalEvar) c1 in
 	  apprec (n-1) (mkApp(c,[|evar|])) (subst1 evar c2) (p +> q) evd'
@@ -1235,7 +1235,7 @@ let w_coerce_to_type env evd c cty mvty =
     (* inh_conv_coerce_rigid_to should have reasoned modulo reduction
        but there are cases where it though it was not rigid (like in
        fst (nat,nat)) and stops while it could have seen that it is rigid *)
-    let cty = Tacred.hnf_constr env evd cty in
+    let cty = Tacred.hnf_constr env evd (EConstr.of_constr cty) in
       try_to_coerce env evd c cty tycon
 	  
 let w_coerce env evd mv c =
@@ -1246,7 +1246,7 @@ let w_coerce env evd mv c =
 let unify_to_type env sigma flags c status u =
   let sigma, c = refresh_universes (Some false) env sigma c in
   let t = get_type_of env sigma (nf_meta sigma c) in
-  let t = nf_betaiota sigma (nf_meta sigma t) in
+  let t = nf_betaiota sigma (EConstr.of_constr (nf_meta sigma t)) in
     unify_0 env sigma CUMUL flags t u
 
 let unify_type env sigma flags mv status c =
@@ -1349,7 +1349,7 @@ let w_merge env with_types flags (evd,metas,evars) =
     	  else
             let evd' =
               if occur_meta_evd evd mv c then
-                if isMetaOf mv (whd_all env evd c) then evd
+                if isMetaOf mv (whd_all env evd (EConstr.of_constr c)) then evd
                 else error_cannot_unify env evd (mkMeta mv,c)
               else
 	        meta_assign mv (c,(status,TypeProcessed)) evd in
@@ -1577,7 +1577,7 @@ let make_pattern_test from_prefix_of_ind is_correct_type env sigma (pending,c) =
   (fun test -> match test.testing_state with
   | None -> None
   | Some (sigma,_,l) ->
-     let c = applist (nf_evar sigma (local_strong whd_meta sigma c),l) in
+     let c = applist (nf_evar sigma (local_strong whd_meta sigma (EConstr.of_constr c)),l) in
      let univs, subst = nf_univ_variables sigma in
      Some (sigma,subst_univs_constr subst c))
 
@@ -1832,7 +1832,7 @@ let w_unify_to_subterm_all env evd ?(flags=default_unify_flags ()) (op,cl) =
 let w_unify_to_subterm_list env evd flags hdmeta oplist t =
   List.fold_right
     (fun op (evd,l) ->
-      let op = whd_meta evd op in
+      let op = whd_meta evd (EConstr.of_constr op) in
       if isMeta op then
 	if flags.allow_K_in_toplevel_higher_order_unification then (evd,op::l)
 	else error_abstraction_over_meta env evd hdmeta (destMeta op)
@@ -1905,8 +1905,8 @@ let secondOrderAbstractionAlgo dep =
   if dep then secondOrderDependentAbstraction else secondOrderAbstraction
 
 let w_unify2 env evd flags dep cv_pb ty1 ty2 =
-  let c1, oplist1 = whd_nored_stack evd ty1 in
-  let c2, oplist2 = whd_nored_stack evd ty2 in
+  let c1, oplist1 = whd_nored_stack evd (EConstr.of_constr ty1) in
+  let c2, oplist2 = whd_nored_stack evd (EConstr.of_constr ty2) in
   match kind_of_term c1, kind_of_term c2 with
     | Meta p1, _ ->
         (* Find the predicate *)
@@ -1937,8 +1937,8 @@ let w_unify2 env evd flags dep cv_pb ty1 ty2 =
    convertible and first-order otherwise. But if failed if e.g. the type of
    Meta(1) had meta-variables in it. *)
 let w_unify env evd cv_pb ?(flags=default_unify_flags ()) ty1 ty2 =
-  let hd1,l1 = decompose_appvect (whd_nored evd ty1) in
-  let hd2,l2 = decompose_appvect (whd_nored evd ty2) in
+  let hd1,l1 = decompose_appvect (whd_nored evd (EConstr.of_constr ty1)) in
+  let hd2,l2 = decompose_appvect (whd_nored evd (EConstr.of_constr ty2)) in
   let is_empty1 = Array.is_empty l1 in
   let is_empty2 = Array.is_empty l2 in
     match kind_of_term hd1, not is_empty1, kind_of_term hd2, not is_empty2 with

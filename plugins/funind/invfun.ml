@@ -251,7 +251,7 @@ let prove_fun_correct evd functional_induction funs_constr graphs_constr schemes
     let mib,_ = Global.lookup_inductive graph_ind in
     (* and the principle to use in this lemma in $\zeta$ normal form *)
     let f_principle,princ_type = schemes.(i) in
-    let princ_type =  nf_zeta princ_type in
+    let princ_type =  nf_zeta (EConstr.of_constr princ_type) in
     let princ_infos = Tactics.compute_elim_sig princ_type in
     (* The number of args of the function is then easily computable *)
     let nb_fun_args = nb_prod (project g) (EConstr.of_constr (pf_concl g)) - 2 in
@@ -428,7 +428,7 @@ let prove_fun_correct evd functional_induction funs_constr graphs_constr schemes
 	List.rev (fst  (List.fold_left2
 	  (fun (bindings,avoid) decl p ->
 	     let id = Namegen.next_ident_away (Nameops.out_name (RelDecl.get_name decl)) avoid in
-	     (nf_zeta p)::bindings,id::avoid)
+	     (nf_zeta (EConstr.of_constr p))::bindings,id::avoid)
 	  ([],avoid)
 	  princ_infos.predicates
 	  (lemmas)))
@@ -655,12 +655,12 @@ let prove_fun_complete funcs graphs schemes lemmas_types_infos i : tactic =
     *)
     let lemmas =
       Array.map
-	(fun (_,(ctxt,concl)) -> nf_zeta (Termops.it_mkLambda_or_LetIn concl ctxt))
+	(fun (_,(ctxt,concl)) -> nf_zeta (EConstr.of_constr (Termops.it_mkLambda_or_LetIn concl ctxt)))
 	lemmas_types_infos
     in
     (* We get the constant and the principle corresponding to this lemma *)
     let f = funcs.(i) in
-    let graph_principle = nf_zeta schemes.(i)  in
+    let graph_principle = nf_zeta (EConstr.of_constr schemes.(i))  in
     let princ_type = pf_unsafe_type_of g graph_principle in
     let princ_infos = Tactics.compute_elim_sig princ_type in
     (* Then we get the number of argument of the function
@@ -793,7 +793,7 @@ let derive_correctness make_scheme functional_induction (funs: pconstant list) (
 	 graphs_constr.(i) <- graph;
 	 let type_of_lemma = Termops.it_mkProd_or_LetIn type_of_lemma_concl type_of_lemma_ctxt in
 	 let _ = Typing.e_type_of (Global.env ()) evd type_of_lemma in 
-	   let type_of_lemma = nf_zeta type_of_lemma in
+	   let type_of_lemma = nf_zeta (EConstr.of_constr type_of_lemma) in
 	   observe (str "type_of_lemma := " ++ Printer.pr_lconstr_env (Global.env ()) !evd type_of_lemma);
 	   type_of_lemma,type_info
 	)
@@ -860,7 +860,7 @@ let derive_correctness make_scheme functional_induction (funs: pconstant list) (
 	 let type_of_lemma =
 	   Termops.it_mkProd_or_LetIn type_of_lemma_concl type_of_lemma_ctxt
 	 in
-	 let type_of_lemma = nf_zeta type_of_lemma in
+	 let type_of_lemma = nf_zeta (EConstr.of_constr type_of_lemma) in
 	 observe (str "type_of_lemma := " ++ Printer.pr_lconstr type_of_lemma);
 	 type_of_lemma,type_info
 	)

@@ -162,7 +162,7 @@ let check_conv_record env sigma (t1,sk1) (t2,sk2) =
     | Some c -> (* A primitive projection applied to c *)
       let ty = Retyping.get_type_of ~lax:true env sigma c in
       let (i,u), ind_args = 
-	try Inductiveops.find_mrectype env sigma ty 
+	try Inductiveops.find_mrectype env sigma (EConstr.of_constr ty)
 	with _ -> raise Not_found
       in Stack.append_app_list ind_args Stack.empty, c, sk1
     | None ->

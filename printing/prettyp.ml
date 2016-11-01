@@ -594,7 +594,7 @@ let gallina_print_context with_values =
   prec
 
 let gallina_print_eval red_fun env sigma _ {uj_val=trm;uj_type=typ} =
-  let ntrm = red_fun env sigma trm in
+  let ntrm = red_fun env sigma (EConstr.of_constr trm) in
   (str "     = " ++ gallina_print_typed_value_in_env env sigma (ntrm,typ))
 
 (******************************************)

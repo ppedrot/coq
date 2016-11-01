@@ -345,7 +345,7 @@ let rec mk_refgoals sigma goal goalacc conclty trm =
     else
       match kind_of_term trm with
       | Meta _ ->
-	let conclty = nf_betaiota sigma conclty in
+	let conclty = nf_betaiota sigma (EConstr.of_constr conclty) in
 	  if !check && occur_meta sigma (EConstr.of_constr conclty) then
 	    raise (RefinerError (MetaInType conclty));
 	  let (gl,ev,sigma) = mk_goal hyps conclty in
@@ -423,7 +423,7 @@ and mk_hdgoals sigma goal goalacc trm =
   match kind_of_term trm with
     | Cast (c,_, ty) when isMeta c ->
 	check_typability env sigma ty;
-	let (gl,ev,sigma) = mk_goal hyps (nf_betaiota sigma ty) in
+	let (gl,ev,sigma) = mk_goal hyps (nf_betaiota sigma (EConstr.of_constr ty)) in
 	gl::goalacc,ty,sigma,ev
 
     | Cast (t,_, ty) ->
@@ -470,7 +470,7 @@ and mk_hdgoals sigma goal goalacc trm =
 
 and mk_arggoals sigma goal goalacc funty allargs =
   let foldmap (goalacc, funty, sigma) harg =
-    let t = whd_all (Goal.V82.env sigma goal) sigma funty in
+    let t = whd_all (Goal.V82.env sigma goal) sigma (EConstr.of_constr funty) in
     let rec collapse t = match kind_of_term t with
     | LetIn (_, c1, _, b) -> collapse (subst1 c1 b)
     | _ -> t
@@ -532,7 +532,7 @@ let prim_refiner r sigma goal =
     (* Logical rules *)
     | Cut (b,replace,id,t) ->
 (*        if !check && not (Retyping.get_sort_of env sigma t) then*)
-        let (sg1,ev1,sigma) = mk_goal sign (nf_betaiota sigma t) in
+        let (sg1,ev1,sigma) = mk_goal sign (nf_betaiota sigma (EConstr.of_constr t)) in
 	let sign,t,cl,sigma =
 	  if replace then
 	    let nexthyp = get_hyp_after id (named_context_of_val sign) in

@@ -65,7 +65,7 @@ let contradiction_context =
       | d :: rest ->
           let id = NamedDecl.get_id d in
           let typ = nf_evar sigma (NamedDecl.get_type d) in
-	  let typ = whd_all env sigma typ in
+	  let typ = whd_all env sigma (EConstr.of_constr typ) in
 	  if is_empty_type sigma typ then
 	    simplest_elim (mkVar id)
 	  else match kind_of_term typ with
@@ -123,7 +123,7 @@ let contradiction_term (c,lbind as cl) =
       Proofview.tclORELSE
         begin
           if lbind = NoBindings then
-            filter_hyp (is_negation_of env sigma typ)
+            filter_hyp (fun c -> is_negation_of env sigma typ (EConstr.of_constr c))
               (fun id -> simplest_elim (mkApp (mkVar id,[|c|])))
           else
             Proofview.tclZERO Not_found

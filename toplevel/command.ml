@@ -45,7 +45,7 @@ let do_universe poly l = Declare.do_universe poly l
 let do_constraint poly l = Declare.do_constraint poly l
 
 let rec under_binders env sigma f n c =
-  if Int.equal n 0 then f env sigma c else
+  if Int.equal n 0 then f env sigma (EConstr.of_constr c) else
     match kind_of_term c with
       | Lambda (x,t,c) ->
 	  mkLambda (x,t,under_binders (push_rel (LocalAssum (x,t)) env) sigma f (n-1) c)

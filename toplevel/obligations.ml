@@ -264,7 +264,7 @@ let pperror cmd = CErrors.user_err ~hdr:"Program" cmd
 let error s = pperror (str s)
 
 let reduce c =
-  Reductionops.clos_norm_flags CClosure.betaiota (Global.env ()) Evd.empty c
+  Reductionops.clos_norm_flags CClosure.betaiota (Global.env ()) Evd.empty (EConstr.of_constr c)
 
 exception NoObligations of Id.t option
 

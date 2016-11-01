@@ -109,17 +109,17 @@ end
 
 type state = constr * constr Stack.t
 
-type contextual_reduction_function = env -> evar_map -> constr -> constr
+type contextual_reduction_function = env -> evar_map -> EConstr.t -> constr
 type reduction_function = contextual_reduction_function
-type local_reduction_function = evar_map -> constr -> constr
+type local_reduction_function = evar_map -> EConstr.t -> constr
 
-type e_reduction_function = { e_redfun : 'r. env -> 'r Sigma.t -> constr -> (constr, 'r) Sigma.sigma }
+type e_reduction_function = { e_redfun : 'r. env -> 'r Sigma.t -> EConstr.t -> (constr, 'r) Sigma.sigma }
 
 type contextual_stack_reduction_function =
-    env -> evar_map -> constr -> constr * constr list
+    env -> evar_map -> EConstr.t -> constr * constr list
 type stack_reduction_function = contextual_stack_reduction_function
 type local_stack_reduction_function =
-    evar_map -> constr -> constr * constr list
+    evar_map -> EConstr.t -> constr * constr list
 
 type contextual_state_reduction_function =
     env -> evar_map -> state -> state
@@ -280,7 +280,7 @@ val infer_conv_gen : (conv_pb -> l2r:bool -> evar_map -> transparent_state ->
 
 (** {6 Special-Purpose Reduction Functions } *)
 
-val whd_meta : evar_map -> constr -> constr
+val whd_meta : local_reduction_function
 val plain_instance : constr Metamap.t -> constr -> constr
 val instance : evar_map -> constr Metamap.t -> constr -> constr
 val head_unfold_under_prod : transparent_state -> reduction_function

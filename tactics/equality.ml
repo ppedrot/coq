@@ -402,7 +402,7 @@ let type_of_clause cls gl = match cls with
 let leibniz_rewrite_ebindings_clause cls lft2rgt tac c t l with_evars frzevars dep_proof_ok hdcncl =
   Proofview.Goal.nf_s_enter { s_enter = begin fun gl ->
   let evd = Sigma.to_evar_map (Proofview.Goal.sigma gl) in
-  let isatomic = isProd (whd_zeta evd hdcncl) in
+  let isatomic = isProd (whd_zeta evd (EConstr.of_constr hdcncl)) in
   let dep_fun = if isatomic then dependent else dependent_no_evar in
   let type_of_cls = type_of_clause cls gl in
   let dep = dep_proof_ok && dep_fun evd (EConstr.of_constr c) (EConstr.of_constr type_of_cls) in
@@ -441,7 +441,7 @@ let general_rewrite_ebindings_clause cls lft2rgt occs frzevars dep_proof_ok ?tac
       let sigma = Tacmach.New.project gl in
       let env = Proofview.Goal.env gl in
     let ctype = get_type_of env sigma c in
-    let rels, t = decompose_prod_assum (whd_betaiotazeta sigma ctype) in
+    let rels, t = decompose_prod_assum (whd_betaiotazeta sigma (EConstr.of_constr ctype)) in
       match match_with_equality_type sigma t with
       | Some (hdcncl,args) -> (* Fast path: direct leibniz-like rewrite *)
 	  let lft2rgt = adjust_rewriting_direction args lft2rgt in
@@ -723,8 +723,8 @@ let find_positions env sigma t1 t2 =
     then [(List.rev posn,t1,t2)] else []
   in
   let rec findrec sorts posn t1 t2 =
-    let hd1,args1 = whd_all_stack env sigma t1 in
-    let hd2,args2 = whd_all_stack env sigma t2 in
+    let hd1,args1 = whd_all_stack env sigma (EConstr.of_constr t1) in
+    let hd2,args2 = whd_all_stack env sigma (EConstr.of_constr t2) in
     match (kind_of_term hd1, kind_of_term hd2) with
       | Construct (sp1,_), Construct (sp2,_)
           when Int.equal (List.length args1) (constructor_nallargs_env env sp1)
@@ -840,7 +840,7 @@ let injectable env sigma t1 t2 =
 
 let descend_then env sigma head dirn =
   let IndType (indf,_) =
-    try find_rectype env sigma (get_type_of env sigma head)
+    try find_rectype env sigma (EConstr.of_constr (get_type_of env sigma head))
     with Not_found ->
       error "Cannot project on an inductive type derived from a dependency." in
   let indp,_ = (dest_ind_family indf) in
@@ -883,7 +883,7 @@ let descend_then env sigma head dirn =
 
 let build_selector env sigma dirn c ind special default =
   let IndType(indf,_) =
-    try find_rectype env sigma ind
+    try find_rectype env sigma (EConstr.of_constr ind)
     with Not_found ->
        (* one can find Rel(k) in case of dependent constructors
           like T := c : (A:Set)A->T and a discrimination
@@ -1026,7 +1026,7 @@ let onNegatedEquality with_evars tac =
     let sigma = Tacmach.New.project gl in
     let ccl = Proofview.Goal.concl gl in
     let env = Proofview.Goal.env gl in
-    match kind_of_term (hnf_constr env sigma ccl) with
+    match kind_of_term (hnf_constr env sigma (EConstr.of_constr ccl)) with
     | Prod (_,t,u) when is_empty_type sigma u ->
         tclTHEN introf
           (onLastHypId (fun id ->
@@ -1104,7 +1104,7 @@ let make_tuple env sigma (rterm,rty) lind =
 
 let minimal_free_rels env sigma (c,cty) =
   let cty_rels = free_rels sigma (EConstr.of_constr cty) in
-  let cty' = simpl env sigma cty in
+  let cty' = simpl env sigma (EConstr.of_constr cty) in
   let rels' = free_rels sigma (EConstr.of_constr cty') in
   if Int.Set.subset cty_rels rels' then
     (cty,cty_rels)
@@ -1171,7 +1171,7 @@ let sig_clausal_form env sigma sort_of_ty siglen ty dflt =
       with Evarconv.UnableToUnify _ ->
 	error "Cannot solve a unification problem."
     else
-      let (a,p_i_minus_1) = match whd_beta_stack !evdref p_i with
+      let (a,p_i_minus_1) = match whd_beta_stack !evdref (EConstr.of_constr p_i) with
 	| (_sigS,[a;p]) -> (a,p)
  	| _ -> anomaly ~label:"sig_clausal_form" (Pp.str "should be a sigma type") in
       let ev = Evarutil.e_new_evar env evdref a in
@@ -1317,7 +1317,7 @@ let inject_if_homogenous_dependent_pair ty =
         hd2,ar2 = decompose_app_vect sigma (EConstr.of_constr t2) in
     if not (Globnames.is_global (existTconstr()) hd1) then raise Exit;
     if not (Globnames.is_global (existTconstr()) hd2) then raise Exit;
-    let ind,_ = try pf_apply find_mrectype gl ar1.(0) with Not_found -> raise Exit in
+    let ind,_ = try pf_apply find_mrectype gl (EConstr.of_constr ar1.(0)) with Not_found -> raise Exit in
     (* check if the user has declared the dec principle *)
     (* and compare the fst arguments of the dep pair *)
     (* Note: should work even if not an inductive type, but the table only *)
@@ -1350,8 +1350,8 @@ let inject_if_homogenous_dependent_pair ty =
 let simplify_args env sigma t =
   (* Quick hack to reduce in arguments of eq only *)
   match decompose_app t with
-    | eq, [t;c1;c2] -> applist (eq,[t;simpl env sigma c1;simpl env sigma c2])
-    | eq, [t1;c1;t2;c2] -> applist (eq,[t1;simpl env sigma c1;t2;simpl env sigma c2])
+    | eq, [t;c1;c2] -> applist (eq,[t;simpl env sigma (EConstr.of_constr c1);simpl env sigma (EConstr.of_constr c2)])
+    | eq, [t1;c1;t2;c2] -> applist (eq,[t1;simpl env sigma (EConstr.of_constr c1);t2;simpl env sigma (EConstr.of_constr c2)])
     | _ -> t
 
 let inject_at_positions env sigma l2r (eq,_,(t,t1,t2)) eq_clause posns tac =
@@ -1551,7 +1551,7 @@ let subst_tuple_term env sigma dep_pair1 dep_pair2 b =
   let body = mkApp (lambda_create env (typ,pred_body),[|dep_pair1|]) in
   let expected_goal = beta_applist (abst_B,List.map fst e2_list) in
   (* Simulate now the normalisation treatment made by Logic.mk_refgoals *)
-  let expected_goal = nf_betaiota sigma expected_goal in
+  let expected_goal = nf_betaiota sigma (EConstr.of_constr expected_goal) in
   (* Retype to get universes right *)
   let sigma, expected_goal_ty = Typing.type_of env sigma expected_goal in
   let sigma, _ = Typing.type_of env sigma body in
