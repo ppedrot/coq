@@ -937,13 +937,14 @@ let build_intro_tac id dest tac = match dest with
 let rec intro_then_gen name_flag move_flag force_flag dep_flag tac =
   let open Context.Rel.Declaration in
   Proofview.Goal.enter { enter = begin fun gl ->
+    let sigma = Tacmach.New.project gl in
     let concl = Proofview.Goal.concl (Proofview.Goal.assume gl) in
     let concl = nf_evar (Tacmach.New.project gl) concl in
     match kind_of_term concl with
-    | Prod (name,t,u) when not dep_flag || (dependent (mkRel 1) u) ->
+    | Prod (name,t,u) when not dep_flag || not (EConstr.Vars.noccurn sigma 1 (EConstr.of_constr u)) ->
         let name = find_name false (LocalAssum (name,t)) name_flag gl in
 	build_intro_tac name move_flag tac
-    | LetIn (name,b,t,u) when not dep_flag || (dependent (mkRel 1) u) ->
+    | LetIn (name,b,t,u) when not dep_flag || not (EConstr.Vars.noccurn sigma 1 (EConstr.of_constr u)) ->
         let name = find_name false (LocalDef (name,b,t)) name_flag gl in
 	build_intro_tac name move_flag tac
     | _ ->
@@ -1441,7 +1442,7 @@ let general_case_analysis_in_context with_evars clear_flag (c,lbindc) =
   let (mind,_) = reduce_to_quantified_ind env (Sigma.to_evar_map sigma) t in
   let sort = Tacticals.New.elimination_sort_of_goal gl in
   let Sigma (elim, sigma, p) =
-    if occur_term c concl then
+    if occur_term (Sigma.to_evar_map sigma) (EConstr.of_constr c) (EConstr.of_constr concl) then
       build_case_analysis_scheme env sigma mind true sort
     else
       build_case_analysis_scheme_default env sigma mind sort in
@@ -1625,7 +1626,7 @@ let descend_in_conjunctions avoid tac (err, info) c =
     let t = Retyping.get_type_of env sigma c in
     let ((ind,u),t) = reduce_to_quantified_ind env sigma t in
     let sign,ccl = decompose_prod_assum t in
-    match match_with_tuple ccl with
+    match match_with_tuple sigma ccl with
     | Some (_,_,isrec) ->
 	let n = (constructors_nrealargs ind).(0) in
 	let sort = Tacticals.New.elimination_sort_of_goal gl in
@@ -1903,8 +1904,9 @@ let apply_in_delayed_once sidecond_first with_delta with_destruct with_evars nam
 
 let cut_and_apply c =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
+    let sigma = Tacmach.New.project gl in
     match kind_of_term (Tacmach.New.pf_hnf_constr gl (Tacmach.New.pf_unsafe_type_of gl c)) with
-      | Prod (_,c1,c2) when not (dependent (mkRel 1) c2) ->
+      | Prod (_,c1,c2) when EConstr.Vars.noccurn sigma 1 (EConstr.of_constr c2) ->
         let concl = Proofview.Goal.concl gl in
         let env = Tacmach.New.pf_env gl in
         Refine.refine { run = begin fun sigma ->
@@ -2317,7 +2319,7 @@ let rewrite_hyp_then assert_style with_evars thin l2r id tac =
     let type_of = Tacmach.New.pf_unsafe_type_of gl in
     let whd_all = Tacmach.New.pf_apply whd_all gl in
     let t = whd_all (type_of (mkVar id)) in
-    let eqtac, thin = match match_with_equality_type t with
+    let eqtac, thin = match match_with_equality_type sigma t with
     | Some (hdcncl,[_;lhs;rhs]) ->
         if l2r && isVar lhs && not (occur_var env sigma (destVar lhs) (EConstr.of_constr rhs)) then
           let id' = destVar lhs in
@@ -2790,7 +2792,7 @@ let old_generalize_dep ?(with_let=false) c gl =
   let init_ids = ids_of_named_context (Global.named_context()) in
   let seek (d:Context.Named.Declaration.t) (toquant:Context.Named.t) =
     if List.exists (fun d' -> occur_var_in_decl env sigma (NamedDecl.get_id d') d) toquant
-      || dependent_in_decl c d then
+      || dependent_in_decl sigma (EConstr.of_constr c) d then
       d::toquant
     else
       toquant in
@@ -3186,8 +3188,9 @@ let atomize_param_of_ind_then (indref,nparams,_) hyp0 tac =
 	    atomize_one (i-1) (c::args) (c::args') (id::avoid)
 	| _ ->
 	   let c' = expand_projections env' sigma c in
-            if List.exists (dependent c) params' ||
-               List.exists (dependent c) args'
+            let dependent t = dependent (Sigma.to_evar_map sigma) (EConstr.of_constr c) (EConstr.of_constr t) in
+            if List.exists dependent params' ||
+               List.exists dependent args'
             then
               (* This is a case where the argument is constrained in a
                  way which would require some kind of inversion; we
@@ -3597,7 +3600,7 @@ let abstract_args gl generalize_vars dep id defined f args =
   let sigma = ref (Tacmach.project gl) in
   let env = Tacmach.pf_env gl in
   let concl = Tacmach.pf_concl gl in
-  let dep = dep || dependent (mkVar id) concl in
+  let dep = dep || local_occur_var !sigma id (EConstr.of_constr concl) in
   let avoid = ref [] in
   let get_id name =
     let id = fresh_id !avoid (match name with Name n -> n | Anonymous -> Id.of_string "gen_x") gl in
@@ -3910,7 +3913,7 @@ let compute_elim_sig ?elimc elimt =
 	  with e when CErrors.noncritical e ->
             error "Cannot find the inductive type of the inductive scheme."
 
-let compute_scheme_signature scheme names_info ind_type_guess =
+let compute_scheme_signature evd scheme names_info ind_type_guess =
   let open Context.Rel.Declaration in
   let f,l = decompose_app scheme.concl in
   (* Vérifier que les arguments de Qi sont bien les xi. *)
@@ -3945,9 +3948,9 @@ let compute_scheme_signature scheme names_info ind_type_guess =
   let rec check_branch p c =
     match kind_of_term c with
       | Prod (_,t,c) ->
-	(is_pred p t, true, dependent (mkRel 1) c) :: check_branch (p+1) c
+	(is_pred p t, true, not (EConstr.Vars.noccurn evd 1 (EConstr.of_constr c))) :: check_branch (p+1) c
       | LetIn (_,_,_,c) ->
-	(OtherArg, false, dependent (mkRel 1) c) :: check_branch (p+1) c
+	(OtherArg, false, not (EConstr.Vars.noccurn evd 1 (EConstr.of_constr c))) :: check_branch (p+1) c
       | _ when is_pred p c == IndArg -> []
       | _ -> raise Exit
   in
@@ -3980,7 +3983,7 @@ let compute_scheme_signature scheme names_info ind_type_guess =
    different. *)
 let compute_elim_signature (evd,(elimc,elimt),ind_type_guess) names_info =
   let scheme = compute_elim_sig ~elimc:elimc elimt in
-    evd, (compute_scheme_signature scheme names_info ind_type_guess, scheme)
+    evd, (compute_scheme_signature evd scheme names_info ind_type_guess, scheme)
 
 let guess_elim isrec dep s hyp0 gl =
   let tmptyp0 =	Tacmach.New.pf_get_hyp_typ hyp0 gl in
@@ -4027,7 +4030,7 @@ let find_induction_type isrec elim hyp0 gl =
 	let evd, (elimc,elimt),ind_guess = given_elim hyp0 e gl in
 	let scheme = compute_elim_sig ~elimc elimt in
 	if Option.is_empty scheme.indarg then error "Cannot find induction type";
-	let indsign = compute_scheme_signature scheme hyp0 ind_guess in
+	let indsign = compute_scheme_signature evd scheme hyp0 ind_guess in
 	let elim = ({elimindex = Some(-1); elimbody = elimc; elimrename = None},elimt) in
 	scheme, ElimUsing (elim,indsign)
   in
@@ -4607,8 +4610,9 @@ let reflexivity_red allowred =
   (* PL: usual reflexivity don't perform any reduction when searching
      for an equality, but we may need to do some when called back from
      inside setoid_reflexivity (see Optimize cases in setoid_replace.ml). *)
+    let sigma = Tacmach.New.project gl in
     let concl = maybe_betadeltaiota_concl allowred gl in
-    match match_with_equality_type concl with
+    match match_with_equality_type sigma concl with
     | None -> Proofview.tclZERO NoEquationFound
     | Some _ -> one_constructor 1 NoBindings
   end }

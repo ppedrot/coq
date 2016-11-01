@@ -114,18 +114,18 @@ val local_occur_var : Evd.evar_map -> Id.t -> EConstr.t -> bool
 val free_rels : Evd.evar_map -> EConstr.t -> Int.Set.t
 
 (** [dependent m t] tests whether [m] is a subterm of [t] *)
-val dependent : constr -> constr -> bool
-val dependent_no_evar : constr -> constr -> bool
-val dependent_univs : constr -> constr -> bool
-val dependent_univs_no_evar : constr -> constr -> bool
-val dependent_in_decl : constr -> Context.Named.Declaration.t -> bool
-val count_occurrences : constr -> constr -> int
+val dependent : Evd.evar_map -> EConstr.t -> EConstr.t -> bool
+val dependent_no_evar : Evd.evar_map -> EConstr.t -> EConstr.t -> bool
+val dependent_univs : Evd.evar_map -> EConstr.t -> EConstr.t -> bool
+val dependent_univs_no_evar : Evd.evar_map -> EConstr.t -> EConstr.t -> bool
+val dependent_in_decl : Evd.evar_map -> EConstr.t -> Context.Named.Declaration.t -> bool
+val count_occurrences : Evd.evar_map -> EConstr.t -> EConstr.t -> int
 val collect_metas : Evd.evar_map -> EConstr.t -> int list
 val collect_vars : Evd.evar_map -> EConstr.t -> Id.Set.t (** for visible vars only *)
 val vars_of_global_reference : env -> Globnames.global_reference -> Id.Set.t
-val occur_term : constr -> constr -> bool (** Synonymous
- of dependent 
-   Substitution of metavariables *)
+val occur_term : Evd.evar_map -> EConstr.t -> EConstr.t -> bool (** Synonymous of dependent *)
+
+(* Substitution of metavariables *)
 type meta_value_map = (metavariable * constr) list
 val subst_meta : meta_value_map -> constr -> constr
 

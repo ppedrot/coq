@@ -535,19 +535,19 @@ let dependencies_in_pure_rhs nargs eqns =
   let deps_columns = matrix_transpose deps_rows in
   List.map (List.exists (fun x -> x)) deps_columns
 
-let dependent_decl a =
+let dependent_decl sigma a =
   function
-  | LocalAssum (na,t) -> dependent a t
-  | LocalDef (na,c,t) -> dependent a t || dependent a c
+  | LocalAssum (na,t) -> dependent sigma (EConstr.of_constr a) (EConstr.of_constr t)
+  | LocalDef (na,c,t) -> dependent sigma (EConstr.of_constr a) (EConstr.of_constr t) || dependent sigma (EConstr.of_constr a) (EConstr.of_constr c)
 
-let rec dep_in_tomatch n = function
-  | (Pushed _ | Alias _ | NonDepAlias) :: l -> dep_in_tomatch n l
-  | Abstract (_,d) :: l -> dependent_decl (mkRel n) d || dep_in_tomatch (n+1) l
+let rec dep_in_tomatch sigma n = function
+  | (Pushed _ | Alias _ | NonDepAlias) :: l -> dep_in_tomatch sigma n l
+  | Abstract (_,d) :: l -> dependent_decl sigma (mkRel n) d || dep_in_tomatch sigma (n+1) l
   | [] -> false
 
-let dependencies_in_rhs nargs current tms eqns =
+let dependencies_in_rhs sigma nargs current tms eqns =
   match kind_of_term current with
-  | Rel n when dep_in_tomatch n tms -> List.make nargs true
+  | Rel n when dep_in_tomatch sigma n tms -> List.make nargs true
   | _ -> dependencies_in_pure_rhs nargs eqns
 
 (* Computing the matrix of dependencies *)
@@ -562,24 +562,24 @@ let dependencies_in_rhs nargs current tms eqns =
    [n-2;1], [1] points to [dn] and [n-2] to [d3]
 *)
 
-let rec find_dependency_list tmblock = function
+let rec find_dependency_list sigma tmblock = function
   | [] -> []
   | (used,tdeps,d)::rest ->
-      let deps = find_dependency_list tmblock rest in
-      if used && List.exists (fun x -> dependent_decl x d) tmblock
+      let deps = find_dependency_list sigma tmblock rest in
+      if used && List.exists (fun x -> dependent_decl sigma x d) tmblock
       then
         List.add_set Int.equal
           (List.length rest + 1) (List.union Int.equal deps tdeps)
       else deps
 
-let find_dependencies is_dep_or_cstr_in_rhs (tm,(_,tmtypleaves),d) nextlist =
-  let deps = find_dependency_list (tm::tmtypleaves) nextlist in
+let find_dependencies sigma is_dep_or_cstr_in_rhs (tm,(_,tmtypleaves),d) nextlist =
+  let deps = find_dependency_list sigma (tm::tmtypleaves) nextlist in
   if is_dep_or_cstr_in_rhs || not (List.is_empty deps)
   then ((true ,deps,d)::nextlist)
   else ((false,[]  ,d)::nextlist)
 
-let find_dependencies_signature deps_in_rhs typs =
-  let l = List.fold_right2 find_dependencies deps_in_rhs typs [] in
+let find_dependencies_signature sigma deps_in_rhs typs =
+  let l = List.fold_right2 (find_dependencies sigma) deps_in_rhs typs [] in
   List.map (fun (_,deps,_) -> deps) l
 
 (* Assume we had terms t1..tq to match in a context xp:Tp,...,x1:T1 |-
@@ -1095,30 +1095,30 @@ let rec ungeneralize n ng body =
 let ungeneralize_branch n k (sign,body) cs =
   (sign,ungeneralize (n+cs.cs_nargs) k body)
 
-let rec is_dependent_generalization ng body =
+let rec is_dependent_generalization sigma ng body =
   match kind_of_term body with
   | Lambda (_,_,c) when Int.equal ng 0 ->
-      dependent (mkRel 1) c
+      not (EConstr.Vars.noccurn sigma 1 (EConstr.of_constr c))
   | Lambda (na,t,c) ->
       (* We traverse an inner generalization *)
-      is_dependent_generalization (ng-1) c
+      is_dependent_generalization sigma (ng-1) c
   | LetIn (na,b,t,c) ->
       (* We traverse an alias *)
-      is_dependent_generalization ng c
+      is_dependent_generalization sigma ng c
   | Case (ci,p,c,brs) ->
       (* We traverse a split *)
       Array.exists2 (fun q c ->
         let _,b = decompose_lam_n_decls q c in
-        is_dependent_generalization ng b)
+        is_dependent_generalization sigma ng b)
         ci.ci_cstr_ndecls brs
   | App (g,args) ->
       (* We traverse an inner generalization *)
       assert (isCase g);
-      is_dependent_generalization (ng+Array.length args) g
+      is_dependent_generalization sigma (ng+Array.length args) g
   | _ -> assert false
 
-let is_dependent_branch k (_,br) =
-  is_dependent_generalization k br
+let is_dependent_branch sigma k (_,br) =
+  is_dependent_generalization sigma k br
 
 let postprocess_dependencies evd tocheck brs tomatch pred deps cs =
   let rec aux k brs tomatch pred tocheck deps = match deps, tomatch with
@@ -1126,8 +1126,8 @@ let postprocess_dependencies evd tocheck brs tomatch pred deps cs =
   | n::deps, Abstract (i,d) :: tomatch ->
       let d = map_constr (nf_evar evd) d in
       let is_d = match d with LocalAssum _ -> false | LocalDef _ -> true in
-      if is_d || List.exists (fun c -> dependent_decl (lift k c) d) tocheck
-                 && Array.exists (is_dependent_branch k) brs then
+      if is_d || List.exists (fun c -> dependent_decl evd (lift k c) d) tocheck
+                 && Array.exists (is_dependent_branch evd k) brs then
         (* Dependency in the current term to match and its dependencies is real *)
         let brs,tomatch,pred,inst = aux (k+1) brs tomatch pred (mkRel n::tocheck) deps in
         let inst = match d with
@@ -1249,8 +1249,8 @@ let build_branch initial current realargs deps (realnames,curname) pb arsign eqn
   (* We compute over which of x(i+1)..xn and x matching on xi will need a *)
   (* generalization *)
   let dep_sign =
-    find_dependencies_signature
-      (dependencies_in_rhs const_info.cs_nargs current pb.tomatch eqns)
+    find_dependencies_signature !(pb.evdref)
+      (dependencies_in_rhs !(pb.evdref) const_info.cs_nargs current pb.tomatch eqns)
       (List.rev typs') in
 
   (* The dependent term to subst in the types of the remaining UnPushed
@@ -1452,7 +1452,7 @@ and compile_alias initial pb (na,orig,(expanded,expanded_typ)) rest =
          mat = List.map (push_alias_eqn alias) pb.mat } in
     let j = compile pb in
     { uj_val =
-        if isRel c || isVar c || count_occurrences (mkRel 1) j.uj_val <= 1 then
+        if isRel c || isVar c || count_occurrences !(pb.evdref) (EConstr.mkRel 1) (EConstr.of_constr j.uj_val) <= 1 then
           subst1 c j.uj_val
         else
           mkLetIn (na,c,t,j.uj_val);
@@ -1658,10 +1658,10 @@ let abstract_tycon loc env evdref subst tycon extenv t =
 	  (fun i _ -> if Int.List.mem i vl then u else mkRel i) 1
 	  (rel_context extenv) in
       let rel_filter =
-	List.map (fun a -> not (isRel a) || dependent a u
+	List.map (fun a -> not (isRel a) || dependent !evdref (EConstr.of_constr a) (EConstr.of_constr u)
                            || Int.Set.mem (destRel a) depvl) inst in
       let named_filter =
-	List.map (fun d -> dependent (mkVar (NamedDecl.get_id d)) u)
+	List.map (fun d -> local_occur_var !evdref (NamedDecl.get_id d) (EConstr.of_constr u))
 	  (named_context extenv) in
       let filter = Filter.make (rel_filter @ named_filter) in
       let candidates = u :: List.map mkRel vl in
@@ -1753,7 +1753,7 @@ let build_inversion_problem loc env sigma tms t =
     List.map (fun (c,d) -> (c,extract_inductive_data pb_env sigma d,d)) decls in
 
   let decls = List.rev decls in
-  let dep_sign = find_dependencies_signature (List.make n true) decls in
+  let dep_sign = find_dependencies_signature sigma (List.make n true) decls in
 
   let sub_tms =
     List.map2 (fun deps (tm, (tmtyp,_), decl) ->
@@ -1878,7 +1878,7 @@ let prepare_predicate_from_arsign_tycon env sigma loc tomatchs arsign c =
     List.fold_right2 (fun (tm, tmtype) sign (subst, len) ->
       let signlen = List.length sign in
 	match kind_of_term tm with
-	  | Rel n when dependent tm c
+	  | Rel n when dependent sigma (EConstr.of_constr tm) (EConstr.of_constr c)
 		&& Int.equal signlen 1 (* The term to match is not of a dependent type itself *) ->
 	      ((n, len) :: subst, len - signlen)
 	  | Rel n when signlen > 1 (* The term is of a dependent type,
@@ -1890,13 +1890,13 @@ let prepare_predicate_from_arsign_tycon env sigma loc tomatchs arsign c =
 		      List.fold_left
 			(fun (subst, len) arg ->
 			  match kind_of_term arg with
-			  | Rel n when dependent arg c ->
+			  | Rel n when dependent sigma (EConstr.of_constr arg) (EConstr.of_constr c) ->
 			      ((n, len) :: subst, pred len)
 			  | _ -> (subst, pred len))
 			(subst, len) realargs
 		    in
 		    let subst =
-		      if dependent tm c && List.for_all isRel realargs
+		      if dependent sigma (EConstr.of_constr tm) (EConstr.of_constr c) && List.for_all isRel realargs
 		      then (n, len) :: subst else subst
 		    in (subst, pred len))
 	  | _ -> (subst, len - signlen))
@@ -2460,7 +2460,7 @@ let compile_program_cases loc style (typing_function, evdref) tycon env
     List.map (fun (c,d) -> (c,extract_inductive_data env !evdref d,d)) typs in
     
   let dep_sign =
-    find_dependencies_signature
+    find_dependencies_signature !evdref
       (List.make (List.length typs) true)
       typs in
     
@@ -2535,7 +2535,7 @@ let compile_cases loc style (typing_fun, evdref) tycon env (predopt, tomatchl, e
       List.map (fun (c,d) -> (c,extract_inductive_data env sigma d,d)) typs in
 
     let dep_sign =
-      find_dependencies_signature
+      find_dependencies_signature !evdref
         (List.make (List.length typs) true)
         typs in
 

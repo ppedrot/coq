@@ -77,7 +77,7 @@ let clenv_push_prod cl =
     | Cast (t,_,_) -> clrec t
     | Prod (na,t,u) ->
 	let mv = new_meta () in
-	let dep = dependent (mkRel 1) u in
+	let dep = not (EConstr.Vars.noccurn (cl_sigma cl) 1 (EConstr.of_constr u)) in
 	let na' = if dep then na else Anonymous in
 	let e' = meta_declare mv t ~name:na' cl.evd in
 	let concl = if dep then subst1 (mkMeta mv) u else u in
@@ -612,7 +612,7 @@ let make_evar_clause env sigma ?len t =
       let sigma = Sigma.Unsafe.of_evar_map sigma in
       let Sigma (ev, sigma, _) = new_evar ~store env sigma t1 in
       let sigma = Sigma.to_evar_map sigma in
-      let dep = dependent (mkRel 1) t2 in
+      let dep = not (EConstr.Vars.noccurn sigma 1 (EConstr.of_constr t2)) in
       let hole = {
         hole_evar = ev;
         hole_type = t1;

@@ -685,7 +685,7 @@ let is_recursive mie =
   let rec is_recursive_constructor lift typ =
     match Term.kind_of_term typ with
     | Prod (_,arg,rest) ->
-        Termops.dependent (mkRel lift) arg ||
+        not (EConstr.Vars.noccurn Evd.empty (** FIXME *) lift (EConstr.of_constr arg)) ||
         is_recursive_constructor (lift+1) rest
     | LetIn (na,b,t,rest) -> is_recursive_constructor (lift+1) rest
     | _ -> false

@@ -609,54 +609,54 @@ let vars_of_global_reference env gr =
 (* Tests whether [m] is a subterm of [t]:
    [m] is appropriately lifted through abstractions of [t] *)
 
-let dependent_main noevar univs m t =
+let dependent_main noevar univs sigma m t =
   let eqc x y =
-    if univs then not (Option.is_empty (Universes.eq_constr_universes x y))
-    else eq_constr_nounivs x y
+    if univs then not (Option.is_empty (EConstr.eq_constr_universes sigma x y))
+    else EConstr.eq_constr_nounivs sigma x y
   in
   let rec deprec m t =
     if eqc m t then
       raise Occur
     else
-      match kind_of_term m, kind_of_term t with
+      match EConstr.kind sigma m, EConstr.kind sigma t with
 	| App (fm,lm), App (ft,lt) when Array.length lm < Array.length lt ->
-	    deprec m (mkApp (ft,Array.sub lt 0 (Array.length lm)));
+	    deprec m (EConstr.mkApp (ft,Array.sub lt 0 (Array.length lm)));
 	    CArray.Fun1.iter deprec m
 	      (Array.sub lt
 		(Array.length lm) ((Array.length lt) - (Array.length lm)))
-	| _, Cast (c,_,_) when noevar && isMeta c -> ()
+	| _, Cast (c,_,_) when noevar && EConstr.isMeta sigma c -> ()
 	| _, Evar _ when noevar -> ()
-	| _ -> iter_constr_with_binders (fun c -> lift 1 c) deprec m t
+	| _ -> EConstr.iter_with_binders sigma (fun c -> EConstr.Vars.lift 1 c) deprec m t
   in
   try deprec m t; false with Occur -> true
 
-let dependent = dependent_main false false
-let dependent_no_evar = dependent_main true false
+let dependent sigma c t = dependent_main false false sigma c t
+let dependent_no_evar sigma c t = dependent_main true false sigma c t
 
-let dependent_univs = dependent_main false true
-let dependent_univs_no_evar = dependent_main true true
+let dependent_univs sigma c t = dependent_main false true sigma c t
+let dependent_univs_no_evar sigma c t = dependent_main true true sigma c t
 
-let dependent_in_decl a decl =
+let dependent_in_decl sigma a decl =
   let open NamedDecl in
   match decl with
-    | LocalAssum (_,t) -> dependent a t
-    | LocalDef (_, body, t) -> dependent a body || dependent a t
+    | LocalAssum (_,t) -> dependent sigma a (EConstr.of_constr t)
+    | LocalDef (_, body, t) -> dependent sigma a (EConstr.of_constr body) || dependent sigma a (EConstr.of_constr t)
 
-let count_occurrences m t =
+let count_occurrences sigma m t =
   let n = ref 0 in
   let rec countrec m t =
-    if eq_constr m t then
+    if EConstr.eq_constr sigma m t then
       incr n
     else
-      match kind_of_term m, kind_of_term t with
+      match EConstr.kind sigma m, EConstr.kind sigma t with
 	| App (fm,lm), App (ft,lt) when Array.length lm < Array.length lt ->
-	    countrec m (mkApp (ft,Array.sub lt 0 (Array.length lm)));
+	    countrec m (EConstr.mkApp (ft,Array.sub lt 0 (Array.length lm)));
 	    Array.iter (countrec m)
 	      (Array.sub lt
 		(Array.length lm) ((Array.length lt) - (Array.length lm)))
-	| _, Cast (c,_,_) when isMeta c -> ()
+	| _, Cast (c,_,_) when EConstr.isMeta sigma c -> ()
 	| _, Evar _ -> ()
-	| _ -> iter_constr_with_binders (lift 1) countrec m t
+	| _ -> EConstr.iter_with_binders sigma (EConstr.Vars.lift 1) countrec m t
   in
   countrec m t;
   !n

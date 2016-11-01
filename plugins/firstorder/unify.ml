@@ -24,6 +24,7 @@ exception UFAIL of constr*constr
 let strip_outer_cast t = strip_outer_cast Evd.empty (EConstr.of_constr t) (** FIXME *)
 
 let unif t1 t2=
+  let evd = Evd.empty in (** FIXME *)
   let bige=Queue.create ()
   and sigma=ref [] in
   let bind i t=
@@ -49,13 +50,13 @@ let unif t1 t2=
 		else bind i nt2
 	  | Meta i,_ ->
 	      let t=subst_meta !sigma nt2 in
-		if Int.Set.is_empty (free_rels Evd.empty (EConstr.of_constr t)) (** FIXME *) &&
-		  not (occur_term (mkMeta i) t) then
+		if Int.Set.is_empty (free_rels evd (EConstr.of_constr t)) &&
+		  not (occur_term evd (EConstr.mkMeta i) (EConstr.of_constr t)) then
 		    bind i t else raise (UFAIL(nt1,nt2))
 	  | _,Meta i ->
 	      let t=subst_meta !sigma nt1 in
-		if Int.Set.is_empty (free_rels Evd.empty (EConstr.of_constr t)) (** FIXME *) &&
-		  not (occur_term (mkMeta i) t) then
+		if Int.Set.is_empty (free_rels evd (EConstr.of_constr t)) &&
+		  not (occur_term evd (EConstr.mkMeta i) (EConstr.of_constr t)) then
 		    bind i t else raise (UFAIL(nt1,nt2))
 	  | Cast(_,_,_),_->Queue.add (strip_outer_cast nt1,nt2) bige
  	  | _,Cast(_,_,_)->Queue.add (nt1,strip_outer_cast nt2) bige

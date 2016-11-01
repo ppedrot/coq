@@ -474,7 +474,7 @@ let is_unification_pattern_meta env evd nb m l t =
   (* so we need to be a rel <= nb *)
   if List.for_all (fun x -> isRel x && destRel x <= nb) l then
     match find_unification_pattern_args env evd l t with
-    | Some _ as x when not (dependent (mkMeta m) t) -> x
+    | Some _ as x when not (dependent evd (EConstr.mkMeta m) (EConstr.of_constr t)) -> x
     | _ -> None
   else
     None
@@ -1010,7 +1010,7 @@ let postpone_non_unique_projection env evd pbty (evk,argsv as ev) sols rhs =
       (* expands only rels and vars aliases, not rels or vars bound to an *)
       (* arbitrary complex term *)
       (fun a -> not (isRel a || isVar a)
-                || dependent a rhs || List.exists (fun (id,_) -> isVarId id a) sols)
+                || dependent evd (EConstr.of_constr a) (EConstr.of_constr rhs) || List.exists (fun (id,_) -> isVarId id a) sols)
       argsv in
   let filter = closure_of_filter evd evk filter in
   let candidates = extract_candidates sols in

@@ -405,7 +405,7 @@ let leibniz_rewrite_ebindings_clause cls lft2rgt tac c t l with_evars frzevars d
   let isatomic = isProd (whd_zeta evd hdcncl) in
   let dep_fun = if isatomic then dependent else dependent_no_evar in
   let type_of_cls = type_of_clause cls gl in
-  let dep = dep_proof_ok && dep_fun c type_of_cls in
+  let dep = dep_proof_ok && dep_fun evd (EConstr.of_constr c) (EConstr.of_constr type_of_cls) in
   let Sigma ((elim, effs), sigma, p) = find_elim hdcncl lft2rgt dep cls (Some t) gl in
   let tac =
       Proofview.tclEFFECTS effs <*>
@@ -442,7 +442,7 @@ let general_rewrite_ebindings_clause cls lft2rgt occs frzevars dep_proof_ok ?tac
       let env = Proofview.Goal.env gl in
     let ctype = get_type_of env sigma c in
     let rels, t = decompose_prod_assum (whd_betaiotazeta sigma ctype) in
-      match match_with_equality_type t with
+      match match_with_equality_type sigma t with
       | Some (hdcncl,args) -> (* Fast path: direct leibniz-like rewrite *)
 	  let lft2rgt = adjust_rewriting_direction args lft2rgt in
           leibniz_rewrite_ebindings_clause cls lft2rgt tac c (it_mkProd_or_LetIn t rels)
@@ -455,9 +455,10 @@ let general_rewrite_ebindings_clause cls lft2rgt occs frzevars dep_proof_ok ?tac
             end
             begin function
               | (e, info) ->
+                  Proofview.tclEVARMAP >>= fun sigma ->
 	          let env' = push_rel_context rels env in
 	          let rels',t' = splay_prod_assum env' sigma t in (* Search for underlying eq *)
-	          match match_with_equality_type t' with
+	          match match_with_equality_type sigma t' with
 	            | Some (hdcncl,args) ->
 		  let lft2rgt = adjust_rewriting_direction args lft2rgt in
 		  leibniz_rewrite_ebindings_clause cls lft2rgt tac c
@@ -932,9 +933,10 @@ let rec build_discriminator env sigma dirn c = function
 
 let gen_absurdity id =
   Proofview.Goal.enter { enter = begin fun gl ->
+  let sigma = project gl in
   let hyp_typ = pf_get_hyp_typ id (Proofview.Goal.assume gl) in
   let hyp_typ = pf_nf_evar gl hyp_typ in
-  if is_empty_type hyp_typ
+  if is_empty_type sigma hyp_typ
   then
     simplest_elim (mkVar id)
   else
@@ -1025,7 +1027,7 @@ let onNegatedEquality with_evars tac =
     let ccl = Proofview.Goal.concl gl in
     let env = Proofview.Goal.env gl in
     match kind_of_term (hnf_constr env sigma ccl) with
-    | Prod (_,t,u) when is_empty_type u ->
+    | Prod (_,t,u) when is_empty_type sigma u ->
         tclTHEN introf
           (onLastHypId (fun id ->
             onEquality with_evars tac (mkVar id,NoBindings)))
@@ -1079,7 +1081,7 @@ let find_sigma_data env s = build_sigma_type ()
  *)
 
 let make_tuple env sigma (rterm,rty) lind =
-  assert (dependent (mkRel lind) rty);
+  assert (not (EConstr.Vars.noccurn sigma lind (EConstr.of_constr rty)));
   let sigdata = find_sigma_data env (get_sort_of env sigma rty) in
   let sigma, a = type_of ~refresh:true env sigma (mkRel lind) in
   let na = Context.Rel.Declaration.get_name (lookup_rel lind env) in
@@ -1789,6 +1791,7 @@ let subst_all ?(flags=default_subst_tactic_flags ()) () =
   let process hyp =
     Proofview.Goal.enter { enter = begin fun gl ->
     let gl = Proofview.Goal.assume gl in
+    let sigma = project gl in
     let env = Proofview.Goal.env gl in
     let find_eq_data_decompose = find_eq_data_decompose gl in
     let c = pf_get_hyp hyp gl |> NamedDecl.get_type in
@@ -1796,9 +1799,9 @@ let subst_all ?(flags=default_subst_tactic_flags ()) () =
     (* J.F.: added to prevent failure on goal containing x=x as an hyp *)
     if Term.eq_constr x y then Proofview.tclUNIT () else
       match kind_of_term x, kind_of_term y with
-      | Var x', _ when not (occur_term x y) && not (is_evaluable env (EvalVarRef x')) ->
+      | Var x', _ when not (occur_term sigma (EConstr.of_constr x) (EConstr.of_constr y)) && not (is_evaluable env (EvalVarRef x')) ->
           subst_one flags.rewrite_dependent_proof x' (hyp,y,true)
-      | _, Var y' when not (occur_term y x) && not (is_evaluable env (EvalVarRef y')) ->
+      | _, Var y' when not (occur_term sigma (EConstr.of_constr y) (EConstr.of_constr x)) && not (is_evaluable env (EvalVarRef y')) ->
           subst_one flags.rewrite_dependent_proof y' (hyp,x,false)
       | _ ->
           Proofview.tclUNIT ()

@@ -681,7 +681,7 @@ let mkDestructEq :
       (fun decl ->
         let open Context.Named.Declaration in
         let id = get_id decl in
-        if Id.List.mem id not_on_hyp || not (Termops.occur_term expr (get_type decl))
+        if Id.List.mem id not_on_hyp || not (Termops.occur_term (project g) (EConstr.of_constr expr) (EConstr.of_constr (get_type decl)))
         then None else Some id) hyps in
   let to_revert_constr = List.rev_map mkVar to_revert in
   let type_of_expr = pf_unsafe_type_of g expr in

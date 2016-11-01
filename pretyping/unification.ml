@@ -679,7 +679,7 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst) conv_at_top env cv_pb 
 	    if k2 < k1 then sigma,(k1,cN,stN)::metasubst,evarsubst
 	    else sigma,(k2,cM,stM)::metasubst,evarsubst
 	| Meta k, _
-            when not (dependent cM cN) (* helps early trying alternatives *) ->
+            when not (dependent sigma (EConstr.of_constr cM) (EConstr.of_constr cN)) (* helps early trying alternatives *) ->
             let sigma = 
 	      if opt.with_types && flags.check_applied_meta_types then
 		(try
@@ -699,7 +699,7 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst) conv_at_top env cv_pb 
               evarsubst)
 	    else error_cannot_unify_local curenv sigma (m,n,cN)
 	| _, Meta k
-            when not (dependent cN cM) (* helps early trying alternatives *) ->
+            when not (dependent sigma (EConstr.of_constr cN) (EConstr.of_constr cM)) (* helps early trying alternatives *) ->
           let sigma = 
 	    if opt.with_types && flags.check_applied_meta_types then
               (try
@@ -1474,16 +1474,16 @@ let iter_fail f a =
 (* make_abstraction: a variant of w_unify_to_subterm which works on
    contexts, with evars, and possibly with occurrences *)
 
-let indirectly_dependent c d decls =
+let indirectly_dependent sigma c d decls =
   not (isVar c) &&
     (* This test is not needed if the original term is a variable, but
        it is needed otherwise, as e.g. when abstracting over "2" in
        "forall H:0=2, H=H:>(0=1+1) -> 0=2." where there is now obvious
        way to see that the second hypothesis depends indirectly over 2 *)
-    List.exists (fun d' -> dependent_in_decl (mkVar (NamedDecl.get_id d')) d) decls
+    List.exists (fun d' -> dependent_in_decl sigma (EConstr.mkVar (NamedDecl.get_id d')) d) decls
 
-let indirect_dependency d decls =
-  decls  |>  List.filter (fun d' -> dependent_in_decl (mkVar (NamedDecl.get_id d')) d)  |>  List.hd  |>  NamedDecl.get_id
+let indirect_dependency sigma d decls =
+  decls  |>  List.filter (fun d' -> dependent_in_decl sigma (EConstr.mkVar (NamedDecl.get_id d')) d)  |>  List.hd  |>  NamedDecl.get_id
 
 let finish_evar_resolution ?(flags=Pretyping.all_and_fail_flags) env current_sigma (pending,c) =
   let current_sigma = Sigma.to_evar_map current_sigma in
@@ -1610,7 +1610,7 @@ let make_abstraction_core name (test,out) env sigma c ty occs check_occs concl =
         let occ = if likefirst then LikeFirst else AtOccs occ in
         let newdecl = replace_term_occ_decl_modulo occ test mkvarid d in
         if Context.Named.Declaration.equal d newdecl
-           && not (indirectly_dependent c d depdecls)
+           && not (indirectly_dependent sigma c d depdecls)
         then
           if check_occs && not (in_every_hyp occs)
           then raise (PretypeError (env,sigma,NoOccurrenceFound (c,Some hyp)))
@@ -1864,7 +1864,7 @@ let w_unify_to_subterm_list env evd flags hdmeta oplist t =
                 (* w_unify_to_subterm does not go through evars, so
                    the next step, which was already in <= 8.4, is
                    needed at least for compatibility of rewrite *)
-                dependent op t -> (evd,op)
+                dependent evd (EConstr.of_constr op) (EConstr.of_constr t) -> (evd,op)
         in
 	  if not allow_K &&
             (* ensure we found a different instance *)

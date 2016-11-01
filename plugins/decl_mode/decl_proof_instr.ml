@@ -445,7 +445,7 @@ let concl_refiner metas body gls =
 	    let bsort,_B,nbody =
 	      aux nenv (_x::avoid) ((n,mkVar _x)::subst) rest in
 	    let body = mkNamedLambda _x _A nbody in
-	      if occur_term (mkVar _x) _B then
+	      if local_occur_var evd _x (EConstr.of_constr _B) then
 	        begin
 		  let _P = mkNamedLambda _x _A _B in
 		    match bsort,sort with
@@ -880,7 +880,7 @@ let build_per_info etype casee gls =
   let concl=pf_concl gls in
   let env=pf_env gls in
   let ctyp=pf_unsafe_type_of gls casee in
-  let is_dep = dependent casee concl in
+  let is_dep = dependent (project gls) (EConstr.of_constr casee) (EConstr.of_constr concl) in
   let hd,args = decompose_app (special_whd gls ctyp) in
   let (ind,u) =
     try
