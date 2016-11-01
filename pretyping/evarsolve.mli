@@ -18,7 +18,7 @@ val is_success : unification_result -> bool
 
 (** Replace the vars and rels that are aliases to other vars and rels by 
    their representative that is most ancient in the context *)
-val expand_vars_in_term : env -> constr -> constr
+val expand_vars_in_term : env -> evar_map -> constr -> constr
 
 (** [evar_define choose env ev c] try to instantiate [ev] with [c] (typed in [env]),
    possibly solving related unification problems, possibly leaving open

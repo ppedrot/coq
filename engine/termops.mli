@@ -69,8 +69,9 @@ val map_constr_with_binders_left_to_right :
   ('a -> constr -> constr) ->
     'a -> constr -> constr
 val map_constr_with_full_binders :
+  Evd.evar_map ->
   (Context.Rel.Declaration.t -> 'a -> 'a) ->
-  ('a -> constr -> constr) -> 'a -> constr -> constr
+  ('a -> EConstr.t -> EConstr.t) -> 'a -> EConstr.t -> EConstr.t
 
 (** [fold_constr_with_binders g f n acc c] folds [f n] on the immediate
    subterms of [c] starting from [acc] and proceeding from left to

@@ -356,14 +356,15 @@ let expansion_of_var aliases x =
   | [] -> x
   | a::_ -> a
 
-let rec expand_vars_in_term_using aliases t = match kind_of_term t with
+let rec expand_vars_in_term_using sigma aliases t = match kind_of_term t with
   | Rel _ | Var _ ->
       normalize_alias aliases t
   | _ ->
-      map_constr_with_full_binders
-        extend_alias expand_vars_in_term_using aliases t
+    let self aliases c = EConstr.of_constr (expand_vars_in_term_using sigma aliases (EConstr.Unsafe.to_constr c)) in
+    EConstr.Unsafe.to_constr (map_constr_with_full_binders sigma
+        extend_alias self aliases (EConstr.of_constr t))
 
-let expand_vars_in_term env = expand_vars_in_term_using (make_alias_map env)
+let expand_vars_in_term env sigma = expand_vars_in_term_using sigma (make_alias_map env)
 
 let free_vars_and_rels_up_alias_expansion aliases c =
   let acc1 = ref Int.Set.empty and acc2 = ref Id.Set.empty in
@@ -999,7 +1000,7 @@ let do_restrict_hyps evd (evk,args as ev) filter candidates =
 (* ?e is assumed to have no candidates *)
 
 let postpone_non_unique_projection env evd pbty (evk,argsv as ev) sols rhs =
-  let rhs = expand_vars_in_term env rhs in
+  let rhs = expand_vars_in_term env evd rhs in
   let filter =
     restrict_upon_filter evd evk
       (* Keep only variables that occur in rhs *)
@@ -1464,10 +1465,11 @@ let rec invert_definition conv_algo choose env evd pbty (evk,argsv as ev) rhs =
             let ty = get_type_of env' !evdref t in
             let candidates =
               try
+                let self env c = EConstr.of_constr (imitate env (EConstr.Unsafe.to_constr c)) in
                 let t =
-                  map_constr_with_full_binders (fun d (env,k) -> push_rel d env, k+1)
-                    imitate envk t in
-                t::l
+                  map_constr_with_full_binders !evdref (fun d (env,k) -> push_rel d env, k+1)
+                    self envk (EConstr.of_constr t) in
+                EConstr.Unsafe.to_constr t::l
               with e when CErrors.noncritical e -> l in
             (match candidates with
             | [x] -> x
@@ -1478,8 +1480,9 @@ let rec invert_definition conv_algo choose env evd pbty (evk,argsv as ev) rhs =
               evar'')
         | None ->
            (* Evar/Rigid problem (or assimilated if not normal): we "imitate" *)
-	   map_constr_with_full_binders (fun d (env,k) -> push_rel d env, k+1)
-					imitate envk t
+          let self env c = EConstr.of_constr (imitate env (EConstr.Unsafe.to_constr c)) in
+          EConstr.Unsafe.to_constr (map_constr_with_full_binders !evdref (fun d (env,k) -> push_rel d env, k+1)
+					self envk (EConstr.of_constr t))
   in
   let rhs = whd_beta evd rhs (* heuristic *) in
   let fast rhs = 

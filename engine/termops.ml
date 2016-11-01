@@ -400,9 +400,11 @@ let map_constr_with_binders_left_to_right g f l c =
 	else mkCoFix (ln,(lna,tl',bl'))
 
 (* strong *)
-let map_constr_with_full_binders g f l cstr =
+let map_constr_with_full_binders sigma g f l cstr =
+  let inj c = EConstr.Unsafe.to_constr c in
+  let open EConstr in
   let open RelDecl in
-  match kind_of_term cstr with
+  match EConstr.kind sigma cstr with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
     | Construct _) -> cstr
   | Cast (c,k, t) ->
@@ -411,16 +413,16 @@ let map_constr_with_full_binders g f l cstr =
       if c==c' && t==t' then cstr else mkCast (c', k, t')
   | Prod (na,t,c) ->
       let t' = f l t in
-      let c' = f (g (LocalAssum (na,t)) l) c in
+      let c' = f (g (LocalAssum (na, inj t)) l) c in
       if t==t' && c==c' then cstr else mkProd (na, t', c')
   | Lambda (na,t,c) ->
       let t' = f l t in
-      let c' = f (g (LocalAssum (na,t)) l) c in
+      let c' = f (g (LocalAssum (na, inj t)) l) c in
       if t==t' && c==c' then cstr else  mkLambda (na, t', c')
   | LetIn (na,b,t,c) ->
       let b' = f l b in
       let t' = f l t in
-      let c' = f (g (LocalDef (na,b,t)) l) c in
+      let c' = f (g (LocalDef (na, inj b, inj t)) l) c in
       if b==b' && t==t' && c==c' then cstr else mkLetIn (na, b', t', c')
   | App (c,al) ->
       let c' = f l c in
@@ -441,7 +443,7 @@ let map_constr_with_full_binders g f l cstr =
   | Fix (ln,(lna,tl,bl)) ->
       let tl' = Array.map (f l) tl in
       let l' =
-        Array.fold_left2 (fun l na t -> g (LocalAssum (na,t)) l) l lna tl in
+        Array.fold_left2 (fun l na t -> g (LocalAssum (na, inj t)) l) l lna tl in
       let bl' = Array.map (f l') bl in
       if Array.for_all2 (==) tl tl' && Array.for_all2 (==) bl bl'
       then cstr
@@ -449,7 +451,7 @@ let map_constr_with_full_binders g f l cstr =
   | CoFix(ln,(lna,tl,bl)) ->
       let tl' = Array.map (f l) tl in
       let l' =
-        Array.fold_left2 (fun l na t -> g (LocalAssum (na,t)) l) l lna tl in
+        Array.fold_left2 (fun l na t -> g (LocalAssum (na, inj t)) l) l lna tl in
       let bl' = Array.map (f l') bl in
       if Array.for_all2 (==) tl tl' && Array.for_all2 (==) bl bl'
       then cstr

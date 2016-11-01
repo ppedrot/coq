@@ -1561,7 +1561,7 @@ let matx_of_eqns env eqns =
    returning True never happens and any inhabited type can be put instead).
 *)
 
-let adjust_to_extended_env_and_remove_deps env extenv subst t =
+let adjust_to_extended_env_and_remove_deps env extenv sigma subst t =
   let n = Context.Rel.length (rel_context env) in
   let n' = Context.Rel.length (rel_context extenv) in
   (* We first remove the bindings that are dependently typed (they are
@@ -1583,7 +1583,7 @@ let adjust_to_extended_env_and_remove_deps env extenv subst t =
       | LocalAssum _ -> p in
     let p = traverse_local_defs p in
     let u = lift (n' - n) u in
-    try Some (p, u, expand_vars_in_term extenv u)
+    try Some (p, u, expand_vars_in_term extenv sigma u)
       (* pedrot: does this really happen to raise [Failure _]? *)
     with Failure _ -> None in
   let subst0 = List.map_filter map subst in
@@ -1617,7 +1617,7 @@ let abstract_tycon loc env evdref subst tycon extenv t =
   let src = match kind_of_term t with
     | Evar (evk,_) -> (loc,Evar_kinds.SubEvar evk)
     | _ -> (loc,Evar_kinds.CasesType true) in
-  let subst0,t0 = adjust_to_extended_env_and_remove_deps env extenv subst t in
+  let subst0,t0 = adjust_to_extended_env_and_remove_deps env extenv !evdref subst t in
   (* We traverse the type T of the original problem Xi looking for subterms
      that match the non-constructor part of the constraints (this part
      is in subst); these subterms are the "good" subterms and we replace them
@@ -1644,7 +1644,8 @@ let abstract_tycon loc env evdref subst tycon extenv t =
     let good = List.filter (fun (_,u,_) -> is_conv_leq env !evdref t u) subst in
     match good with
     | [] ->
-      map_constr_with_full_binders push_binder aux x t
+      let self env c = EConstr.of_constr (aux env (EConstr.Unsafe.to_constr c)) in
+      EConstr.Unsafe.to_constr (map_constr_with_full_binders !evdref push_binder self x (EConstr.of_constr t))
     | (_, _, u) :: _ -> (* u is in extenv *)
       let vl = List.map pi1 good in
       let ty = 

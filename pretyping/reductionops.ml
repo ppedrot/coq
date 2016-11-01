@@ -612,8 +612,9 @@ let safe_meta_value sigma ev =
 
 let strong whdfun env sigma t =
   let rec strongrec env t =
-    map_constr_with_full_binders push_rel strongrec env (whdfun env sigma t) in
-  strongrec env t
+    let t = EConstr.of_constr (whdfun env sigma (EConstr.Unsafe.to_constr t)) in
+    map_constr_with_full_binders sigma push_rel strongrec env t in
+  EConstr.Unsafe.to_constr (strongrec env (EConstr.of_constr t))
 
 let local_strong whdfun sigma =
   let rec strongrec t = Constr.map strongrec (whdfun sigma t) in
