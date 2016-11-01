@@ -1700,8 +1700,8 @@ let w_unify_to_subterm env evd ?(flags=default_unify_flags ()) (op,cl) =
        if closed0 cl && not (isEvar cl) && keyed_unify env evd kop cl then
        (try
          if !keyed_unification then
-           let f1, l1 = decompose_app_vect op in
-	   let f2, l2 = decompose_app_vect cl in
+           let f1, l1 = decompose_app_vect evd (EConstr.of_constr op) in
+	   let f2, l2 = decompose_app_vect evd (EConstr.of_constr cl) in
 	   w_typed_unify_array env evd flags f1 l1 f2 l2,cl
 	 else w_typed_unify env evd CONV flags op cl,cl
        with ex when Pretype_errors.unsatisfiable_exception ex ->

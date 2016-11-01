@@ -261,10 +261,10 @@ let last_arg sigma c = match EConstr.kind sigma c with
   | _ -> anomaly (Pp.str "last_arg")
 
 (* Get the last arg of an application *)
-let decompose_app_vect c =
-  match kind_of_term c with
-  | App (f,cl) -> (f, cl)
-  | _ -> (c,[||])
+let decompose_app_vect sigma c =
+  match EConstr.kind sigma c with
+  | App (f,cl) -> (EConstr.Unsafe.to_constr f, Array.map EConstr.Unsafe.to_constr cl)
+  | _ -> (EConstr.Unsafe.to_constr c,[||])
 
 let adjust_app_list_size f1 l1 f2 l2 =
   let len1 = List.length l1 and len2 = List.length l2 in

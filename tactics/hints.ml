@@ -60,7 +60,7 @@ let head_constr sigma c =
 let decompose_app_bound sigma t =
   let t = strip_outer_cast sigma (EConstr.of_constr t) in
   let _,ccl = decompose_prod_assum t in
-  let hd,args = decompose_app_vect ccl in
+  let hd,args = decompose_app_vect sigma (EConstr.of_constr ccl) in
   match kind_of_term hd with
     | Const (c,u) -> ConstRef c, args
     | Ind (i,u) -> IndRef i, args

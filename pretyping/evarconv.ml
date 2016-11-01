@@ -178,7 +178,7 @@ let check_conv_record env sigma (t1,sk1) (t2,sk2) =
   let c' = subst_univs_level_constr subst c in
   let t' = subst_univs_level_constr subst t' in
   let bs' = List.map (subst_univs_level_constr subst) bs in
-  let h, _ = decompose_app_vect t' in
+  let h, _ = decompose_app_vect sigma (EConstr.of_constr t') in
     ctx',(h, t2),c',bs',(Stack.append_app_list params Stack.empty,params1),
     (Stack.append_app_list us Stack.empty,us2),(extra_args1,extra_args2),c1,
     (n,Stack.zip(t2,sk2))
@@ -893,7 +893,7 @@ and conv_record trs env evd (ctx,(h,h2),c,bs,(params,params1),(us,us2),(sk1,sk2)
        (fun i -> exact_ise_stack2 env i (evar_conv_x trs) sk1 sk2);
        test;
        (fun i -> evar_conv_x trs env i CONV h2
-	 (fst (decompose_app_vect (substl ks h))))]
+	 (fst (decompose_app_vect i (EConstr.of_constr (substl ks h)))))]
   else UnifFailure(evd,(*dummy*)NotSameHead)
 
 and eta_constructor ts env evd sk1 ((ind, i), u) sk2 term2 =

@@ -550,7 +550,7 @@ let make_projectable_subst aliases sigma evi args =
         | LocalAssum (id,c), a::rest ->
             let a = whd_evar sigma a in
             let cstrs =
-              let a',args = decompose_app_vect a in
+              let a',args = decompose_app_vect sigma (EConstr.of_constr a) in
               match kind_of_term a' with
               | Construct cstr ->
                   let l = try Constrmap.find (fst cstr) cstrs with Not_found -> [] in
@@ -1091,9 +1091,7 @@ exception CannotProject of evar_map * existential
 *)
 
 let rec is_constrainable_in top evd k (ev,(fv_rels,fv_ids) as g) t =
-  let f,args2 = decompose_app_vect t in
-  let f,args1 = decompose_app_vect (whd_evar evd f) in
-  let args = Array.append args1 args2 in
+  let f,args = decompose_app_vect evd (EConstr.of_constr t) in
   match kind_of_term f with
   | Construct ((ind,_),u) ->
     let n = Inductiveops.inductive_nparams ind in
@@ -1450,7 +1448,7 @@ let rec invert_definition conv_algo choose env evd pbty (evk,argsv as ev) rhs =
     | _ ->
         progress := true;
         match
-          let c,args = decompose_app_vect t in
+          let c,args = decompose_app_vect !evdref (EConstr.of_constr t) in
           match kind_of_term c with
           | Construct (cstr,u) when noccur_between 1 k t ->
             (* This is common case when inferring the return clause of match *)
