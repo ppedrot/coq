@@ -43,9 +43,9 @@ module Cst_stack : sig
   val add_param : constr -> t -> t
   val add_args : constr array -> t -> t
   val add_cst : constr -> t -> t
-  val best_cst : t -> (constr * constr list) option
+  val best_cst : t -> (EConstr.t * constr list) option
   val best_replace : Evd.evar_map -> constr -> t -> constr -> constr
-  val reference : t -> Constant.t option
+  val reference : Evd.evar_map -> t -> Constant.t option
   val pr : t -> Pp.std_ppcmds
 end
 

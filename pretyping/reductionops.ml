@@ -188,11 +188,11 @@ module Cst_stack = struct
     | l -> (cst,[],[])::l
 
   let best_cst = function
-    | (cst,params,[])::_ -> Some(cst,params)
+    | (cst,params,[])::_ -> Some(EConstr.of_constr cst,params)
     | _ -> None
 
-  let reference t = match best_cst t with
-    | Some (c, _) when Term.isConst c -> Some (fst (Term.destConst c))
+  let reference sigma t = match best_cst t with
+    | Some (c, _) when EConstr.isConst sigma c -> Some (fst (EConstr.destConst sigma c))
     | _ -> None
 
   (** [best_replace d cst_l c] makes the best replacement for [d]
@@ -719,7 +719,7 @@ let contract_cofix ?env ?reference (bodynum,(names,types,bodies as typedbodies))
 let reduce_and_refold_cofix recfun env sigma refold cst_l cofix sk =
   let raw_answer =
     let env = if refold then Some env else None in
-    contract_cofix ?env ?reference:(Cst_stack.reference cst_l) cofix in
+    contract_cofix ?env ?reference:(Cst_stack.reference sigma cst_l) cofix in
   apply_subst
     (fun x (t,sk') ->
       let t' =
@@ -764,7 +764,7 @@ let contract_fix ?env ?reference ((recindices,bodynum),(names,types,bodies as ty
 let reduce_and_refold_fix recfun env sigma refold cst_l fix sk =
   let raw_answer =
     let env = if refold then None else Some env in
-    contract_fix ?env ?reference:(Cst_stack.reference cst_l) fix in
+    contract_fix ?env ?reference:(Cst_stack.reference sigma cst_l) fix in
   apply_subst
     (fun x (t,sk') ->
       let t' =
