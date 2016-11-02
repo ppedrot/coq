@@ -1331,29 +1331,30 @@ let default_plain_instance_ident = Id.of_string "H"
 
 (* Try to replace all metas. Does not replace metas in the metas' values
  * Differs from (strong whd_meta). *)
-let plain_instance s c =
-  let rec irec n u = match kind_of_term u with
-    | Meta p -> (try lift n (Metamap.find p s) with Not_found -> u)
-    | App (f,l) when isCast f ->
-        let (f,_,t) = destCast f in
+let plain_instance sigma s c =
+  let open EConstr in
+  let rec irec n u = match EConstr.kind sigma u with
+    | Meta p -> (try EConstr.of_constr (lift n (Metamap.find p s)) with Not_found -> u)
+    | App (f,l) when isCast sigma f ->
+        let (f,_,t) = destCast sigma f in
         let l' = CArray.Fun1.smartmap irec n l in
-        (match kind_of_term f with
+        (match EConstr.kind sigma f with
         | Meta p ->
 	    (* Don't flatten application nodes: this is used to extract a
                proof-term from a proof-tree and we want to keep the structure
                of the proof-tree *)
-	    (try let g = Metamap.find p s in
-	    match kind_of_term g with
+	    (try let g = EConstr.of_constr (Metamap.find p s) in
+	    match EConstr.kind sigma g with
             | App _ ->
-                let l' = CArray.Fun1.smartmap lift 1 l' in
+                let l' = CArray.Fun1.smartmap Vars.lift 1 l' in
                 mkLetIn (Name default_plain_instance_ident,g,t,mkApp(mkRel 1, l'))
             | _ -> mkApp (g,l')
 	    with Not_found -> mkApp (f,l'))
         | _ -> mkApp (irec n f,l'))
-    | Cast (m,_,_) when isMeta m ->
-	(try lift n (Metamap.find (destMeta m) s) with Not_found -> u)
+    | Cast (m,_,_) when isMeta sigma m ->
+	(try EConstr.of_constr (lift n (Metamap.find (destMeta sigma m) s)) with Not_found -> u)
     | _ ->
-	map_constr_with_binders succ irec n u
+	map_with_binders sigma succ irec n u
   in
   if Metamap.is_empty s then c
   else irec 0 c
@@ -1394,7 +1395,7 @@ let plain_instance s c =
 
 let instance sigma s c =
   (* if s = [] then c else *)
-  local_strong whd_betaiota sigma (EConstr.of_constr (plain_instance s c))
+  local_strong whd_betaiota sigma (plain_instance sigma s c)
 
 (* pseudo-reduction rule:
  * [hnf_prod_app env s (Prod(_,B)) N --> B[N]
@@ -1546,7 +1547,7 @@ let meta_value evd mv =
     match meta_opt_fvalue evd mv with
     | Some (b,_) ->
       let metas = Metamap.bind valrec b.freemetas in
-      instance evd metas b.rebus
+      instance evd metas (EConstr.of_constr b.rebus)
     | None -> mkMeta mv
   in
   valrec mv
@@ -1556,7 +1557,7 @@ let meta_instance sigma b =
   if Metaset.is_empty fm then b.rebus
   else
     let c_sigma = Metamap.bind (fun mv -> meta_value sigma mv) fm in
-    instance sigma c_sigma b.rebus
+    instance sigma c_sigma (EConstr.of_constr b.rebus)
 
 let nf_meta sigma c = meta_instance sigma (mk_freelisted c)
 

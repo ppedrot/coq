@@ -281,8 +281,8 @@ val infer_conv_gen : (conv_pb -> l2r:bool -> evar_map -> transparent_state ->
 (** {6 Special-Purpose Reduction Functions } *)
 
 val whd_meta : local_reduction_function
-val plain_instance : constr Metamap.t -> constr -> constr
-val instance : evar_map -> constr Metamap.t -> constr -> constr
+val plain_instance : evar_map -> constr Metamap.t -> EConstr.t -> EConstr.t
+val instance : evar_map -> constr Metamap.t -> EConstr.t -> constr
 val head_unfold_under_prod : transparent_state -> reduction_function
 val betazetaevar_applist : evar_map -> int -> constr -> constr list -> constr
 
