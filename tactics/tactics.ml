@@ -1592,12 +1592,12 @@ let make_projection env sigma params cstr sign elim i n c u =
 	noccur_between 1 (n-i-1) t
 	(* to avoid surprising unifications, excludes flexible
 	projection types or lambda which will be instantiated by Meta/Evar *)
-	&& not (isEvar (fst (whd_betaiota_stack sigma (EConstr.of_constr t))))
+	&& not (EConstr.isEvar sigma (fst (whd_betaiota_stack sigma (EConstr.of_constr t))))
 	&& (accept_universal_lemma_under_conjunctions () || not (isRel t))
       then
         let t = lift (i+1-n) t in
-	let abselim = beta_applist (elim,params@[t;branch]) in
-	let c = beta_applist (abselim, [mkApp (c, Context.Rel.to_extended_vect 0 sign)]) in
+	let abselim = beta_applist sigma (EConstr.of_constr elim, List.map EConstr.of_constr (params@[t;branch])) in
+	let c = beta_applist sigma (EConstr.of_constr abselim, [EConstr.of_constr (mkApp (c, Context.Rel.to_extended_vect 0 sign))]) in
 	  Some (it_mkLambda_or_LetIn c sign, it_mkProd_or_LetIn t sign)
       else
 	None
@@ -2909,10 +2909,10 @@ let specialize (c,lbind) ipat =
       let (thd,tstack) = whd_nored_stack clause.evd (EConstr.of_constr (clenv_value clause)) in
       let rec chk = function
       | [] -> []
-      | t::l -> if occur_meta clause.evd (EConstr.of_constr t) then [] else t :: chk l
+      | t::l -> if occur_meta clause.evd t then [] else EConstr.Unsafe.to_constr t :: chk l
       in
       let tstack = chk tstack in
-      let term = applist(thd,List.map (nf_evar clause.evd) tstack) in
+      let term = applist(EConstr.Unsafe.to_constr thd,List.map (nf_evar clause.evd) tstack) in
       if occur_meta clause.evd (EConstr.of_constr term) then
 	user_err  (str "Cannot infer an instance for " ++
 

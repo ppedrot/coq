@@ -154,6 +154,8 @@ let type_rec_branch is_rec dep env sigma (vargs,depPvect,decP) tyi cs recargs =
   let process_pos env depK pk =
     let rec prec env i sign p =
       let p',largs = whd_allnolet_stack env sigma (EConstr.of_constr p) in
+      let p' = EConstr.Unsafe.to_constr p' in
+      let largs = List.map EConstr.Unsafe.to_constr largs in
       match kind_of_term p' with
 	| Prod (n,t,c) ->
 	    let d = LocalAssum (n,t) in
@@ -230,6 +232,8 @@ let make_rec_branch_arg env sigma (nparrec,fvect,decF) f cstr recargs =
   let process_pos env fk  =
     let rec prec env i hyps p =
       let p',largs = whd_allnolet_stack env sigma (EConstr.of_constr p) in
+      let p' = EConstr.Unsafe.to_constr p' in
+      let largs = List.map EConstr.Unsafe.to_constr largs in
       match kind_of_term p' with
 	| Prod (n,t,c) ->
 	    let d = LocalAssum (n,t) in

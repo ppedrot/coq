@@ -286,23 +286,24 @@ end) = struct
       else (* None in Prop, use arrow *)
 	(app_poly env evd arrow [| a; b |]), unfold_impl
 
-  let rec decomp_pointwise n c =
+  let rec decomp_pointwise sigma n c =
     if Int.equal n 0 then c
     else
+      let open EConstr in
       match kind_of_term c with
       | App (f, [| a; b; relb |]) when Globnames.is_global (pointwise_relation_ref ()) f ->
-	decomp_pointwise (pred n) relb
+	decomp_pointwise sigma (pred n) relb
       | App (f, [| a; b; arelb |]) when Globnames.is_global (forall_relation_ref ()) f ->
-	decomp_pointwise (pred n) (Reductionops.beta_applist (arelb, [mkRel 1]))
+	decomp_pointwise sigma (pred n) (Reductionops.beta_applist sigma (EConstr.of_constr arelb, [mkRel 1]))
       | _ -> invalid_arg "decomp_pointwise"
 
-  let rec apply_pointwise rel = function
+  let rec apply_pointwise sigma rel = function
     | arg :: args ->
       (match kind_of_term rel with
       | App (f, [| a; b; relb |]) when Globnames.is_global (pointwise_relation_ref ()) f ->
-	apply_pointwise relb args
+	apply_pointwise sigma relb args
       | App (f, [| a; b; arelb |]) when Globnames.is_global (forall_relation_ref ()) f ->
-	apply_pointwise (Reductionops.beta_applist (arelb, [arg])) args
+	apply_pointwise sigma (Reductionops.beta_applist sigma (EConstr.of_constr arelb, [EConstr.of_constr arg])) args
       | _ -> invalid_arg "apply_pointwise")
     | [] -> rel
 
@@ -348,7 +349,7 @@ end) = struct
 
   let unlift_cstr env sigma = function
     | None -> None
-    | Some codom -> Some (decomp_pointwise 1 codom)
+    | Some codom -> Some (decomp_pointwise (goalevars sigma) 1 codom)
 
   (** Looking up declared rewrite relations (instances of [RewriteRelation]) *)
   let is_applied_rewrite_relation env sigma rels t =
@@ -1055,7 +1056,7 @@ let subterm all flags (s : 'a pure_strategy) : 'a pure_strategy =
 			let app = if prop then PropGlobal.apply_pointwise 
 			  else TypeGlobal.apply_pointwise 
 			in
-			  RewPrf (app rel argsl, mkApp (prf, args))
+			  RewPrf (app (goalevars evars) rel argsl, mkApp (prf, args))
 		      | x -> x
 		    in
 		    let res =

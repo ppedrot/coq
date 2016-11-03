@@ -45,10 +45,10 @@ let cbv_native env sigma c =
     Nativenorm.native_norm env sigma c ctyp
 
 let whd_cbn flags env sigma t =
-  let t = EConstr.Unsafe.to_constr t in
   let (state,_) =
     (whd_state_gen true true flags env sigma (t,Reductionops.Stack.empty))
-  in Reductionops.Stack.zip ~refold:true state
+  in
+  EConstr.Unsafe.to_constr (Reductionops.Stack.zip ~refold:true sigma state)
 
 let strong_cbn flags =
   strong (whd_cbn flags)

@@ -714,18 +714,20 @@ let _ =
       optread  = (fun () -> !keep_proof_equalities_for_injection) ;
       optwrite = (fun b -> keep_proof_equalities_for_injection := b) }
 
-
 let find_positions env sigma t1 t2 =
+  let open EConstr in
   let project env sorts posn t1 t2 =
+    let t1 = EConstr.Unsafe.to_constr t1 in
+    let t2 = EConstr.Unsafe.to_constr t2 in
     let ty1 = get_type_of env sigma t1 in
     let s = get_sort_family_of env sigma ty1 in
     if Sorts.List.mem s sorts
     then [(List.rev posn,t1,t2)] else []
   in
   let rec findrec sorts posn t1 t2 =
-    let hd1,args1 = whd_all_stack env sigma (EConstr.of_constr t1) in
-    let hd2,args2 = whd_all_stack env sigma (EConstr.of_constr t2) in
-    match (kind_of_term hd1, kind_of_term hd2) with
+    let hd1,args1 = whd_all_stack env sigma t1 in
+    let hd2,args2 = whd_all_stack env sigma t2 in
+    match (EConstr.kind sigma hd1, EConstr.kind sigma hd2) with
       | Construct (sp1,_), Construct (sp2,_)
           when Int.equal (List.length args1) (constructor_nallargs_env env sp1)
             ->
@@ -751,7 +753,7 @@ let find_positions env sigma t1 t2 =
       | _ ->
 	  let t1_0 = applist (hd1,args1)
           and t2_0 = applist (hd2,args2) in
-          if is_conv env sigma t1_0 t2_0 then
+          if is_conv env sigma (EConstr.Unsafe.to_constr t1_0) (EConstr.Unsafe.to_constr t2_0) then
 	    []
           else
 	    project env sorts posn t1_0 t2_0
@@ -760,7 +762,7 @@ let find_positions env sigma t1 t2 =
     let sorts = if !keep_proof_equalities_for_injection then [InSet;InType;InProp]
 		else [InSet;InType]
     in
-    Inr (findrec sorts [] t1 t2)
+    Inr (findrec sorts [] (EConstr.of_constr t1) (EConstr.of_constr t2))
   with DiscrFound (path,c1,c2) ->
     Inl (path,c1,c2)
 
@@ -1172,10 +1174,10 @@ let sig_clausal_form env sigma sort_of_ty siglen ty dflt =
 	error "Cannot solve a unification problem."
     else
       let (a,p_i_minus_1) = match whd_beta_stack !evdref (EConstr.of_constr p_i) with
-	| (_sigS,[a;p]) -> (a,p)
+	| (_sigS,[a;p]) -> (EConstr.Unsafe.to_constr a, EConstr.Unsafe.to_constr p)
  	| _ -> anomaly ~label:"sig_clausal_form" (Pp.str "should be a sigma type") in
       let ev = Evarutil.e_new_evar env evdref a in
-      let rty = beta_applist(p_i_minus_1,[ev]) in
+      let rty = beta_applist sigma (EConstr.of_constr p_i_minus_1,[EConstr.of_constr ev]) in
       let tuple_tail = sigrec_clausal_form (siglen-1) rty in
       match
         Evd.existential_opt_value !evdref
@@ -1515,14 +1517,14 @@ let _ = declare_intro_decomp_eq intro_decomp_eq
 
  *)
 
-let decomp_tuple_term env c t =
+let decomp_tuple_term env sigma c t =
   let rec decomprec inner_code ex exty =
     let iterated_decomp =
     try
       let ({proj1=p1; proj2=p2}),(i,a,p,car,cdr) = find_sigma_data_decompose ex in
       let car_code = applist (mkConstU (destConstRef p1,i),[a;p;inner_code])
       and cdr_code = applist (mkConstU (destConstRef p2,i),[a;p;inner_code]) in
-      let cdrtyp = beta_applist (p,[car]) in
+      let cdrtyp = beta_applist sigma (EConstr.of_constr p,[EConstr.of_constr car]) in
       List.map (fun l -> ((car,a),car_code)::l) (decomprec cdr_code cdr cdrtyp)
     with Constr_matching.PatternMatchingFailure ->
       []
@@ -1533,8 +1535,8 @@ let subst_tuple_term env sigma dep_pair1 dep_pair2 b =
   let sigma = Sigma.to_evar_map sigma in
   let typ = get_type_of env sigma dep_pair1 in
   (* We find all possible decompositions *)
-  let decomps1 = decomp_tuple_term env dep_pair1 typ in
-  let decomps2 = decomp_tuple_term env dep_pair2 typ in
+  let decomps1 = decomp_tuple_term env sigma dep_pair1 typ in
+  let decomps2 = decomp_tuple_term env sigma dep_pair2 typ in
   (* We adjust to the shortest decomposition *)
   let n = min (List.length decomps1) (List.length decomps2) in
   let decomp1 = List.nth decomps1 (n-1) in
@@ -1547,9 +1549,9 @@ let subst_tuple_term env sigma dep_pair1 dep_pair2 b =
   let abst_B =
     List.fold_right
       (fun (e,t) body -> lambda_create env (t,subst_term sigma (EConstr.of_constr e) (EConstr.of_constr body))) e1_list b in
-  let pred_body = beta_applist(abst_B,proj_list) in
+  let pred_body = beta_applist sigma (EConstr.of_constr abst_B, List.map EConstr.of_constr proj_list) in
   let body = mkApp (lambda_create env (typ,pred_body),[|dep_pair1|]) in
-  let expected_goal = beta_applist (abst_B,List.map fst e2_list) in
+  let expected_goal = beta_applist sigma (EConstr.of_constr abst_B,List.map (fst %> EConstr.of_constr) e2_list) in
   (* Simulate now the normalisation treatment made by Logic.mk_refgoals *)
   let expected_goal = nf_betaiota sigma (EConstr.of_constr expected_goal) in
   (* Retype to get universes right *)

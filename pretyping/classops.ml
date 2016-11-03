@@ -192,13 +192,14 @@ let coercion_exists coe = CoeTypMap.mem coe !coercion_tab
 (* find_class_type : evar_map -> constr -> cl_typ * universe_list * constr list *)
 
 let find_class_type sigma t =
+  let inj = EConstr.Unsafe.to_constr in
   let t', args = Reductionops.whd_betaiotazeta_stack sigma (EConstr.of_constr t) in
-  match kind_of_term t' with
-    | Var id -> CL_SECVAR id, Univ.Instance.empty, args
-    | Const (sp,u) -> CL_CONST sp, u, args
+  match EConstr.kind sigma t' with
+    | Var id -> CL_SECVAR id, Univ.Instance.empty, List.map inj args
+    | Const (sp,u) -> CL_CONST sp, u, List.map inj args
     | Proj (p, c) when not (Projection.unfolded p) ->
-      CL_PROJ (Projection.constant p), Univ.Instance.empty, c :: args
-    | Ind (ind_sp,u) -> CL_IND ind_sp, u, args
+      CL_PROJ (Projection.constant p), Univ.Instance.empty, List.map inj (c :: args)
+    | Ind (ind_sp,u) -> CL_IND ind_sp, u, List.map inj args
     | Prod (_,_,_) -> CL_FUN, Univ.Instance.empty, []
     | Sort _ -> CL_SORT, Univ.Instance.empty, []
     |  _ -> raise Not_found
@@ -299,7 +300,7 @@ let get_coercion_constructor env coe =
   let c, _ =
     Reductionops.whd_all_stack env Evd.empty (EConstr.of_constr coe.coe_value)
   in
-  match kind_of_term c with
+  match EConstr.kind Evd.empty (** FIXME *) c with
   | Construct (cstr,u) ->
       (cstr, Inductiveops.constructor_nrealargs cstr -1)
   | _ ->

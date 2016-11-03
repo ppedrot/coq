@@ -525,7 +525,7 @@ let solve_pattern_eqn env sigma l c =
     l c in
   (* Warning: we may miss some opportunity to eta-reduce more since c'
      is not in normal form *)
-  shrink_eta c'
+  shrink_eta (EConstr.of_constr c')
 
 (*****************************************)
 (* Refining/solving unification problems *)
@@ -1625,7 +1625,7 @@ let reconsider_conv_pbs conv_algo evd =
 (* Rq: uncomplete algorithm if pbty = CONV_X_LEQ ! *)
 let solve_simple_eqn conv_algo ?(choose=false) env evd (pbty,(evk1,args1 as ev1),t2) =
   try
-    let t2 = whd_betaiota evd (EConstr.of_constr t2) in (* includes whd_evar *)
+    let t2 = whd_betaiota evd t2 in (* includes whd_evar *)
     let evd = evar_define conv_algo ~choose env evd pbty ev1 t2 in
       reconsider_conv_pbs conv_algo evd
   with
@@ -1638,5 +1638,5 @@ let solve_simple_eqn conv_algo ?(choose=false) env evd (pbty,(evk1,args1 as ev1)
     | IllTypedInstance (env,t,u) ->
         UnifFailure (evd,InstanceNotSameType (evk1,env,t,u))
     | IncompatibleCandidates ->
-        UnifFailure (evd,ConversionFailed (env,mkEvar ev1,t2))
+        UnifFailure (evd,ConversionFailed (env,mkEvar ev1, EConstr.Unsafe.to_constr t2))
 

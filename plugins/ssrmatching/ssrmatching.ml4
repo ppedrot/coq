@@ -482,6 +482,8 @@ let evars_for_FO ~hack env sigma0 (ise0:evar_map) c0 =
 let mk_tpattern ?p_origin ?(hack=false) env sigma0 (ise, t) ok dir p =
   let k, f, a =
     let f, a = Reductionops.whd_betaiota_stack ise (EConstr.of_constr p) in
+    let f = EConstr.Unsafe.to_constr f in
+    let a = List.map EConstr.Unsafe.to_constr a in
     match kind_of_term f with
     | Const (p,_) ->
       let np = proj_nparams p in
