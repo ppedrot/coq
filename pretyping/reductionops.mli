@@ -63,7 +63,7 @@ module Stack : sig
   | App of 'a app_node
   | Case of case_info * 'a * 'a array * Cst_stack.t
   | Proj of int * int * projection * Cst_stack.t
-  | Fix of fixpoint * 'a t * Cst_stack.t
+  | Fix of ('a, 'a) pfixpoint * 'a t * Cst_stack.t
   | Cst of cst_member * int (** current foccussed arg *) * int list (** remaining args *)
     * 'a t * Cst_stack.t
   | Shift of int
@@ -84,7 +84,7 @@ module Stack : sig
       @return the result and the lifts to apply on the terms *)
   val fold2 : ('a -> Term.constr -> Term.constr -> 'a) -> 'a ->
     Term.constr t -> Term.constr t -> 'a * int * int
-  val map : (Term.constr -> Term.constr) -> Term.constr t -> Term.constr t
+  val map : ('a -> 'a) -> 'a t -> 'a t
   val append_app_list : 'a list -> 'a t -> 'a t
 
   (** if [strip_app s] = [(a,b)], then [s = a @ b] and [b] does not

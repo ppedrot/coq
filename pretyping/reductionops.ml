@@ -231,7 +231,7 @@ sig
   | App of 'a app_node
   | Case of case_info * 'a * 'a array * Cst_stack.t
   | Proj of int * int * projection * Cst_stack.t
-  | Fix of fixpoint * 'a t * Cst_stack.t
+  | Fix of ('a, 'a) pfixpoint * 'a t * Cst_stack.t
   | Cst of cst_member * int * int list * 'a t * Cst_stack.t
   | Shift of int
   | Update of 'a
@@ -242,10 +242,10 @@ sig
   val append_app : 'a array -> 'a t -> 'a t
   val decomp : 'a t -> ('a * 'a t) option
   val decomp_node_last : 'a app_node -> 'a t -> ('a * 'a t)
-  val equal : ('a * int -> 'a * int -> bool) -> (fixpoint * int -> fixpoint * int -> bool)
+  val equal : ('a * int -> 'a * int -> bool) -> (('a, 'a) pfixpoint * int -> ('a, 'a) pfixpoint * int -> bool)
     -> 'a t -> 'a t -> (int * int) option
   val compare_shape : 'a t -> 'a t -> bool
-  val map : (constr -> constr) -> constr t -> constr t
+  val map : ('a -> 'a) -> 'a t -> 'a t
   val fold2 : ('a -> constr -> constr -> 'a) -> 'a ->
     constr t -> constr t -> 'a * int * int
   val append_app_list : 'a list -> 'a t -> 'a t
@@ -286,7 +286,7 @@ struct
   | App of 'a app_node
   | Case of Term.case_info * 'a * 'a array * Cst_stack.t
   | Proj of int * int * projection * Cst_stack.t
-  | Fix of fixpoint * 'a t * Cst_stack.t
+  | Fix of ('a, 'a) pfixpoint * 'a t * Cst_stack.t
   | Cst of cst_member * int * int list * 'a t * Cst_stack.t
   | Shift of int
   | Update of 'a
@@ -305,7 +305,7 @@ struct
       str "ZProj(" ++ int n ++ pr_comma () ++ int m ++
 	pr_comma () ++ pr_con (Projection.constant p) ++ str ")"
     | Fix (f,args,cst) ->
-       str "ZFix(" ++ Termops.pr_fix Termops.print_constr f
+       str "ZFix(" ++ Termops.pr_fix pr_c f
        ++ pr_comma () ++ pr pr_c args ++ str ")"
     | Cst (mem,curr,remains,params,cst_l) ->
       str "ZCst(" ++ pr_cst_member pr_c mem ++ pr_comma () ++ int curr
