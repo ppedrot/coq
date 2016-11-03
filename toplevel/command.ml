@@ -964,7 +964,7 @@ let build_wellfounded (recname,pl,n,bl,arityc,body) poly r measure notation =
 	let ctx, ar = Reductionops.splay_prod_n env !evdref 2 (EConstr.of_constr relty) in
 	  match ctx, kind_of_term ar with
 	  | [LocalAssum (_,t); LocalAssum (_,u)], Sort (Prop Null)
-	      when Reductionops.is_conv env !evdref t u -> t
+	      when Reductionops.is_conv env !evdref (EConstr.of_constr t) (EConstr.of_constr u) -> t
 	  | _, _ -> error ()
       with e when CErrors.noncritical e -> error ()
   in

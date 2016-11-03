@@ -1641,7 +1641,7 @@ let abstract_tycon loc env evdref subst tycon extenv t =
         end;
         ev'
     | _ ->
-    let good = List.filter (fun (_,u,_) -> is_conv_leq env !evdref t u) subst in
+    let good = List.filter (fun (_,u,_) -> is_conv_leq env !evdref (EConstr.of_constr t) (EConstr.of_constr u)) subst in
     match good with
     | [] ->
       let self env c = EConstr.of_constr (aux env (EConstr.Unsafe.to_constr c)) in
@@ -2327,7 +2327,7 @@ let build_dependent_signature env evdref avoid tomatchs arsign =
 		    let t = RelDecl.get_type decl in
 		    let argt = Retyping.get_type_of env !evdref arg in
 		    let eq, refl_arg =
-		      if Reductionops.is_conv env !evdref argt t then
+		      if Reductionops.is_conv env !evdref (EConstr.of_constr argt) (EConstr.of_constr t) then
 			(mk_eq evdref (lift (nargeqs + slift) argt)
 			   (mkRel (nargeqs + slift))
 			   (lift (nargeqs + nar) arg),

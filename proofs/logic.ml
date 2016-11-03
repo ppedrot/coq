@@ -497,15 +497,15 @@ and mk_casegoals sigma goal goalacc p c =
 
 let convert_hyp check sign sigma d =
   let id = NamedDecl.get_id d in
-  let b = NamedDecl.get_value d in
+  let b = Option.map EConstr.of_constr (NamedDecl.get_value d) in
   let env = Global.env() in
   let reorder = ref [] in
   let sign' =
     apply_to_hyp check sign id
       (fun _ d' _ ->
-        let c = NamedDecl.get_value d' in
+        let c = Option.map EConstr.of_constr (NamedDecl.get_value d') in
         let env = Global.env_of_context sign in
-        if check && not (is_conv env sigma (NamedDecl.get_type d) (NamedDecl.get_type d')) then
+        if check && not (is_conv env sigma (EConstr.of_constr (NamedDecl.get_type d)) (EConstr.of_constr (NamedDecl.get_type d'))) then
 	  user_err ~hdr:"Logic.convert_hyp"
             (str "Incorrect change of the type of " ++ pr_id id ++ str ".");
         if check && not (Option.equal (is_conv env sigma) b c) then

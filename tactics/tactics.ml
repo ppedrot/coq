@@ -3520,7 +3520,7 @@ let decompose_indapp f args =
 
 let mk_term_eq env sigma ty t ty' t' =
   let sigma = Sigma.to_evar_map sigma in
-  if Reductionops.is_conv env sigma ty ty' then
+  if Reductionops.is_conv env sigma (EConstr.of_constr ty) (EConstr.of_constr ty') then
     mkEq ty t t', mkRefl ty' t'
   else
     mkHEq ty t ty' t', mkHRefl ty' t'

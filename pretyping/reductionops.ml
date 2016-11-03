@@ -608,6 +608,14 @@ let pr_state (tm,sk) =
   let pr c = Termops.print_constr (EConstr.Unsafe.to_constr c) in
   h 0 (pr tm ++ str "|" ++ cut () ++ Stack.pr pr sk)
 
+let local_assum (na, t) =
+  let inj = EConstr.Unsafe.to_constr in
+  LocalAssum (na, inj t)
+
+let local_def (na, b, t) =
+  let inj = EConstr.Unsafe.to_constr in
+  LocalDef (na, inj b, inj t)
+
 (*************************************)
 (*** Reduction Functions Operators ***)
 (*************************************)
@@ -629,10 +637,10 @@ let local_strong whdfun sigma =
   fun c -> EConstr.Unsafe.to_constr (strongrec c)
 
 let rec strong_prodspine redfun sigma c =
-  let x = redfun sigma c in
-  match kind_of_term x with
-    | Prod (na,a,b) -> mkProd (na,a,strong_prodspine redfun sigma (EConstr.of_constr b))
-    | _ -> x
+  let x = EConstr.of_constr (redfun sigma c) in
+  match EConstr.kind sigma x with
+    | Prod (na,a,b) -> mkProd (na, EConstr.Unsafe.to_constr a,strong_prodspine redfun sigma b)
+    | _ -> EConstr.Unsafe.to_constr x
 
 (*************************************)
 (*** Reduction using bindingss ***)
@@ -832,7 +840,7 @@ let equal_stacks sigma (x, l) (y, l') =
 let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
   let open EConstr in
   let open Context.Named.Declaration in
-  let rec whrec cst_l (x, stack as s) =
+  let rec whrec cst_l (x, stack) =
     let () = if !debug_RAKAM then
 	let open Pp in
 	let pr c = Termops.print_constr (EConstr.Unsafe.to_constr c) in
@@ -958,7 +966,7 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
       | Some _ when CClosure.RedFlags.red_set flags CClosure.RedFlags.fBETA ->
 	apply_subst (fun _ -> whrec) [] sigma refold cst_l x stack
       | None when CClosure.RedFlags.red_set flags CClosure.RedFlags.fETA ->
-	let env' = push_rel (LocalAssum (na, EConstr.Unsafe.to_constr t)) env in
+	let env' = push_rel (local_assum (na, t)) env in
 	let whrec' = whd_state_gen ~refold ~tactic_mode flags env' sigma in
         (match EConstr.kind sigma (Stack.zip ~refold sigma (fst (whrec' (c, Stack.empty)))) with
         | App (f,cl) ->
@@ -1260,7 +1268,15 @@ let report_anomaly _ =
   let e = CErrors.push e in
   iraise e
 
-let test_trans_conversion (f: constr Reduction.extended_conversion_function) reds env sigma x y =
+let f_conv ?l2r ?reds env ?evars x y =
+  let inj = EConstr.Unsafe.to_constr in
+  Reduction.conv ?l2r ?reds env ?evars (inj x) (inj y)
+
+let f_conv_leq ?l2r ?reds env ?evars x y =
+  let inj = EConstr.Unsafe.to_constr in
+  Reduction.conv_leq ?l2r ?reds env ?evars (inj x) (inj y)
+
+let test_trans_conversion (f: EConstr.t Reduction.extended_conversion_function) reds env sigma x y =
   try
     let evars ev = safe_evar_value sigma ev in
     let _ = f ~reds env ~evars:(evars, Evd.universes sigma) x y in
@@ -1268,16 +1284,16 @@ let test_trans_conversion (f: constr Reduction.extended_conversion_function) red
   with Reduction.NotConvertible -> false
     | e when is_anomaly e -> report_anomaly e
 
-let is_conv ?(reds=full_transparent_state) env sigma = test_trans_conversion Reduction.conv reds env sigma
-let is_conv_leq ?(reds=full_transparent_state) env sigma = test_trans_conversion Reduction.conv_leq reds env sigma
+let is_conv ?(reds=full_transparent_state) env sigma = test_trans_conversion f_conv reds env sigma
+let is_conv_leq ?(reds=full_transparent_state) env sigma = test_trans_conversion f_conv_leq reds env sigma
 let is_fconv ?(reds=full_transparent_state) = function
   | Reduction.CONV -> is_conv ~reds
   | Reduction.CUMUL -> is_conv_leq ~reds
 
 let check_conv ?(pb=Reduction.CUMUL) ?(ts=full_transparent_state) env sigma x y = 
   let f = match pb with
-    | Reduction.CONV -> Reduction.conv
-    | Reduction.CUMUL -> Reduction.conv_leq
+    | Reduction.CONV -> f_conv
+    | Reduction.CUMUL -> f_conv_leq
   in
     try f ~reds:ts env ~evars:(safe_evar_value sigma, Evd.universes sigma) x y; true
     with Reduction.NotConvertible -> false
@@ -1445,14 +1461,6 @@ let hnf_lam_appvect env sigma t nl =
 let hnf_lam_applist env sigma t nl =
   List.fold_left (fun acc t -> hnf_lam_app env sigma (EConstr.of_constr acc) t) (EConstr.Unsafe.to_constr t) nl
 
-let local_assum (na, t) =
-  let inj = EConstr.Unsafe.to_constr in
-  LocalAssum (na, inj t)
-
-let local_def (na, b, t) =
-  let inj = EConstr.Unsafe.to_constr in
-  LocalDef (na, inj b, inj t)
-
 let bind_assum (na, t) =
   let inj = EConstr.Unsafe.to_constr in
   (na, inj t)
@@ -1559,10 +1567,10 @@ let whd_betaiota_deltazeta_for_iota_state ts env sigma csts s =
 
 let find_conclusion env sigma =
   let rec decrec env c =
-    let t = whd_all env sigma (EConstr.of_constr c) in
-    match kind_of_term t with
-      | Prod (x,t,c0) -> decrec (push_rel (LocalAssum (x,t)) env) c0
-      | Lambda (x,t,c0) -> decrec (push_rel (LocalAssum (x,t)) env) c0
+    let t = whd_all env sigma c in
+    match EConstr.kind sigma (EConstr.of_constr t) with
+      | Prod (x,t,c0) -> decrec (push_rel (local_assum (x,t)) env) c0
+      | Lambda (x,t,c0) -> decrec (push_rel (local_assum (x,t)) env) c0
       | t -> t
   in
   decrec env

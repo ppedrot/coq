@@ -232,8 +232,8 @@ type 'a miota_args = {
 val reducible_mind_case : evar_map -> EConstr.t -> bool
 val reduce_mind_case : evar_map -> EConstr.t miota_args -> EConstr.t
 
-val find_conclusion : env -> evar_map -> constr -> (constr,constr) kind_of_term
-val is_arity : env ->  evar_map -> constr -> bool
+val find_conclusion : env -> evar_map -> EConstr.t -> (EConstr.t,EConstr.t) kind_of_term
+val is_arity : env ->  evar_map -> EConstr.t -> bool
 val is_sort : env -> evar_map -> EConstr.types -> bool
 
 val contract_fix : ?env:Environ.env -> evar_map -> ?reference:Constant.t -> (EConstr.t, EConstr.t) pfixpoint -> EConstr.t
@@ -249,14 +249,14 @@ type conversion_test = constraints -> constraints
 val pb_is_equal : conv_pb -> bool
 val pb_equal : conv_pb -> conv_pb
 
-val is_conv : ?reds:transparent_state -> env -> evar_map -> constr -> constr -> bool
-val is_conv_leq : ?reds:transparent_state -> env ->  evar_map -> constr -> constr -> bool
-val is_fconv : ?reds:transparent_state -> conv_pb -> env ->  evar_map -> constr -> constr -> bool
+val is_conv : ?reds:transparent_state -> env -> evar_map -> EConstr.t -> EConstr.t -> bool
+val is_conv_leq : ?reds:transparent_state -> env ->  evar_map -> EConstr.t -> EConstr.t -> bool
+val is_fconv : ?reds:transparent_state -> conv_pb -> env ->  evar_map -> EConstr.t -> EConstr.t -> bool
 
 (** [check_conv] Checks universe constraints only.
     pb defaults to CUMUL and ts to a full transparent state.
  *)
-val check_conv : ?pb:conv_pb -> ?ts:transparent_state -> env ->  evar_map -> constr -> constr -> bool
+val check_conv : ?pb:conv_pb -> ?ts:transparent_state -> env ->  evar_map -> EConstr.t -> EConstr.t -> bool
 
 (** [infer_conv] Adds necessary universe constraints to the evar map.
     pb defaults to CUMUL and ts to a full transparent state.

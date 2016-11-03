@@ -461,7 +461,7 @@ let evd_convertible env evd x y =
   with e when CErrors.noncritical e -> None
 
 let convertible env evd x y =
-  Reductionops.is_conv_leq env evd x y
+  Reductionops.is_conv_leq env evd (EConstr.of_constr x) (EConstr.of_constr y)
 
 type hypinfo = {
   prf : constr;

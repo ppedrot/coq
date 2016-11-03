@@ -683,7 +683,7 @@ let find_projectable_constructor env evd cstr k args cstr_subst =
       List.filter (fun (args',id) ->
         (* is_conv is maybe too strong (and source of useless computation) *)
         (* (at least expansion of aliases is needed) *)
-        Array.for_all2 (is_conv env evd) args args') l in
+        Array.for_all2 (fun c1 c2 -> is_conv env evd (EConstr.of_constr c1) (EConstr.of_constr c2)) args args') l in
     List.map snd l
   with Not_found ->
     []
@@ -1569,7 +1569,7 @@ and evar_define conv_algo ?(choose=false) env evd pbty (evk,argsv as ev) rhs =
         let c = whd_all env evd (EConstr.of_constr rhs) in
         match kind_of_term c with
         | Evar (evk',argsv2) when Evar.equal evk evk' ->
-	    solve_refl (fun env sigma pb c c' -> is_fconv pb env sigma c c')
+	    solve_refl (fun env sigma pb c c' -> is_fconv pb env sigma (EConstr.of_constr c) (EConstr.of_constr c'))
               env evd pbty evk argsv argsv2
         | _ ->
 	    raise (OccurCheckIn (evd,rhs))

@@ -1172,7 +1172,7 @@ let apply_conversion_problem_heuristic ts env evd pbty t1 t2 =
          let reason = ProblemBeyondCapabilities in
          UnifFailure (evd, CannotSolveConstraint ((pbty,env,t1,t2),reason)))
   | Evar (evk1,args1), Evar (evk2,args2) when Evar.equal evk1 evk2 ->
-      let f env evd pbty x y = is_fconv ~reds:ts pbty env evd x y in
+      let f env evd pbty x y = is_fconv ~reds:ts pbty env evd (EConstr.of_constr x) (EConstr.of_constr y) in
       Success (solve_refl ~can_drop:true f env evd
                  (position_problem true pbty) evk1 args1 args2)
   | Evar ev1, Evar ev2 when app_empty ->

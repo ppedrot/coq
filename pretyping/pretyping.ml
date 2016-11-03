@@ -1046,11 +1046,11 @@ and pretype_instance k0 resolve_tc env evdref lvar loc hyps evk update =
       with Not_found ->
       try
         let (n,_,t') = lookup_rel_id id (rel_context env) in
-        if is_conv env.ExtraEnv.env !evdref t t' then mkRel n, update else raise Not_found
+        if is_conv env.ExtraEnv.env !evdref (EConstr.of_constr t) (EConstr.of_constr t') then mkRel n, update else raise Not_found
       with Not_found ->
       try
         let t' = env |> lookup_named id |> NamedDecl.get_type in
-        if is_conv env.ExtraEnv.env !evdref t t' then mkVar id, update else raise Not_found
+        if is_conv env.ExtraEnv.env !evdref (EConstr.of_constr t) (EConstr.of_constr t') then mkVar id, update else raise Not_found
       with Not_found ->
         user_err ~loc  (str "Cannot interpret " ++
           pr_existential_key !evdref evk ++

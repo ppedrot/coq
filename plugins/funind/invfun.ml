@@ -496,7 +496,7 @@ and intros_with_rewrite_aux : tactic =
 	      begin
 		match kind_of_term t with
 		  | App(eq,args) when (eq_constr eq eq_ind)  ->
- 		      if Reductionops.is_conv (pf_env g) (project g) args.(1) args.(2)
+ 		      if Reductionops.is_conv (pf_env g) (project g) (EConstr.of_constr args.(1)) (EConstr.of_constr args.(2))
 		      then
 			let id = pf_get_new_id (Id.of_string "y") g  in
 			tclTHENSEQ [ Proofview.V82.of_tactic (Simple.intro id); thin [id]; intros_with_rewrite ] g

@@ -97,7 +97,7 @@ let pf_unsafe_type_of            = pf_reduce unsafe_type_of
 let pf_type_of                   = pf_reduce type_of
 let pf_get_type_of               = pf_reduce Retyping.get_type_of
 
-let pf_conv_x gl                = pf_reduce test_conversion gl Reduction.CONV
+let pf_conv_x gl                = pf_apply test_conversion gl Reduction.CONV
 let pf_conv_x_leq gl            = pf_reduce test_conversion gl Reduction.CUMUL
 let pf_const_value              = pf_reduce (fun env _ -> constant_value_in env)
 

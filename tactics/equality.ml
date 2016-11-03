@@ -328,7 +328,7 @@ let jmeq_same_dom gl = function
   | Some t ->
     let rels, t = decompose_prod_assum t in
     let env = Environ.push_rel_context rels (Proofview.Goal.env gl) in
-    match decompose_app t with
+    match EConstr.decompose_app (project gl) (EConstr.of_constr t) with
       | _, [dom1; _; dom2;_] -> is_conv env (Tacmach.New.project gl) dom1 dom2
       | _ -> false
 
@@ -753,7 +753,7 @@ let find_positions env sigma t1 t2 =
       | _ ->
 	  let t1_0 = applist (hd1,args1)
           and t2_0 = applist (hd2,args2) in
-          if is_conv env sigma (EConstr.Unsafe.to_constr t1_0) (EConstr.Unsafe.to_constr t2_0) then
+          if is_conv env sigma t1_0 t2_0 then
 	    []
           else
 	    project env sorts posn t1_0 t2_0
@@ -1325,7 +1325,7 @@ let inject_if_homogenous_dependent_pair ty =
     (* Note: should work even if not an inductive type, but the table only *)
     (* knows inductive types *)
     if not (Ind_tables.check_scheme (!eq_dec_scheme_kind_name()) (fst ind) &&
-      pf_apply is_conv gl ar1.(2) ar2.(2)) then raise Exit;
+      pf_apply is_conv gl (EConstr.of_constr ar1.(2)) (EConstr.of_constr ar2.(2))) then raise Exit;
     Coqlib.check_required_library ["Coq";"Logic";"Eqdep_dec"];
     let new_eq_args = [|pf_unsafe_type_of gl ar1.(3);ar1.(3);ar2.(3)|] in
     let inj2 = Coqlib.coq_constant "inj_pair2_eq_dec is missing"
@@ -1844,20 +1844,20 @@ let subst_all ?(flags=default_subst_tactic_flags ()) () =
 let cond_eq_term_left c t gl =
   try
     let (_,x,_) = pi3 (find_eq_data_decompose gl t) in
-    if pf_conv_x gl c x then true else failwith "not convertible"
+    if pf_conv_x gl (EConstr.of_constr c) (EConstr.of_constr x) then true else failwith "not convertible"
   with Constr_matching.PatternMatchingFailure -> failwith "not an equality"
 
 let cond_eq_term_right c t gl =
   try
     let (_,_,x) = pi3 (find_eq_data_decompose gl t) in
-    if pf_conv_x gl c x then false else failwith "not convertible"
+    if pf_conv_x gl (EConstr.of_constr c) (EConstr.of_constr x) then false else failwith "not convertible"
   with Constr_matching.PatternMatchingFailure -> failwith "not an equality"
 
 let cond_eq_term c t gl =
   try
     let (_,x,y) = pi3 (find_eq_data_decompose gl t) in
-    if pf_conv_x gl c x then true
-    else if pf_conv_x gl c y then false
+    if pf_conv_x gl (EConstr.of_constr c) (EConstr.of_constr x) then true
+    else if pf_conv_x gl (EConstr.of_constr c) (EConstr.of_constr y) then false
     else failwith "not convertible"
   with Constr_matching.PatternMatchingFailure -> failwith "not an equality"
 
