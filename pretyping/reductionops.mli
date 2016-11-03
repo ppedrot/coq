@@ -213,14 +213,14 @@ val hnf_lam_app      : env ->  evar_map -> EConstr.t -> EConstr.t -> constr
 val hnf_lam_appvect  : env ->  evar_map -> EConstr.t -> EConstr.t array -> constr
 val hnf_lam_applist  : env ->  evar_map -> EConstr.t -> EConstr.t list -> constr
 
-val splay_prod : env ->  evar_map -> constr -> (Name.t * constr) list * constr
-val splay_lam : env ->  evar_map -> constr -> (Name.t * constr) list * constr
-val splay_arity : env ->  evar_map -> constr -> (Name.t * constr) list * sorts
-val sort_of_arity : env -> evar_map -> constr -> sorts
-val splay_prod_n : env ->  evar_map -> int -> constr -> Context.Rel.t * constr
-val splay_lam_n : env ->  evar_map -> int -> constr -> Context.Rel.t * constr
+val splay_prod : env ->  evar_map -> EConstr.t -> (Name.t * constr) list * constr
+val splay_lam : env ->  evar_map -> EConstr.t -> (Name.t * constr) list * constr
+val splay_arity : env ->  evar_map -> EConstr.t -> (Name.t * constr) list * sorts
+val sort_of_arity : env -> evar_map -> EConstr.t -> sorts
+val splay_prod_n : env ->  evar_map -> int -> EConstr.t -> Context.Rel.t * constr
+val splay_lam_n : env ->  evar_map -> int -> EConstr.t -> Context.Rel.t * constr
 val splay_prod_assum :
-  env ->  evar_map -> constr -> Context.Rel.t * constr
+  env ->  evar_map -> EConstr.t -> Context.Rel.t * constr
 
 type 'a miota_args = {
   mP      : EConstr.t;     (** the result type *)
@@ -234,7 +234,7 @@ val reduce_mind_case : evar_map -> EConstr.t miota_args -> EConstr.t
 
 val find_conclusion : env -> evar_map -> constr -> (constr,constr) kind_of_term
 val is_arity : env ->  evar_map -> constr -> bool
-val is_sort : env -> evar_map -> types -> bool
+val is_sort : env -> evar_map -> EConstr.types -> bool
 
 val contract_fix : ?env:Environ.env -> evar_map -> ?reference:Constant.t -> (EConstr.t, EConstr.t) pfixpoint -> EConstr.t
 val fix_recarg : ('a, 'a) pfixpoint -> 'b Stack.t -> (int * 'b) option

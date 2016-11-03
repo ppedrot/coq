@@ -1445,76 +1445,88 @@ let hnf_lam_appvect env sigma t nl =
 let hnf_lam_applist env sigma t nl =
   List.fold_left (fun acc t -> hnf_lam_app env sigma (EConstr.of_constr acc) t) (EConstr.Unsafe.to_constr t) nl
 
+let local_assum (na, t) =
+  let inj = EConstr.Unsafe.to_constr in
+  LocalAssum (na, inj t)
+
+let local_def (na, b, t) =
+  let inj = EConstr.Unsafe.to_constr in
+  LocalDef (na, inj b, inj t)
+
+let bind_assum (na, t) =
+  let inj = EConstr.Unsafe.to_constr in
+  (na, inj t)
+
 let splay_prod env sigma =
   let rec decrec env m c =
-    let t = whd_all env sigma (EConstr.of_constr c) in
-    match kind_of_term t with
+    let t = whd_all env sigma c in
+    match EConstr.kind sigma (EConstr.of_constr t) with
       | Prod (n,a,c0) ->
-	  decrec (push_rel (LocalAssum (n,a)) env)
-	    ((n,a)::m) c0
+	  decrec (push_rel (local_assum (n,a)) env)
+	    (bind_assum (n,a)::m) c0
       | _ -> m,t
   in
   decrec env []
 
 let splay_lam env sigma =
   let rec decrec env m c =
-    let t = whd_all env sigma (EConstr.of_constr c) in
-    match kind_of_term t with
+    let t = whd_all env sigma c in
+    match EConstr.kind sigma (EConstr.of_constr t) with
       | Lambda (n,a,c0) ->
-	  decrec (push_rel (LocalAssum (n,a)) env)
-	    ((n,a)::m) c0
+	  decrec (push_rel (local_assum (n,a)) env)
+	    (bind_assum (n,a)::m) c0
       | _ -> m,t
   in
   decrec env []
 
 let splay_prod_assum env sigma =
   let rec prodec_rec env l c =
-    let t = whd_allnolet env sigma (EConstr.of_constr c) in
-    match kind_of_term t with
+    let t = whd_allnolet env sigma c in
+    match EConstr.kind sigma (EConstr.of_constr t) with
     | Prod (x,t,c)  ->
-	prodec_rec (push_rel (LocalAssum (x,t)) env)
-	  (Context.Rel.add (LocalAssum (x,t)) l) c
+	prodec_rec (push_rel (local_assum (x,t)) env)
+	  (Context.Rel.add (local_assum (x,t)) l) c
     | LetIn (x,b,t,c) ->
-	prodec_rec (push_rel (LocalDef (x,b,t)) env)
-	  (Context.Rel.add (LocalDef (x,b,t)) l) c
+	prodec_rec (push_rel (local_def (x,b,t)) env)
+	  (Context.Rel.add (local_def (x,b,t)) l) c
     | Cast (c,_,_)    -> prodec_rec env l c
     | _               -> 
       let t' = whd_all env sigma (EConstr.of_constr t) in
 	if Term.eq_constr t t' then l,t
-	else prodec_rec env l t'
+	else prodec_rec env l (EConstr.of_constr t')
   in
   prodec_rec env Context.Rel.empty
 
 let splay_arity env sigma c =
   let l, c = splay_prod env sigma c in
-  match kind_of_term c with
+  match EConstr.kind sigma (EConstr.of_constr c) with
     | Sort s -> l,s
     | _ -> invalid_arg "splay_arity"
 
 let sort_of_arity env sigma c = snd (splay_arity env sigma c)
 
 let splay_prod_n env sigma n =
-  let rec decrec env m ln c = if Int.equal m 0 then (ln,c) else
-    match kind_of_term (whd_all env sigma (EConstr.of_constr c)) with
+  let rec decrec env m ln c = if Int.equal m 0 then (ln, EConstr.Unsafe.to_constr c) else
+    match EConstr.kind sigma (EConstr.of_constr (whd_all env sigma c)) with
       | Prod (n,a,c0) ->
-	  decrec (push_rel (LocalAssum (n,a)) env)
-	    (m-1) (Context.Rel.add (LocalAssum (n,a)) ln) c0
+	  decrec (push_rel (local_assum (n,a)) env)
+	    (m-1) (Context.Rel.add (local_assum (n,a)) ln) c0
       | _                      -> invalid_arg "splay_prod_n"
   in
   decrec env n Context.Rel.empty
 
 let splay_lam_n env sigma n =
-  let rec decrec env m ln c = if Int.equal m 0 then (ln,c) else
-    match kind_of_term (whd_all env sigma (EConstr.of_constr c)) with
+  let rec decrec env m ln c = if Int.equal m 0 then (ln, EConstr.Unsafe.to_constr c) else
+    match EConstr.kind sigma (EConstr.of_constr (whd_all env sigma c)) with
       | Lambda (n,a,c0) ->
-	  decrec (push_rel (LocalAssum (n,a)) env)
-	    (m-1) (Context.Rel.add (LocalAssum (n,a)) ln) c0
+	  decrec (push_rel (local_assum (n,a)) env)
+	    (m-1) (Context.Rel.add (local_assum (n,a)) ln) c0
       | _                      -> invalid_arg "splay_lam_n"
   in
   decrec env n Context.Rel.empty
 
 let is_sort env sigma t =
-  match kind_of_term (whd_all env sigma (EConstr.of_constr t)) with
+  match EConstr.kind sigma (EConstr.of_constr (whd_all env sigma t)) with
   | Sort s -> true
   | _ -> false
 

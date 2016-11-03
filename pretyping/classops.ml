@@ -404,7 +404,7 @@ type coercion = {
 
 let reference_arity_length ref =
   let t = Universes.unsafe_type_of_global ref in
-  List.length (fst (Reductionops.splay_arity (Global.env()) Evd.empty t))
+  List.length (fst (Reductionops.splay_arity (Global.env()) Evd.empty (EConstr.of_constr t))) (** FIXME *)
 
 let projection_arity_length p =
   let len = reference_arity_length (ConstRef p) in

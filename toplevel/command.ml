@@ -395,7 +395,7 @@ let check_all_names_different indl =
   | _ -> raise (InductiveError (SameNamesOverlap l))
 
 let mk_mltype_data evdref env assums arity indname =
-  let is_ml_type = is_sort env !evdref arity in
+  let is_ml_type = is_sort env !evdref (EConstr.of_constr arity) in
   (is_ml_type,indname,assums)
 
 let prepare_param = function
@@ -961,7 +961,7 @@ let build_wellfounded (recname,pl,n,bl,arityc,body) poly r measure notation =
 		    (Printer.pr_constr_env env !evdref rel ++ str " is not an homogeneous binary relation.")
     in
       try
-	let ctx, ar = Reductionops.splay_prod_n env !evdref 2 relty in
+	let ctx, ar = Reductionops.splay_prod_n env !evdref 2 (EConstr.of_constr relty) in
 	  match ctx, kind_of_term ar with
 	  | [LocalAssum (_,t); LocalAssum (_,u)], Sort (Prop Null)
 	      when Reductionops.is_conv env !evdref t u -> t

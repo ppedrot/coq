@@ -73,7 +73,7 @@ let print_ref reduce ref =
   let typ = Global.type_of_global_unsafe ref in
   let typ =
     if reduce then
-      let ctx,ccl = Reductionops.splay_prod_assum (Global.env()) Evd.empty typ
+      let ctx,ccl = Reductionops.splay_prod_assum (Global.env()) Evd.empty (EConstr.of_constr typ)
       in it_mkProd_or_LetIn ccl ctx
     else typ in
   let univs = Global.universes_of_global ref in

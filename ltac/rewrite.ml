@@ -431,7 +431,7 @@ module TypeGlobal = struct
 end
 
 let sort_of_rel env evm rel =
-  Reductionops.sort_of_arity env evm (Retyping.get_type_of env evm rel)
+  Reductionops.sort_of_arity env evm (EConstr.of_constr (Retyping.get_type_of env evm rel))
 
 let is_applied_rewrite_relation = PropGlobal.is_applied_rewrite_relation
 
@@ -526,7 +526,7 @@ let decompose_applied_relation env sigma (c,l) =
     match find_rel ctype with
     | Some c -> c
     | None ->
-	let ctx,t' = Reductionops.splay_prod env sigma ctype in (* Search for underlying eq *)
+	let ctx,t' = Reductionops.splay_prod env sigma (EConstr.of_constr ctype) in (* Search for underlying eq *)
 	match find_rel (it_mkProd_or_LetIn t' (List.map (fun (n,t) -> LocalAssum (n, t)) ctx)) with
 	| Some c -> c
 	| None -> error "Cannot find an homogeneous relation to rewrite."
@@ -1888,7 +1888,7 @@ let declare_projection n instance_id r =
 	  | _ -> typ
       in aux init
     in
-    let ctx,ccl = Reductionops.splay_prod_n (Global.env()) Evd.empty (3 * n) typ
+    let ctx,ccl = Reductionops.splay_prod_n env sigma (3 * n) (EConstr.of_constr typ)
     in it_mkProd_or_LetIn ccl ctx
   in
   let typ = it_mkProd_or_LetIn typ ctx in

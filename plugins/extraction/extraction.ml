@@ -297,7 +297,7 @@ and extract_type_app env db (r,s) args =
   let ml_args =
     List.fold_right
       (fun (b,c) a -> if b == Keep then
-	 let p = List.length (fst (splay_prod env none (type_of env c))) in
+	 let p = List.length (fst (splay_prod env none (EConstr.of_constr (type_of env c)))) in
          let db = iterate (fun l -> 0 :: l) p db in
          (extract_type_scheme env db c p) :: a
        else a)
@@ -321,7 +321,7 @@ and extract_type_scheme env db c p =
       | Lambda (n,t,d) ->
           extract_type_scheme (push_rel_assum (n,t) env) db d (p-1)
       | _ ->
-          let rels = fst (splay_prod env none (type_of env c)) in
+          let rels = fst (splay_prod env none (EConstr.of_constr (type_of env c))) in
           let env = push_rels_assum rels env in
           let eta_args = List.rev_map mkRel (List.interval 1 p) in
           extract_type env db 0 (lift p c) eta_args
@@ -846,7 +846,7 @@ and extract_fix env mle i (fi,ti,ci as recd) mlt =
    and decompose the term [c] in [n] lambdas, with eta-expansion if needed. *)
 
 let decomp_lams_eta_n n m env c t =
-  let rels = fst (splay_prod_n env none n t) in
+  let rels = fst (splay_prod_n env none n (EConstr.of_constr t)) in
   let rels = List.map (fun (LocalAssum (id,c) | LocalDef (id,_,c)) -> (id,c)) rels in
   let rels',c = decompose_lam c in
   let d = n - m in

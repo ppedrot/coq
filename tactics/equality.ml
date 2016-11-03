@@ -457,7 +457,7 @@ let general_rewrite_ebindings_clause cls lft2rgt occs frzevars dep_proof_ok ?tac
               | (e, info) ->
                   Proofview.tclEVARMAP >>= fun sigma ->
 	          let env' = push_rel_context rels env in
-	          let rels',t' = splay_prod_assum env' sigma t in (* Search for underlying eq *)
+	          let rels',t' = splay_prod_assum env' sigma (EConstr.of_constr t) in (* Search for underlying eq *)
 	          match match_with_equality_type sigma t' with
 	            | Some (hdcncl,args) ->
 		  let lft2rgt = adjust_rewriting_direction args lft2rgt in

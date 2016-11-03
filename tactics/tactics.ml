@@ -3616,7 +3616,7 @@ let abstract_args gl generalize_vars dep id defined f args =
     *)
   let aux (prod, ctx, ctxenv, c, args, eqs, refls, nongenvars, vars, env) arg =
     let name, ty, arity =
-      let rel, c = Reductionops.splay_prod_n env !sigma 1 prod in
+      let rel, c = Reductionops.splay_prod_n env !sigma 1 (EConstr.of_constr prod) in
       let decl = List.hd rel in
       RelDecl.get_name decl, RelDecl.get_type decl, c
     in
@@ -4245,7 +4245,7 @@ let use_bindings env sigma elim must_be_closed (c,lbind) typ =
          known only by pattern-matching, as in the case of a term of
          the form "nat_rect ?A ?o ?s n", with ?A to be inferred by
          matching. *)
-      let sign,t = splay_prod env sigma typ in it_mkProd t sign
+      let sign,t = splay_prod env sigma (EConstr.of_constr typ) in it_mkProd t sign
     else
       (* Otherwise, we exclude the case of an induction argument in an
          explicitly functional type. Henceforth, we can complete the
@@ -4269,7 +4269,7 @@ let use_bindings env sigma elim must_be_closed (c,lbind) typ =
 let check_expected_type env sigma (elimc,bl) elimt =
   (* Compute the expected template type of the term in case a using
      clause is given *)
-  let sign,_ = splay_prod env sigma elimt in
+  let sign,_ = splay_prod env sigma (EConstr.of_constr elimt) in
   let n = List.length sign in
   if n == 0 then error "Scheme cannot be applied.";
   let sigma,cl = make_evar_clause env sigma ~len:(n - 1) elimt in
