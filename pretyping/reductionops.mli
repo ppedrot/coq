@@ -286,7 +286,7 @@ val whd_meta : local_reduction_function
 val plain_instance : evar_map -> EConstr.t Metamap.t -> EConstr.t -> EConstr.t
 val instance : evar_map -> EConstr.t Metamap.t -> EConstr.t -> constr
 val head_unfold_under_prod : transparent_state -> reduction_function
-val betazetaevar_applist : evar_map -> int -> constr -> constr list -> constr
+val betazetaevar_applist : evar_map -> int -> EConstr.t -> EConstr.t list -> constr
 
 (** {6 Heuristic for Conversion with Evar } *)
 

@@ -193,7 +193,7 @@ module Cst_stack = struct
     | _ -> None
 
   let reference sigma t = match best_cst t with
-    | Some (c, _) when EConstr.isConst sigma c -> Some (fst (EConstr.destConst sigma c))
+    | Some (c, _) when isConst sigma c -> Some (fst (destConst sigma c))
     | _ -> None
 
   (** [best_replace d cst_l c] makes the best replacement for [d]
@@ -1662,31 +1662,30 @@ let meta_reducible_instance evd b =
 
 
 let head_unfold_under_prod ts env sigma c =
+  let open EConstr in
   let unfold (cst,u as cstu) =
     if Cpred.mem cst (snd ts) then
       match constant_opt_value_in env cstu with
-	| Some c -> c
+	| Some c -> EConstr.of_constr c
 	| None -> mkConstU cstu
     else mkConstU cstu in
   let rec aux c =
     match EConstr.kind sigma c with
-      | Prod (n,t,c) -> EConstr.mkProd (n,aux t, aux c)
+      | Prod (n,t,c) -> mkProd (n,aux t, aux c)
       | _ ->
 	  let (h,l) = decompose_app_vect sigma c in
-	  match kind_of_term h with
-	    | Const cst -> beta_app sigma (EConstr.of_constr (unfold cst), Array.map EConstr.of_constr l)
+	  match EConstr.kind sigma (EConstr.of_constr h) with
+	    | Const cst -> beta_app sigma (unfold cst, Array.map EConstr.of_constr l)
 	    | _ -> c in
   EConstr.Unsafe.to_constr (aux c)
 
 let betazetaevar_applist sigma n c l =
+  let open EConstr in
   let rec stacklam n env t stack =
-    if Int.equal n 0 then applist (substl env t, stack) else
-    match kind_of_term t, stack with
+    if Int.equal n 0 then applist (Vars.substl env t, stack) else
+    match EConstr.kind sigma t, stack with
     | Lambda(_,_,c), arg::stacktl -> stacklam (n-1) (arg::env) c stacktl
-    | LetIn(_,b,_,c), _ -> stacklam (n-1) (substl env b::env) c stack
-    | Evar ev, _ ->
-      (match safe_evar_value sigma ev with
-      | Some body -> stacklam n env body stack
-      | None -> applist (substl env t, stack))
+    | LetIn(_,b,_,c), _ -> stacklam (n-1) (Vars.substl env b::env) c stack
+    | Evar _, _ -> applist (Vars.substl env t, stack)
     | _ -> anomaly (Pp.str "Not enough lambda/let's") in
-  stacklam n [] c l
+  EConstr.Unsafe.to_constr (stacklam n [] c l)
