@@ -1368,7 +1368,7 @@ let default_plain_instance_ident = Id.of_string "H"
 let plain_instance sigma s c =
   let open EConstr in
   let rec irec n u = match EConstr.kind sigma u with
-    | Meta p -> (try EConstr.of_constr (lift n (Metamap.find p s)) with Not_found -> u)
+    | Meta p -> (try Vars.lift n (Metamap.find p s) with Not_found -> u)
     | App (f,l) when isCast sigma f ->
         let (f,_,t) = destCast sigma f in
         let l' = CArray.Fun1.smartmap irec n l in
@@ -1377,7 +1377,7 @@ let plain_instance sigma s c =
 	    (* Don't flatten application nodes: this is used to extract a
                proof-term from a proof-tree and we want to keep the structure
                of the proof-tree *)
-	    (try let g = EConstr.of_constr (Metamap.find p s) in
+	    (try let g = Metamap.find p s in
 	    match EConstr.kind sigma g with
             | App _ ->
                 let l' = CArray.Fun1.smartmap Vars.lift 1 l' in
@@ -1386,7 +1386,7 @@ let plain_instance sigma s c =
 	    with Not_found -> mkApp (f,l'))
         | _ -> mkApp (irec n f,l'))
     | Cast (m,_,_) when isMeta sigma m ->
-	(try EConstr.of_constr (lift n (Metamap.find (destMeta sigma m) s)) with Not_found -> u)
+	(try Vars.lift n (Metamap.find (destMeta sigma m) s) with Not_found -> u)
     | _ ->
 	map_with_binders sigma succ irec n u
   in
@@ -1584,11 +1584,12 @@ let is_arity env sigma c =
 (* Metas *)
 
 let meta_value evd mv =
+  let open EConstr in
   let rec valrec mv =
     match meta_opt_fvalue evd mv with
     | Some (b,_) ->
       let metas = Metamap.bind valrec b.freemetas in
-      instance evd metas (EConstr.of_constr b.rebus)
+      EConstr.of_constr (instance evd metas (EConstr.of_constr b.rebus))
     | None -> mkMeta mv
   in
   valrec mv
