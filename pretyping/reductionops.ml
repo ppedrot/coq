@@ -1422,26 +1422,28 @@ let instance sigma s c =
  * error message. *)
 
 let hnf_prod_app env sigma t n =
-  match kind_of_term (whd_all env sigma (EConstr.of_constr t)) with
-    | Prod (_,_,b) -> subst1 n b
+  let open EConstr in
+  match EConstr.kind sigma (EConstr.of_constr (whd_all env sigma t)) with
+    | Prod (_,_,b) -> EConstr.Unsafe.to_constr (Vars.subst1 n b)
     | _ -> anomaly ~label:"hnf_prod_app" (Pp.str "Need a product")
 
 let hnf_prod_appvect env sigma t nl =
-  Array.fold_left (hnf_prod_app env sigma) t nl
+  Array.fold_left (fun acc t -> hnf_prod_app env sigma (EConstr.of_constr acc) t) (EConstr.Unsafe.to_constr t) nl
 
 let hnf_prod_applist env sigma t nl =
-  List.fold_left (hnf_prod_app env sigma) t nl
+  List.fold_left (fun acc t -> hnf_prod_app env sigma (EConstr.of_constr acc) t) (EConstr.Unsafe.to_constr t) nl
 
 let hnf_lam_app env sigma t n =
-  match kind_of_term (whd_all env sigma (EConstr.of_constr t)) with
-    | Lambda (_,_,b) -> subst1 n b
+  let open EConstr in
+  match EConstr.kind sigma (EConstr.of_constr (whd_all env sigma t)) with
+    | Lambda (_,_,b) -> EConstr.Unsafe.to_constr (Vars.subst1 n b)
     | _ -> anomaly ~label:"hnf_lam_app" (Pp.str "Need an abstraction")
 
 let hnf_lam_appvect env sigma t nl =
-  Array.fold_left (hnf_lam_app env sigma) t nl
+  Array.fold_left (fun acc t -> hnf_lam_app env sigma (EConstr.of_constr acc) t) (EConstr.Unsafe.to_constr t) nl
 
 let hnf_lam_applist env sigma t nl =
-  List.fold_left (hnf_lam_app env sigma) t nl
+  List.fold_left (fun acc t -> hnf_lam_app env sigma (EConstr.of_constr acc) t) (EConstr.Unsafe.to_constr t) nl
 
 let splay_prod env sigma =
   let rec decrec env m c =

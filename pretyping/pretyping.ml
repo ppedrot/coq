@@ -894,7 +894,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
 	      (Array.to_list cs.cs_concl_realargs)
 	      @[build_dependent_constructor cs] in
 	    let lp = lift cs.cs_nargs p in
-	    let fty = hnf_lam_applist env.ExtraEnv.env !evdref lp inst in
+	    let fty = hnf_lam_applist env.ExtraEnv.env !evdref (EConstr.of_constr lp) (List.map EConstr.of_constr inst) in
 	    let fj = pretype (mk_tycon fty) env_f evdref lvar d in
 	    let v =
 	      let ind,_ = dest_ind_family indf in
