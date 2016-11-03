@@ -491,7 +491,7 @@ and mk_casegoals sigma goal goalacc p c =
   let indspec =
     try Tacred.find_hnf_rectype env sigma ct
     with Not_found -> anomaly (Pp.str "mk_casegoals") in
-  let (lbrty,conclty) = type_case_branches_with_names env indspec p c in
+  let (lbrty,conclty) = type_case_branches_with_names env sigma indspec p c in
   (acc'',lbrty,conclty,sigma,p',c')
 
 

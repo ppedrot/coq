@@ -95,15 +95,15 @@ let head_in indl t gl =
   try
     let ity,_ =
       if !up_to_delta
-      then find_mrectype env sigma (EConstr.of_constr t)
-      else extract_mrectype t
+      then find_mrectype env sigma t
+      else extract_mrectype sigma t
     in List.exists (fun i -> eq_ind (fst i) (fst ity)) indl
   with Not_found -> false
 
 let decompose_these c l =
   Proofview.Goal.enter { enter = begin fun gl ->
   let indl = List.map (fun x -> x, Univ.Instance.empty) l in
-  general_decompose (fun sigma (_,t) -> head_in indl t gl) c
+  general_decompose (fun sigma (_,t) -> head_in indl (EConstr.of_constr t) gl) c
   end }
 
 let decompose_and c =
