@@ -50,11 +50,12 @@ let anomaly_on_error f x =
  with RetypeError e -> anomaly ~label:"retyping" (print_retype_error e)
 
 let get_type_from_constraints env sigma t =
-  if isEvar (fst (decompose_app t)) then
+  let open EConstr in
+  if isEvar sigma (EConstr.of_constr (fst (decompose_app_vect sigma t))) then
     match
       List.map_filter (fun (pbty,env,t1,t2) ->
-        if is_fconv Reduction.CONV env sigma (EConstr.of_constr t) (EConstr.of_constr t1) then Some t2
-        else if is_fconv Reduction.CONV env sigma (EConstr.of_constr t) (EConstr.of_constr t2) then Some t1
+        if is_fconv Reduction.CONV env sigma t (EConstr.of_constr t1) then Some t2
+        else if is_fconv Reduction.CONV env sigma t (EConstr.of_constr t2) then Some t1
         else None)
         (snd (Evd.extract_all_conv_pbs sigma))
     with
@@ -65,8 +66,9 @@ let get_type_from_constraints env sigma t =
 let rec subst_type env sigma typ = function
   | [] -> typ
   | h::rest ->
-      match kind_of_term (whd_all env sigma (EConstr.of_constr typ)) with
-        | Prod (na,c1,c2) -> subst_type env sigma (subst1 h c2) rest
+      let open EConstr in
+      match EConstr.kind sigma (EConstr.of_constr (whd_all env sigma typ)) with
+        | Prod (na,c1,c2) -> subst_type env sigma (Vars.subst1 h c2) rest
         | _ -> retype_error NonFunctionalConstruction
 
 (* If ft is the type of f which itself is applied to args, *)
@@ -105,12 +107,12 @@ let retype ?(polyprop=true) sigma =
     | Construct cstr -> rename_type_of_constructor env cstr
     | Case (_,p,c,lf) ->
         let Inductiveops.IndType(indf,realargs) =
-          let t = type_of env c in
-          try Inductiveops.find_rectype env sigma (EConstr.of_constr t)
+          let t = EConstr.of_constr (type_of env c) in
+          try Inductiveops.find_rectype env sigma t
           with Not_found ->
           try
-            let t = get_type_from_constraints env sigma t in
-            Inductiveops.find_rectype env sigma (EConstr.of_constr t)
+            let t = EConstr.of_constr (get_type_from_constraints env sigma t) in
+            Inductiveops.find_rectype env sigma t
           with Not_found -> retype_error BadRecursiveType
         in
         let n = inductive_nrealdecls_env env (fst (fst (dest_ind_family indf))) in
@@ -126,11 +128,11 @@ let retype ?(polyprop=true) sigma =
     | CoFix (i,(_,tys,_)) -> tys.(i)
     | App(f,args) when is_template_polymorphic env sigma (EConstr.of_constr f) ->
         let f = whd_evar sigma f in
-	let t = type_of_global_reference_knowing_parameters env f args in
-        strip_outer_cast sigma (EConstr.of_constr (subst_type env sigma t (Array.to_list args)))
+	let t = EConstr.of_constr (type_of_global_reference_knowing_parameters env f args) in
+        strip_outer_cast sigma (subst_type env sigma t (Array.map_to_list EConstr.of_constr args))
     | App(f,args) ->
         strip_outer_cast sigma
-          (EConstr.of_constr (subst_type env sigma (type_of env f) (Array.to_list args)))
+          (subst_type env sigma (EConstr.of_constr (type_of env f)) (Array.map_to_list EConstr.of_constr args))
     | Proj (p,c) ->
        let ty = type_of env c in
        (try
