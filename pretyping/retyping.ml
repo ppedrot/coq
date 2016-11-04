@@ -134,7 +134,7 @@ let retype ?(polyprop=true) sigma =
     | Proj (p,c) ->
        let ty = type_of env c in
        (try
-	   Inductiveops.type_of_projection_knowing_arg env sigma p c (EConstr.of_constr ty)
+	   Inductiveops.type_of_projection_knowing_arg env sigma p (EConstr.of_constr c) (EConstr.of_constr ty)
 	 with Invalid_argument _ -> retype_error BadRecursiveType)
     | Cast (c,_, t) -> t
     | Sort _ | Prod _ -> mkSort (sort_of env cstr)
@@ -207,11 +207,10 @@ let type_of_global_reference_knowing_parameters env sigma c args =
   let _,_,_,f = retype sigma in anomaly_on_error (f env c) args
 
 let type_of_global_reference_knowing_conclusion env sigma c conclty =
-  let conclty = nf_evar sigma conclty in
   match kind_of_term c with
     | Ind (ind,u) ->
         let spec = Inductive.lookup_mind_specif env ind in
-          type_of_inductive_knowing_conclusion env sigma (spec,u) conclty
+          type_of_inductive_knowing_conclusion env sigma (spec,u) (EConstr.of_constr conclty)
     | Const cst ->
         let t = constant_type_in env cst in
         (* TODO *)

@@ -130,7 +130,7 @@ val has_dependent_elim : mutual_inductive_body -> bool
 val projection_nparams : projection -> int
 val projection_nparams_env : env -> projection -> int
 val type_of_projection_knowing_arg : env -> evar_map -> Projection.t ->
-				     constr -> EConstr.types -> types
+				     EConstr.t -> EConstr.types -> types
 
 
 (** Extract information from an inductive family *)
@@ -195,7 +195,7 @@ i*)
 (********************)
 
 val type_of_inductive_knowing_conclusion :
-  env -> evar_map -> Inductive.mind_specif puniverses -> types -> evar_map * types
+  env -> evar_map -> Inductive.mind_specif puniverses -> EConstr.types -> evar_map * types
 
 (********************)
 val control_only_guard : env -> types -> unit

@@ -608,7 +608,7 @@ let type_of_inductive_knowing_conclusion env sigma ((mib,mip),u) conclty =
   match mip.mind_arity with
   | RegularArity s -> sigma, subst_instance_constr u s.mind_user_arity
   | TemplateArity ar ->
-    let _,scl = Reduction.dest_arity env conclty in
+    let _,scl = splay_arity env sigma conclty in
     let ctx = List.rev mip.mind_arity_ctxt in
     let evdref = ref sigma in
     let ctx =
@@ -617,6 +617,7 @@ let type_of_inductive_knowing_conclusion env sigma ((mib,mip),u) conclty =
       !evdref, mkArity (List.rev ctx,scl)
 
 let type_of_projection_knowing_arg env sigma p c ty =
+  let c = EConstr.Unsafe.to_constr c in
   let IndType(pars,realargs) =
     try find_rectype env sigma ty
     with Not_found ->
