@@ -220,27 +220,25 @@ let restrict_instance evd evk filter argsv =
 
 open Context.Rel.Declaration
 let noccur_evar env evd evk c =
+  let open EConstr in
   let cache = ref Int.Set.empty (* cache for let-ins *) in
   let rec occur_rec check_types (k, env as acc) c =
-  match kind_of_term c with
+  match EConstr.kind evd c with
   | Evar (evk',args' as ev') ->
-      (match safe_evar_value evd ev' with
-       | Some c -> occur_rec check_types acc c
-       | None ->
-           if Evar.equal evk evk' then raise Occur
-           else (if check_types then
-                   occur_rec false acc (existential_type evd ev');
-                 Array.iter (occur_rec check_types acc) args'))
+    if Evar.equal evk evk' then raise Occur
+    else (if check_types then
+            occur_rec false acc (existential_type evd ev');
+          Array.iter (occur_rec check_types acc) args')
   | Rel i when i > k ->
      if not (Int.Set.mem (i-k) !cache) then
        let decl = Environ.lookup_rel i env in
        if check_types then
-         (cache := Int.Set.add (i-k) !cache; occur_rec false acc (lift i (get_type decl)));
+         (cache := Int.Set.add (i-k) !cache; occur_rec false acc (Vars.lift i (EConstr.of_constr (get_type decl))));
        (match decl with
         | LocalAssum _ -> ()
-        | LocalDef (_,b,_) -> cache := Int.Set.add (i-k) !cache; occur_rec false acc (lift i b))
+        | LocalDef (_,b,_) -> cache := Int.Set.add (i-k) !cache; occur_rec false acc (Vars.lift i (EConstr.of_constr b)))
   | Proj (p,c) -> occur_rec true acc c
-  | _ -> iter_constr_with_full_binders (fun rd (k,env) -> (succ k, push_rel rd env))
+  | _ -> iter_with_full_binders evd (fun rd (k,env) -> (succ k, push_rel rd env))
     (occur_rec check_types) acc c
   in
   try occur_rec false (0,env) c; true with Occur -> false
@@ -486,7 +484,7 @@ let is_unification_pattern_meta env evd nb m l t =
 
 let is_unification_pattern_evar env evd (evk,args) l t =
   if List.for_all (fun x -> isRel x || isVar x) l 
-    && noccur_evar env evd evk t
+    && noccur_evar env evd evk (EConstr.of_constr t)
   then
     let args = remove_instance_local_defs evd evk args in
     let n = List.length args in
@@ -877,7 +875,7 @@ let invert_arg_from_subst evd aliases k0 subst_in_env_extended_with_k_binders c_
 let invert_arg fullenv evd aliases k evk subst_in_env_extended_with_k_binders c_in_env_extended_with_k_binders =
   let res = invert_arg_from_subst evd aliases k subst_in_env_extended_with_k_binders c_in_env_extended_with_k_binders in
   match res with
-  | Invertible (UniqueProjection (c,_)) when not (noccur_evar fullenv evd evk c)
+  | Invertible (UniqueProjection (c,_)) when not (noccur_evar fullenv evd evk (EConstr.of_constr c))
       ->
       CannotInvert
   | _ ->
@@ -1128,7 +1126,7 @@ let has_constrainable_free_vars env evd aliases force k ev (fv_rels,fv_ids,let_r
     match kind_of_term t with
     | Var id -> Id.Set.mem id fv_ids
     | Rel n -> n <= k || Int.Set.mem n fv_rels
-    | _ -> (not force || noccur_evar env evd ev t) && is_constrainable_in true evd k (ev,(fv_rels,fv_ids)) t
+    | _ -> (not force || noccur_evar env evd ev (EConstr.of_constr t)) && is_constrainable_in true evd k (ev,(fv_rels,fv_ids)) t
 
 exception EvarSolvedOnTheFly of evar_map * constr
 

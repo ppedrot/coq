@@ -64,7 +64,7 @@ val is_unification_pattern : env * int -> evar_map -> constr -> constr list ->
 
 val solve_pattern_eqn : env -> evar_map -> constr list -> constr -> constr
 
-val noccur_evar : env -> evar_map -> Evar.t -> constr -> bool
+val noccur_evar : env -> evar_map -> Evar.t -> EConstr.constr -> bool
 
 exception IllTypedInstance of env * EConstr.types * EConstr.types
 
