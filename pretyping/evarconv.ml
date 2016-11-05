@@ -42,6 +42,9 @@ let _ = Goptions.declare_bool_option {
   Goptions.optwrite = (fun a -> debug_unification:=a);
 }
 
+let to_conv_fun f = (); fun env sigma pb c1 c2 ->
+  f env sigma pb (EConstr.Unsafe.to_constr c1) (EConstr.Unsafe.to_constr c2)
+
 let unfold_projection env evd ts p c =
   let cst = Projection.constant p in
     if is_transparent_constant ts cst then
@@ -363,13 +366,13 @@ let rec evar_conv_x ts env evd pbty term1 term2 =
 	in
           begin match kind_of_term term1, kind_of_term term2 with
           | Evar ev, _ when Evd.is_undefined evd (fst ev) ->
-            (match solve_simple_eqn (evar_conv_x ts) env evd
+            (match solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env evd
               (position_problem true pbty,ev, EConstr.of_constr term2) with
 	      | UnifFailure (_,OccurCheck _) -> 
 		(* Eta-expansion might apply *) default ()
 	      | x -> x)
           | _, Evar ev when Evd.is_undefined evd (fst ev) ->
-            (match solve_simple_eqn (evar_conv_x ts) env evd
+            (match solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env evd
               (position_problem false pbty,ev, EConstr.of_constr term1) with
 	      | UnifFailure (_, OccurCheck _) ->
 		(* Eta-expansion might apply *) default () 
@@ -389,7 +392,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
       | Some l1' -> (* Miller-Pfenning's patterns unification *)
 	let t2 = nf_evar evd tM in
 	let t2 = solve_pattern_eqn env evd l1' t2 in
-	  solve_simple_eqn (evar_conv_x ts) env evd
+	  solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env evd
 	    (position_problem on_left pbty,ev, EConstr.of_constr t2) 
   in
   let consume_stack on_left (termF,skF) (termO,skO) evd =
@@ -531,7 +534,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
             (* Note that ?ev1 and ?ev2, may have been instantiated in the meantime *)
 	    let ev1' = whd_evar i' (mkEvar ev1) in
 	      if isEvar ev1' then
-		solve_simple_eqn (evar_conv_x ts) env i'
+		solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env i'
 		  (position_problem true pbty,destEvar ev1', term2)
 	      else 
 		evar_eqappr_x ts env evd pbty 
@@ -541,7 +544,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
             (* we now unify r[?ev1] and ?ev2 *)
 	    let ev2' = whd_evar i' (mkEvar ev2) in
 	      if isEvar ev2' then
-		solve_simple_eqn (evar_conv_x ts) env i'
+		solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env i'
 		  (position_problem false pbty,destEvar ev2',Stack.zip evd (term1,r))
 	      else 
 		evar_eqappr_x ts env evd pbty 
@@ -552,7 +555,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
             (* we now unify ?ev1 and r[?ev2] *)
 	    let ev1' = whd_evar i' (mkEvar ev1) in
 	      if isEvar ev1' then
-		solve_simple_eqn (evar_conv_x ts) env i'
+		solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env i'
 	          (position_problem true pbty,destEvar ev1',Stack.zip evd (term2,r))
 	      else evar_eqappr_x ts env evd pbty 
 		((EConstr.of_constr ev1', sk1), csts1) ((term2, sk2), csts2)
@@ -590,8 +593,8 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
           if Evar.equal sp1 sp2 then
 	    match ise_stack2 false env i (evar_conv_x ts) sk1 sk2 with
 	    |None, Success i' ->
-              Success (solve_refl (fun env i pbty a1 a2 ->
-                is_success (evar_conv_x ts env i pbty a1 a2))
+              Success (solve_refl (to_conv_fun (fun env i pbty a1 a2 ->
+                is_success (evar_conv_x ts env i pbty a1 a2)))
                 env i' (position_problem true pbty) sp1 al1 al2)
 	    |_, (UnifFailure _ as x) -> x
             |Some _, _ -> UnifFailure (i,NotSameArgSize)
@@ -964,7 +967,7 @@ let first_order_unification ts env evd (ev1,l1) (term2,l2) =
       if is_defined i (fst ev1) then
 	evar_conv_x ts env i CONV t2 (mkEvar ev1)
       else
-	solve_simple_eqn ~choose:true (evar_conv_x ts) env i (None,ev1, EConstr.of_constr t2))]
+	solve_simple_eqn ~choose:true (to_conv_fun (evar_conv_x ts)) env i (None,ev1, EConstr.of_constr t2))]
 
 let choose_less_dependent_instance evk evd term args =
   let evi = Evd.find_undefined evd evk in
@@ -1109,7 +1112,7 @@ let second_order_matching ts env_rhs evd (evk,args) argoccs rhs =
               match evar_conv_x ts env_evar evd CUMUL idty evty with
               | UnifFailure _ -> error "Cannot find an instance"
               | Success evd ->
-              match reconsider_conv_pbs (evar_conv_x ts) evd with
+              match reconsider_conv_pbs (to_conv_fun (evar_conv_x ts)) evd with
               | UnifFailure _ -> error "Cannot find an instance"
               | Success evd ->
               evd
@@ -1124,7 +1127,7 @@ let second_order_matching ts env_rhs evd (evk,args) argoccs rhs =
   | [] ->
     let evd = 
       try Evarsolve.check_evar_instance evd evk rhs 
-	    (evar_conv_x full_transparent_state)
+	    (to_conv_fun (evar_conv_x full_transparent_state))
       with IllTypedInstance _ -> raise (TypingFailed evd)
     in
       Evd.define evk rhs evd 
@@ -1173,11 +1176,11 @@ let apply_conversion_problem_heuristic ts env evd pbty t1 t2 =
          UnifFailure (evd, CannotSolveConstraint ((pbty,env,t1,t2),reason)))
   | Evar (evk1,args1), Evar (evk2,args2) when Evar.equal evk1 evk2 ->
       let f env evd pbty x y = is_fconv ~reds:ts pbty env evd (EConstr.of_constr x) (EConstr.of_constr y) in
-      Success (solve_refl ~can_drop:true f env evd
+      Success (solve_refl ~can_drop:true (to_conv_fun f) env evd
                  (position_problem true pbty) evk1 args1 args2)
   | Evar ev1, Evar ev2 when app_empty ->
       Success (solve_evar_evar ~force:true
-        (evar_define (evar_conv_x ts) ~choose:true) (evar_conv_x ts) env evd
+        (evar_define (to_conv_fun (evar_conv_x ts)) ~choose:true) (to_conv_fun (evar_conv_x ts)) env evd
         (position_problem true pbty) ev1 ev2)
   | Evar ev1,_ when Array.length l1 <= Array.length l2 ->
       (* On "?n t1 .. tn = u u1 .. u(n+p)", try first-order unification *)
@@ -1239,9 +1242,9 @@ let rec solve_unconstrained_evars_with_candidates ts evd =
       | a::l ->
           try
             let conv_algo = evar_conv_x ts in
-            let evd = check_evar_instance evd evk a conv_algo in
+            let evd = check_evar_instance evd evk a (to_conv_fun conv_algo) in
             let evd = Evd.define evk a evd in
-            match reconsider_conv_pbs conv_algo evd with
+            match reconsider_conv_pbs (to_conv_fun conv_algo) evd with
             | Success evd -> solve_unconstrained_evars_with_candidates ts evd
             | UnifFailure _ -> aux l
           with
@@ -1260,7 +1263,7 @@ let solve_unconstrained_impossible_cases env evd =
       let evd' = Evd.merge_context_set Evd.univ_flexible_alg ~loc evd' ctx in
       let ty = j_type j in
       let conv_algo = evar_conv_x full_transparent_state in
-      let evd' = check_evar_instance evd' evk ty conv_algo in
+      let evd' = check_evar_instance evd' evk ty (to_conv_fun conv_algo) in
 	Evd.define evk ty evd' 
     | _ -> evd') evd evd
 

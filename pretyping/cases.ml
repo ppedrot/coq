@@ -78,6 +78,9 @@ let list_try_compile f l =
 let force_name =
   let nx = Name default_dependent_ident in function Anonymous -> nx | na -> na
 
+let to_conv_fun f = (); fun env sigma pb c1 c2 ->
+  f env sigma pb (EConstr.Unsafe.to_constr c1) (EConstr.Unsafe.to_constr c2)
+
 (************************************************************************)
 (*            Pattern-matching compilation (Cases)                      *)
 (************************************************************************)
@@ -1635,7 +1638,7 @@ let abstract_tycon loc env evdref subst tycon extenv t =
               try list_assoc_in_triple i subst0 with Not_found -> mkRel i)
               1 (rel_context env) in
         let ev' = e_new_evar env evdref ~src ty in
-        begin match solve_simple_eqn (evar_conv_x full_transparent_state) env !evdref (None,ev,EConstr.of_constr (substl inst ev')) with
+        begin match solve_simple_eqn (to_conv_fun (evar_conv_x full_transparent_state)) env !evdref (None,ev,EConstr.of_constr (substl inst ev')) with
         | Success evd -> evdref := evd
         | UnifFailure _ -> assert false
         end;

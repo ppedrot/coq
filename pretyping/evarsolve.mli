@@ -26,10 +26,10 @@ val expand_vars_in_term : env -> evar_map -> constr -> constr
    true); fails if the instance is not valid for the given [ev] *)
 
 type conv_fun =
-  env ->  evar_map -> conv_pb -> constr -> constr -> unification_result
+  env ->  evar_map -> conv_pb -> EConstr.constr -> EConstr.constr -> unification_result
 
 type conv_fun_bool =
-  env ->  evar_map -> conv_pb -> constr -> constr -> bool
+  env ->  evar_map -> conv_pb -> EConstr.constr -> EConstr.constr -> bool
 
 val evar_define : conv_fun -> ?choose:bool -> env -> evar_map -> 
   bool option -> existential -> constr -> evar_map

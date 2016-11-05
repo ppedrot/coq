@@ -1271,8 +1271,11 @@ let order_metas metas =
 
 (* Solve an equation ?n[x1=u1..xn=un] = t where ?n is an evar *)
 
+let to_conv_fun f = (); fun env sigma pb c1 c2 ->
+  f env sigma pb (EConstr.Unsafe.to_constr c1) (EConstr.Unsafe.to_constr c2)
+
 let solve_simple_evar_eqn ts env evd ev rhs =
-  match solve_simple_eqn (Evarconv.evar_conv_x ts) env evd (None,ev,EConstr.of_constr rhs) with
+  match solve_simple_eqn (to_conv_fun (Evarconv.evar_conv_x ts)) env evd (None,ev,EConstr.of_constr rhs) with
   | UnifFailure (evd,reason) ->
       error_cannot_unify env evd ~reason (mkEvar ev,rhs);
   | Success evd ->

@@ -26,9 +26,9 @@ let normalize_evar evd ev =
   | Evar (evk,args) -> (evk,args)
   | _ -> assert false
 
-let get_polymorphic_positions f = 
+let get_polymorphic_positions sigma f =
   let open Declarations in
-  match kind_of_term f with
+  match EConstr.kind sigma f with
   | Ind (ind, u) | Construct ((ind, _), u) -> 
     let mib,oib = Global.lookup_inductive ind in
       (match oib.mind_arity with
@@ -74,7 +74,7 @@ let refresh_universes ?(status=univ_rigid) ?(onlyalg=false) ?(refreshset=false)
   and refresh_term_evars onevars top t =
     match kind_of_term (whd_evar !evdref t) with
     | App (f, args) when is_template_polymorphic env !evdref (EConstr.of_constr f) ->
-      let pos = get_polymorphic_positions f in
+      let pos = get_polymorphic_positions !evdref (EConstr.of_constr f) in
 	refresh_polymorphic_positions args pos
     | App (f, args) when top && isEvar f -> 
       refresh_term_evars true false f; 
@@ -147,7 +147,7 @@ let recheck_applications conv_algo env evdref t =
 	 if i < Array.length argsty then
 	 match kind_of_term (whd_all env !evdref (EConstr.of_constr ty)) with
 	 | Prod (na, dom, codom) ->
-	    (match conv_algo env !evdref Reduction.CUMUL argsty.(i) dom with
+	    (match conv_algo env !evdref Reduction.CUMUL (EConstr.of_constr argsty.(i)) (EConstr.of_constr dom) with
 	     | Success evd -> evdref := evd;
 			     aux (succ i) (subst1 args.(i) codom)
 	     | UnifFailure (evd, reason) ->
@@ -1044,7 +1044,7 @@ let postpone_non_unique_projection env evd pbty (evk,argsv as ev) sols rhs =
 
 let filter_compatible_candidates conv_algo env evd evi args rhs c =
   let c' = instantiate_evar_array evi c args in
-  match conv_algo env evd Reduction.CONV rhs c' with
+  match conv_algo env evd Reduction.CONV (EConstr.of_constr rhs) (EConstr.of_constr c') with
   | Success evd -> Some (c,evd)
   | UnifFailure _ -> None
 
@@ -1164,7 +1164,7 @@ let check_evar_instance evd evk1 body conv_algo =
     try Retyping.get_type_of ~lax:true evenv evd (EConstr.of_constr body)
     with Retyping.RetypeError _ -> error "Ill-typed evar instance"
   in
-  match conv_algo evenv evd Reduction.CUMUL ty evi.evar_concl with
+  match conv_algo evenv evd Reduction.CUMUL (EConstr.of_constr ty) (EConstr.of_constr evi.evar_concl) with
   | Success evd -> evd
   | UnifFailure _ -> raise (IllTypedInstance (evenv,ty,evi.evar_concl))
 
@@ -1244,10 +1244,10 @@ let solve_evar_evar ?(force=false) f g env evd pbty (evk1,args1 as ev1) (evk2,ar
   solve_evar_evar_aux force f g env evd pbty ev1 ev2
 
 type conv_fun =
-  env ->  evar_map -> conv_pb -> constr -> constr -> unification_result
+  env ->  evar_map -> conv_pb -> EConstr.constr -> EConstr.constr -> unification_result
 
 type conv_fun_bool =
-  env ->  evar_map -> conv_pb -> constr -> constr -> bool
+  env ->  evar_map -> conv_pb -> EConstr.constr -> EConstr.constr -> bool
 
 (* Solve pbs ?e[t1..tn] = ?e[u1..un] which arise often in fixpoint
  * definitions. We try to unify the ti with the ui pairwise. The pairs
@@ -1261,7 +1261,7 @@ let solve_refl ?(can_drop=false) conv_algo env evd pbty evk argsv1 argsv2 =
   let args = Array.map2 (fun a1 a2 -> (a1, a2)) argsv1 argsv2 in
   let untypedfilter =
     restrict_upon_filter evd evk
-      (fun (a1,a2) -> conv_algo env evd Reduction.CONV a1 a2) args in
+      (fun (a1,a2) -> conv_algo env evd Reduction.CONV (EConstr.of_constr a1) (EConstr.of_constr a2)) args in
   let candidates = filter_candidates evd evk untypedfilter NoUpdate in
   let filter = closure_of_filter evd evk untypedfilter in
   let evd,ev1 = restrict_applied_evar evd (evk,argsv1) filter candidates in
@@ -1569,7 +1569,7 @@ and evar_define conv_algo ?(choose=false) env evd pbty (evk,argsv as ev) rhs =
         let c = whd_all env evd (EConstr.of_constr rhs) in
         match kind_of_term c with
         | Evar (evk',argsv2) when Evar.equal evk evk' ->
-	    solve_refl (fun env sigma pb c c' -> is_fconv pb env sigma (EConstr.of_constr c) (EConstr.of_constr c'))
+	    solve_refl (fun env sigma pb c c' -> is_fconv pb env sigma c c')
               env evd pbty evk argsv argsv2
         | _ ->
 	    raise (OccurCheckIn (evd,rhs))
@@ -1610,7 +1610,7 @@ let reconsider_conv_pbs conv_algo evd =
     (fun p (pbty,env,t1,t2 as x) ->
        match p with
        | Success evd ->
-           (match conv_algo env evd pbty t1 t2 with
+           (match conv_algo env evd pbty (EConstr.of_constr t1) (EConstr.of_constr t2) with
            | Success _ as x -> x
            | UnifFailure (i,e) -> UnifFailure (i,CannotSolveConstraint (x,e)))
        | UnifFailure _ as x -> x)
