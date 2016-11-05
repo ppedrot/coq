@@ -66,7 +66,7 @@ val solve_pattern_eqn : env -> evar_map -> constr list -> constr -> constr
 
 val noccur_evar : env -> evar_map -> Evar.t -> constr -> bool
 
-exception IllTypedInstance of env * types * types
+exception IllTypedInstance of env * EConstr.types * EConstr.types
 
 (* May raise IllTypedInstance if types are not convertible *)
 val check_evar_instance :

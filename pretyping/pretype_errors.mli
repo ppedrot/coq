@@ -21,7 +21,7 @@ type unification_error =
   | NoCanonicalStructure
   | ConversionFailed of env * constr * constr
   | MetaOccurInBody of existential_key
-  | InstanceNotSameType of existential_key * env * types * types
+  | InstanceNotSameType of existential_key * env * EConstr.types * EConstr.types
   | UnifUnivInconsistency of Univ.univ_inconsistency
   | CannotSolveConstraint of Evd.evar_constraint * unification_error
   | ProblemBeyondCapabilities

@@ -137,29 +137,30 @@ let add_conv_oriented_pb ?(tail=true) (pbty,env,t1,t2) evd =
 
 (* We retype applications to ensure the universe constraints are collected *)
 
-exception IllTypedInstance of env * types * types
+exception IllTypedInstance of env * EConstr.types * EConstr.types
 
 let recheck_applications conv_algo env evdref t =
+  let open EConstr in
   let rec aux env t =
-    match kind_of_term t with
+    match EConstr.kind !evdref t with
     | App (f, args) ->
        let () = aux env f in
-       let fty = Retyping.get_type_of env !evdref (EConstr.of_constr f) in
-       let argsty = Array.map (fun x -> aux env x; Retyping.get_type_of env !evdref (EConstr.of_constr x)) args in
+       let fty = Retyping.get_type_of env !evdref f in
+       let argsty = Array.map (fun x -> aux env x; Retyping.get_type_of env !evdref x) args in
        let rec aux i ty =
 	 if i < Array.length argsty then
-	 match kind_of_term (whd_all env !evdref (EConstr.of_constr ty)) with
+	 match EConstr.kind !evdref (EConstr.of_constr (whd_all env !evdref ty)) with
 	 | Prod (na, dom, codom) ->
-	    (match conv_algo env !evdref Reduction.CUMUL (EConstr.of_constr argsty.(i)) (EConstr.of_constr dom) with
+	    (match conv_algo env !evdref Reduction.CUMUL (EConstr.of_constr argsty.(i)) dom with
 	     | Success evd -> evdref := evd;
-			     aux (succ i) (subst1 args.(i) codom)
+			     aux (succ i) (Vars.subst1 args.(i) codom)
 	     | UnifFailure (evd, reason) ->
-		Pretype_errors.error_cannot_unify env evd ~reason (argsty.(i), dom))
-	 | _ -> raise (IllTypedInstance (env, ty, argsty.(i)))
+		Pretype_errors.error_cannot_unify env evd ~reason (argsty.(i), EConstr.Unsafe.to_constr dom))
+	 | _ -> raise (IllTypedInstance (env, ty, EConstr.of_constr argsty.(i)))
        else ()
-     in aux 0 fty
+     in aux 0 (EConstr.of_constr fty)
     | _ ->
-       iter_constr_with_full_binders (fun d env -> push_rel d env) aux env t
+       iter_with_full_binders !evdref (fun d env -> push_rel d env) aux env t
   in aux env t
 
 	  
@@ -1164,12 +1165,12 @@ let check_evar_instance evd evk1 body conv_algo =
   (* FIXME: The body might be ill-typed when this is called from w_merge *)
   (* This happens in practice, cf MathClasses build failure on 2013-3-15 *)
   let ty =
-    try Retyping.get_type_of ~lax:true evenv evd body
+    try EConstr.of_constr (Retyping.get_type_of ~lax:true evenv evd body)
     with Retyping.RetypeError _ -> error "Ill-typed evar instance"
   in
-  match conv_algo evenv evd Reduction.CUMUL (EConstr.of_constr ty) (EConstr.of_constr evi.evar_concl) with
+  match conv_algo evenv evd Reduction.CUMUL ty (EConstr.of_constr evi.evar_concl) with
   | Success evd -> evd
-  | UnifFailure _ -> raise (IllTypedInstance (evenv,ty,evi.evar_concl))
+  | UnifFailure _ -> raise (IllTypedInstance (evenv,ty,EConstr.of_constr evi.evar_concl))
 
 let update_evar_source ev1 ev2 evd =
   let loc, evs2 = evar_source ev2 evd in
@@ -1509,7 +1510,7 @@ let rec invert_definition conv_algo choose env evd pbty (evk,argsv as ev) rhs =
     else
       let t' = imitate (env,0) rhs in
 	if !progress then
-	  (recheck_applications conv_algo (evar_env evi) evdref t'; t')
+	  (recheck_applications conv_algo (evar_env evi) evdref (EConstr.of_constr t'); t')
 	else t'
   in (!evdref,body)
      
