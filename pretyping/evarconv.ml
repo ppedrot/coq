@@ -344,7 +344,7 @@ let rec evar_conv_x ts env evd pbty term1 term2 =
 	    env evd term1 term2 
 	  in
 	    if b then Success evd
-	    else UnifFailure (evd, ConversionFailed (env,term1,term2))
+	    else UnifFailure (evd, ConversionFailed (env,EConstr.of_constr term1,EConstr.of_constr term2))
 	with Univ.UniverseInconsistency e -> UnifFailure (evd, UnifUnivInconsistency e)
       in
 	match e with
@@ -364,7 +364,7 @@ let rec evar_conv_x ts env evd pbty term1 term2 =
             (whd_nored_state evd (EConstr.of_constr term1,Stack.empty), Cst_stack.empty)
             (whd_nored_state evd (EConstr.of_constr term2,Stack.empty), Cst_stack.empty)
 	in
-          begin match kind_of_term term1, kind_of_term term2 with
+          begin match EConstr.kind evd (EConstr.of_constr term1), EConstr.kind evd (EConstr.of_constr term2) with
           | Evar ev, _ when Evd.is_undefined evd (fst ev) ->
             (match solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env evd
               (position_problem true pbty,ev, EConstr.of_constr term2) with
@@ -386,11 +386,10 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     UnifFailure (i, NotSameHead)
   in
   let miller_pfenning on_left fallback ev lF tM evd =
-    let lF = List.map EConstr.Unsafe.to_constr lF in
     match is_unification_pattern_evar env evd ev lF tM with
       | None -> fallback ()
       | Some l1' -> (* Miller-Pfenning's patterns unification *)
-	let t2 = nf_evar evd tM in
+	let t2 = EConstr.of_constr (nf_evar evd (EConstr.Unsafe.to_constr tM)) (** FIXME *) in
 	let t2 = solve_pattern_eqn env evd l1' t2 in
 	  solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env evd
 	    (position_problem on_left pbty,ev, EConstr.of_constr t2) 
@@ -444,7 +443,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	    (fun () -> if not_only_app then (* Postpone the use of an heuristic *)
 	      switch (fun x y -> Success (add_conv_pb (pbty,env,x,y) i)) (zip evd apprF) tM
 	    else quick_fail i)
-	  ev lF tM i
+	  ev lF (EConstr.of_constr tM) i
     and consume (termF,skF as apprF) (termM,skM as apprM) i = 
       if not (Stack.is_empty skF && Stack.is_empty skM) then
         consume_stack on_left apprF apprM i
@@ -513,8 +512,8 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 		     switch (fun x y -> Success (add_conv_pb (pbty,env,x,y) i))
 	               tF tR
 		   else
-                     UnifFailure (evd,OccurCheck (fst ev,tR)))])
-	    ev lF tR evd
+                     UnifFailure (evd,OccurCheck (fst ev,EConstr.of_constr tR)))])
+	    (fst ev, Array.map EConstr.of_constr (snd ev)) lF (EConstr.of_constr tR) evd
   in
   let app_empty = match sk1, sk2 with [], [] -> true | _ -> false in
   (* Evar must be undefined since we have flushed evars *)
@@ -532,33 +531,33 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	  | None, Success i' ->
             (* We do have sk1[] = sk2[]: we now unify ?ev1 and ?ev2 *)
             (* Note that ?ev1 and ?ev2, may have been instantiated in the meantime *)
-	    let ev1' = whd_evar i' (mkEvar ev1) in
-	      if isEvar ev1' then
+	    let ev1' = EConstr.of_constr (whd_evar i' (mkEvar ev1)) in
+	      if EConstr.isEvar i' ev1' then
 		solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env i'
-		  (position_problem true pbty,destEvar ev1', term2)
+		  (position_problem true pbty,EConstr.destEvar i' ev1', term2)
 	      else 
 		evar_eqappr_x ts env evd pbty 
-		  ((EConstr.of_constr ev1', sk1), csts1) ((term2, sk2), csts2)
+		  ((ev1', sk1), csts1) ((term2, sk2), csts2)
 	  | Some (r,[]), Success i' ->
             (* We have sk1'[] = sk2[] for some sk1' s.t. sk1[]=sk1'[r[]] *)
             (* we now unify r[?ev1] and ?ev2 *)
-	    let ev2' = whd_evar i' (mkEvar ev2) in
-	      if isEvar ev2' then
+	    let ev2' = EConstr.of_constr (whd_evar i' (mkEvar ev2)) in
+	      if EConstr.isEvar i' ev2' then
 		solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env i'
-		  (position_problem false pbty,destEvar ev2',Stack.zip evd (term1,r))
+		  (position_problem false pbty,EConstr.destEvar i' ev2',Stack.zip evd (term1,r))
 	      else 
 		evar_eqappr_x ts env evd pbty 
-		  ((EConstr.of_constr ev2', sk1), csts1) ((term2, sk2), csts2)
+		  ((ev2', sk1), csts1) ((term2, sk2), csts2)
 	  | Some ([],r), Success i' ->
             (* Symmetrically *)
             (* We have sk1[] = sk2'[] for some sk2' s.t. sk2[]=sk2'[r[]] *)
             (* we now unify ?ev1 and r[?ev2] *)
-	    let ev1' = whd_evar i' (mkEvar ev1) in
-	      if isEvar ev1' then
+	    let ev1' = EConstr.of_constr (whd_evar i' (mkEvar ev1)) in
+	      if EConstr.isEvar i' ev1' then
 		solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env i'
-	          (position_problem true pbty,destEvar ev1',Stack.zip evd (term2,r))
+	          (position_problem true pbty,EConstr.destEvar i' ev1',Stack.zip evd (term2,r))
 	      else evar_eqappr_x ts env evd pbty 
-		((EConstr.of_constr ev1', sk1), csts1) ((term2, sk2), csts2)
+		((ev1', sk1), csts1) ((term2, sk2), csts2)
 	  | None, (UnifFailure _ as x) ->
              (* sk1 and sk2 have no common outer part *)
              if Stack.not_purely_applicative sk2 then
@@ -603,10 +602,10 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	ise_try evd [f1; f2]
 
     | Flexible ev1, MaybeFlexible v2 ->
-      flex_maybeflex true ev1 (appr1,csts1) (appr2,csts2) (EConstr.of_constr v2)
+      flex_maybeflex true (fst ev1, Array.map EConstr.of_constr (snd ev1)) (appr1,csts1) (appr2,csts2) (EConstr.of_constr v2)
 
     | MaybeFlexible v1, Flexible ev2 -> 
-      flex_maybeflex false ev2 (appr2,csts2) (appr1,csts1) (EConstr.of_constr v1)
+      flex_maybeflex false (fst ev2, Array.map EConstr.of_constr (snd ev2)) (appr2,csts2) (appr1,csts1) (EConstr.of_constr v1)
 
     | MaybeFlexible v1, MaybeFlexible v2 -> begin
         match kind_of_term (EConstr.Unsafe.to_constr term1), kind_of_term (EConstr.Unsafe.to_constr term2) with
@@ -967,6 +966,7 @@ let first_order_unification ts env evd (ev1,l1) (term2,l2) =
       if is_defined i (fst ev1) then
 	evar_conv_x ts env i CONV t2 (mkEvar ev1)
       else
+        let ev1 = (fst ev1, Array.map EConstr.of_constr (snd ev1)) in
 	solve_simple_eqn ~choose:true (to_conv_fun (evar_conv_x ts)) env i (None,ev1, EConstr.of_constr t2))]
 
 let choose_less_dependent_instance evk evd term args =
@@ -1179,6 +1179,8 @@ let apply_conversion_problem_heuristic ts env evd pbty t1 t2 =
       Success (solve_refl ~can_drop:true (to_conv_fun f) env evd
                  (position_problem true pbty) evk1 args1 args2)
   | Evar ev1, Evar ev2 when app_empty ->
+      let ev1 = (fst ev1, Array.map EConstr.of_constr (snd ev1)) in
+      let ev2 = (fst ev2, Array.map EConstr.of_constr (snd ev2)) in
       Success (solve_evar_evar ~force:true
         (evar_define (to_conv_fun (evar_conv_x ts)) ~choose:true) (to_conv_fun (evar_conv_x ts)) env evd
         (position_problem true pbty) ev1 ev2)

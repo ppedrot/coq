@@ -1014,7 +1014,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
 		if b then (evdref := evd; cj, tval)
 		else
 		  error_actual_type ~loc env.ExtraEnv.env !evdref cj tval 
-                      (ConversionFailed (env.ExtraEnv.env,cty,tval))
+                      (ConversionFailed (env.ExtraEnv.env,EConstr.of_constr cty,EConstr.of_constr tval))
 	      else user_err ~loc  (str "Cannot check cast with vm: " ++
 		str "unresolved arguments remain.")
 	  | NATIVEcast ->
@@ -1025,7 +1025,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
 	      if b then (evdref := evd; cj, tval)
 	      else
                 error_actual_type ~loc env.ExtraEnv.env !evdref cj tval
-                  (ConversionFailed (env.ExtraEnv.env,cty,tval))
+                  (ConversionFailed (env.ExtraEnv.env,EConstr.of_constr cty,EConstr.of_constr tval))
             end
 	  | _ -> 
  	    pretype (mk_tycon (EConstr.of_constr tval)) env evdref lvar c, tval
