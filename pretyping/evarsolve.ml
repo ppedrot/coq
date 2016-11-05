@@ -1161,7 +1161,7 @@ let check_evar_instance evd evk1 body conv_algo =
   (* FIXME: The body might be ill-typed when this is called from w_merge *)
   (* This happens in practice, cf MathClasses build failure on 2013-3-15 *)
   let ty =
-    try Retyping.get_type_of ~lax:true evenv evd (EConstr.of_constr body)
+    try Retyping.get_type_of ~lax:true evenv evd body
     with Retyping.RetypeError _ -> error "Ill-typed evar instance"
   in
   match conv_algo evenv evd Reduction.CUMUL (EConstr.of_constr ty) (EConstr.of_constr evi.evar_concl) with
@@ -1181,7 +1181,7 @@ let solve_evar_evar_l2r force f g env evd aliases pbty ev1 (evk2,_ as ev2) =
     let evd,body = project_evar_on_evar force g env evd aliases 0 pbty ev1 ev2 in
     let evd' = Evd.define evk2 body evd in
     let evd' = update_evar_source (fst (destEvar body)) evk2 evd' in
-      check_evar_instance evd' evk2 body g
+      check_evar_instance evd' evk2 (EConstr.of_constr body) g
   with EvarSolvedOnTheFly (evd,c) ->
     f env evd pbty ev2 c
 
@@ -1296,7 +1296,7 @@ let solve_candidates conv_algo env evd (evk,argsv) rhs =
           (* time and the evar been solved by the filtering process *)
          if Evd.is_undefined evd evk then
 	   let evd' = Evd.define evk c evd in
-	     check_evar_instance evd' evk c conv_algo
+	     check_evar_instance evd' evk (EConstr.of_constr c) conv_algo
 	 else evd
       | l when List.length l < List.length l' ->
           let candidates = List.map fst l in
@@ -1438,7 +1438,7 @@ let rec invert_definition conv_algo choose env evd pbty (evk,argsv as ev) rhs =
             try
               let evd,body = project_evar_on_evar false conv_algo env' evd aliases 0 None ev'' ev' in
               let evd = Evd.define evk' body evd in
-		check_evar_instance evd evk' body conv_algo
+		check_evar_instance evd evk' (EConstr.of_constr body) conv_algo
             with
             | EvarSolvedOnTheFly _ -> assert false (* ev has no candidates *)
             | CannotProject (evd,ev'') ->
@@ -1553,7 +1553,7 @@ and evar_define conv_algo ?(choose=false) env evd pbty (evk,argsv as ev) rhs =
            str "----> " ++ int ev ++ str " := " ++
            print_constr body);
         raise e in*)
-    let evd' = check_evar_instance evd' evk body conv_algo in
+    let evd' = check_evar_instance evd' evk (EConstr.of_constr body) conv_algo in
     Evd.define evk body evd'
   with
     | NotEnoughInformationToProgress sols ->

@@ -1126,7 +1126,7 @@ let second_order_matching ts env_rhs evd (evk,args) argoccs rhs =
       force_instantiation evd !evsref
   | [] ->
     let evd = 
-      try Evarsolve.check_evar_instance evd evk rhs 
+      try Evarsolve.check_evar_instance evd evk (EConstr.of_constr rhs)
 	    (to_conv_fun (evar_conv_x full_transparent_state))
       with IllTypedInstance _ -> raise (TypingFailed evd)
     in
@@ -1242,7 +1242,7 @@ let rec solve_unconstrained_evars_with_candidates ts evd =
       | a::l ->
           try
             let conv_algo = evar_conv_x ts in
-            let evd = check_evar_instance evd evk a (to_conv_fun conv_algo) in
+            let evd = check_evar_instance evd evk (EConstr.of_constr a) (to_conv_fun conv_algo) in
             let evd = Evd.define evk a evd in
             match reconsider_conv_pbs (to_conv_fun conv_algo) evd with
             | Success evd -> solve_unconstrained_evars_with_candidates ts evd
@@ -1263,7 +1263,7 @@ let solve_unconstrained_impossible_cases env evd =
       let evd' = Evd.merge_context_set Evd.univ_flexible_alg ~loc evd' ctx in
       let ty = j_type j in
       let conv_algo = evar_conv_x full_transparent_state in
-      let evd' = check_evar_instance evd' evk ty (to_conv_fun conv_algo) in
+      let evd' = check_evar_instance evd' evk (EConstr.of_constr ty) (to_conv_fun conv_algo) in
 	Evd.define evk ty evd' 
     | _ -> evd') evd evd
 
