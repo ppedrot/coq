@@ -49,10 +49,11 @@ let refresh_level evd s =
 
 let refresh_universes ?(status=univ_rigid) ?(onlyalg=false) ?(refreshset=false)
 		      pbty env evd t =
+  let open EConstr in
   let evdref = ref evd in
   let modified = ref false in
   let rec refresh status dir t = 
-    match kind_of_term t with
+    match EConstr.kind !evdref t with
     | Sort (Type u as s) when
       (match Univ.universe_level u with
       | None -> true
@@ -72,20 +73,20 @@ let refresh_universes ?(status=univ_rigid) ?(onlyalg=false) ?(refreshset=false)
     | _ -> t
   (** Refresh the types of evars under template polymorphic references *)
   and refresh_term_evars onevars top t =
-    match kind_of_term (whd_evar !evdref t) with
-    | App (f, args) when is_template_polymorphic env !evdref (EConstr.of_constr f) ->
-      let pos = get_polymorphic_positions !evdref (EConstr.of_constr f) in
+    match EConstr.kind !evdref t with
+    | App (f, args) when is_template_polymorphic env !evdref f ->
+      let pos = get_polymorphic_positions !evdref f in
 	refresh_polymorphic_positions args pos
-    | App (f, args) when top && isEvar f -> 
+    | App (f, args) when top && isEvar !evdref f -> 
       refresh_term_evars true false f; 
       Array.iter (refresh_term_evars onevars false) args
     | Evar (ev, a) when onevars ->
       let evi = Evd.find !evdref ev in
-      let ty' = refresh univ_flexible true evi.evar_concl in
+      let ty' = refresh univ_flexible true (EConstr.of_constr evi.evar_concl) in
 	if !modified then 
-	  evdref := Evd.add !evdref ev {evi with evar_concl = ty'}
+	  evdref := Evd.add !evdref ev {evi with evar_concl = EConstr.Unsafe.to_constr ty'}
 	else ()
-    | _ -> Constr.iter (refresh_term_evars onevars false) t
+    | _ -> EConstr.iter !evdref (refresh_term_evars onevars false) t
   and refresh_polymorphic_positions args pos =
     let rec aux i = function
       | Some l :: ls -> 
@@ -100,17 +101,17 @@ let refresh_universes ?(status=univ_rigid) ?(onlyalg=false) ?(refreshset=false)
     in aux 0 pos
   in
   let t' = 
-    if isArity t then
+    if isArity !evdref t then
       (match pbty with
       | None -> t
       | Some dir -> refresh status dir t)
     else (refresh_term_evars false true t; t)
   in
-    if !modified then !evdref, t' else !evdref, t
+    if !modified then !evdref, EConstr.Unsafe.to_constr t' else !evdref, EConstr.Unsafe.to_constr t
 
 let get_type_of_refresh ?(polyprop=true) ?(lax=false) env sigma c =
   let ty = Retyping.get_type_of ~polyprop ~lax env sigma c in
-    refresh_universes (Some false) env sigma ty
+    refresh_universes (Some false) env sigma (EConstr.of_constr ty)
 		      
 
 (************************)
@@ -127,6 +128,8 @@ let test_success conv_algo env evd c c' rhs =
   is_success (conv_algo env evd c c' rhs)
 
 let add_conv_oriented_pb ?(tail=true) (pbty,env,t1,t2) evd =
+  let t1 = EConstr.Unsafe.to_constr t1 in
+  let t2 = EConstr.Unsafe.to_constr t2 in
   match pbty with
   | Some true -> add_conv_pb ~tail (Reduction.CUMUL,env,t1,t2) evd
   | Some false -> add_conv_pb ~tail (Reduction.CUMUL,env,t2,t1) evd
@@ -636,7 +639,7 @@ let materialize_evar define_fun env evd k (evk1,args1) ty_in_env =
       let evd,t_in_sign =
         let s = Retyping.get_sort_of env evd (EConstr.of_constr t_in_env) in
         let evd,ty_t_in_sign = refresh_universes
-	 ~status:univ_flexible (Some false) env evd (mkSort s) in
+	 ~status:univ_flexible (Some false) env evd (EConstr.mkSort s) in
         define_evar_from_virtual_equation define_fun env evd src t_in_env
           ty_t_in_sign sign filter inst_in_env in
       let evd,d' = match d with
@@ -655,7 +658,7 @@ let materialize_evar define_fun env evd k (evk1,args1) ty_in_env =
   let evd,ev2ty_in_sign =
     let s = Retyping.get_sort_of env evd (EConstr.of_constr ty_in_env) in
     let evd,ty_t_in_sign = refresh_universes
-     ~status:univ_flexible (Some false) env evd (mkSort s) in
+     ~status:univ_flexible (Some false) env evd (EConstr.mkSort s) in
     define_evar_from_virtual_equation define_fun env evd src ty_in_env
       ty_t_in_sign sign2 filter2 inst2_in_env in
   let evd = Sigma.Unsafe.of_evar_map evd in
@@ -1019,7 +1022,7 @@ let postpone_non_unique_projection env evd pbty (evk,argsv as ev) sols rhs =
   | NoUpdate ->
     (* We made an approximation by not expanding a local definition *)
     let evd,ev = restrict_applied_evar evd ev filter NoUpdate in
-    let pb = (pbty,env,mkEvar ev,rhs) in
+    let pb = (pbty,env,EConstr.of_constr (mkEvar ev),EConstr.of_constr rhs) in
     add_conv_oriented_pb pb evd
   | UpdateWith c ->
     restrict_evar evd evk filter (UpdateWith c)
@@ -1203,13 +1206,13 @@ let solve_evar_evar_aux force f g env evd pbty (evk1,args1 as ev1) (evk2,args2 a
     with CannotProject (evd,ev2) ->
     try solve_evar_evar_l2r force f g env evd aliases pbty ev1 ev2
     with CannotProject (evd,ev1) ->
-    add_conv_oriented_pb ~tail:true (pbty,env,mkEvar ev1,mkEvar ev2) evd
+    add_conv_oriented_pb ~tail:true (pbty,env,EConstr.of_constr (mkEvar ev1),EConstr.of_constr (mkEvar ev2)) evd
   else
     try solve_evar_evar_l2r force f g env evd aliases pbty ev1 ev2
     with CannotProject (evd,ev1) ->
     try solve_evar_evar_l2r force f g env evd aliases (opp_problem pbty) ev2 ev1
     with CannotProject (evd,ev2) ->
-    add_conv_oriented_pb ~tail:true (pbty,env,mkEvar ev1,mkEvar ev2) evd
+    add_conv_oriented_pb ~tail:true (pbty,env,EConstr.of_constr (mkEvar ev1),EConstr.of_constr (mkEvar ev2)) evd
 
 let solve_evar_evar ?(force=false) f g env evd pbty (evk1,args1 as ev1) (evk2,args2 as ev2) =
   let pbty = if force then None else pbty in
@@ -1273,7 +1276,7 @@ let solve_refl ?(can_drop=false) conv_algo env evd pbty evk argsv1 argsv2 =
   let argsv2 = restrict_instance evd evk filter argsv2 in
   let ev2 = (fst ev1,argsv2) in
   (* Leave a unification problem *)
-  add_conv_oriented_pb (pbty,env,mkEvar ev1,mkEvar ev2) evd
+  add_conv_oriented_pb (pbty,env,EConstr.of_constr (mkEvar ev1),EConstr.of_constr (mkEvar ev2)) evd
 
 (* If the evar can be instantiated by a finite set of candidates known
    in advance, we check which of them apply *)
@@ -1443,7 +1446,7 @@ let rec invert_definition conv_algo choose env evd pbty (evk,argsv as ev) rhs =
             | EvarSolvedOnTheFly _ -> assert false (* ev has no candidates *)
             | CannotProject (evd,ev'') ->
               (* ... or postpone the problem *)
-              add_conv_oriented_pb (None,env',mkEvar ev'',mkEvar ev') evd in
+              add_conv_oriented_pb (None,env',EConstr.of_constr (mkEvar ev''),EConstr.of_constr (mkEvar ev')) evd in
           evdref := evd;
           evar'')
     | _ ->
@@ -1536,7 +1539,7 @@ and evar_define conv_algo ?(choose=false) env evd pbty (evk,argsv as ev) rhs =
     (* so we recheck acyclicity *)
     if occur_evar_upto_types evd' evk body then raise (OccurCheckIn (evd',body));
     (* needed only if an inferred type *)
-    let evd', body = refresh_universes pbty env evd' body in
+    let evd', body = refresh_universes pbty env evd' (EConstr.of_constr body) in
 (* Cannot strictly type instantiations since the unification algorithm
  * does not unify applications from left to right.
  * e.g problem f x == g y yields x==y and f==g (in that order)
@@ -1559,9 +1562,9 @@ and evar_define conv_algo ?(choose=false) env evd pbty (evk,argsv as ev) rhs =
     | NotEnoughInformationToProgress sols ->
         postpone_non_unique_projection env evd pbty ev sols rhs
     | NotEnoughInformationEvarEvar t ->
-        add_conv_oriented_pb (pbty,env,mkEvar ev,t) evd
+        add_conv_oriented_pb (pbty,env,EConstr.of_constr (mkEvar ev),EConstr.of_constr t) evd
     | MorePreciseOccurCheckNeeeded ->
-        add_conv_oriented_pb (pbty,env,mkEvar ev,rhs) evd
+        add_conv_oriented_pb (pbty,env,EConstr.of_constr (mkEvar ev),EConstr.of_constr rhs) evd
     | NotInvertibleUsingOurAlgorithm _ | MetaOccurInBodyInternal as e ->
         raise e
     | OccurCheckIn (evd,rhs) ->

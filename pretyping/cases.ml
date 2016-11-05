@@ -1631,7 +1631,7 @@ let abstract_tycon loc env evdref subst tycon extenv t =
     | Rel n when is_local_def (lookup_rel n env) -> t
     | Evar ev ->
         let ty = get_type_of env !evdref (EConstr.of_constr t) in
-	let ty = Evarutil.evd_comb1 (refresh_universes (Some false) env) evdref ty in
+	let ty = Evarutil.evd_comb1 (refresh_universes (Some false) env) evdref (EConstr.of_constr ty) in
         let inst =
 	  List.map_i
 	    (fun i _ ->
@@ -1653,7 +1653,7 @@ let abstract_tycon loc env evdref subst tycon extenv t =
       let vl = List.map pi1 good in
       let ty = 
 	let ty = get_type_of env !evdref (EConstr.of_constr t) in
-	  Evarutil.evd_comb1 (refresh_universes (Some false) env) evdref ty
+	  Evarutil.evd_comb1 (refresh_universes (Some false) env) evdref (EConstr.of_constr ty)
       in
       let ty = lift (-k) (aux x ty) in
       let depvl = free_rels !evdref (EConstr.of_constr ty) in
