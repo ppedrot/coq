@@ -46,29 +46,31 @@ let to_conv_fun f = (); fun env sigma pb c1 c2 ->
   f env sigma pb (EConstr.Unsafe.to_constr c1) (EConstr.Unsafe.to_constr c2)
 
 let unfold_projection env evd ts p c =
+  let open EConstr in
   let cst = Projection.constant p in
     if is_transparent_constant ts cst then
       Some (mkProj (Projection.make cst true, c))
     else None
       
 let eval_flexible_term ts env evd c =
-  match kind_of_term c with
+  let open EConstr in
+  match EConstr.kind evd c with
   | Const (c,u as cu) ->
       if is_transparent_constant ts c
-      then constant_opt_value_in env cu
+      then Option.map EConstr.of_constr (constant_opt_value_in env cu)
       else None
   | Rel n ->
       (try match lookup_rel n env with
            | RelDecl.LocalAssum _ -> None
-           | RelDecl.LocalDef (_,v,_) -> Some (lift n v)
+           | RelDecl.LocalDef (_,v,_) -> Some (Vars.lift n (EConstr.of_constr v))
        with Not_found -> None)
   | Var id ->
       (try
 	 if is_transparent_variable ts id then
-	   env |> lookup_named id |> NamedDecl.get_value
+	   Option.map EConstr.of_constr (env |> lookup_named id |> NamedDecl.get_value)
 	 else None
        with Not_found -> None)
-  | LetIn (_,b,_,c) -> Some (subst1 b c)
+  | LetIn (_,b,_,c) -> Some (Vars.subst1 b c)
   | Lambda _ -> Some c
   | Proj (p, c) -> 
     if Projection.unfolded p then assert false
@@ -77,12 +79,11 @@ let eval_flexible_term ts env evd c =
 
 type flex_kind_of_term =
   | Rigid
-  | MaybeFlexible of Constr.t (* reducible but not necessarily reduced *)
-  | Flexible of existential
+  | MaybeFlexible of EConstr.t (* reducible but not necessarily reduced *)
+  | Flexible of EConstr.existential
 
 let flex_kind_of_term ts env evd c sk =
-  let c = EConstr.Unsafe.to_constr c in
-  match kind_of_term c with
+  match EConstr.kind evd c with
     | LetIn _ | Rel _ | Const _ | Var _ | Proj _ ->
       Option.cata (fun x -> MaybeFlexible x) Rigid (eval_flexible_term ts env evd c)
     | Lambda _ when not (Option.is_empty (Stack.decomp sk)) -> MaybeFlexible c
@@ -93,6 +94,8 @@ let flex_kind_of_term ts env evd c sk =
     | Cast _ | App _ | Case _ -> assert false
 
 let zip evd (c, stk) = EConstr.Unsafe.to_constr (Stack.zip evd (c, stk))
+let add_conv_pb (pb, env, x, y) sigma =
+  Evd.add_conv_pb (pb, env, EConstr.Unsafe.to_constr x, EConstr.Unsafe.to_constr y) sigma
 
 let apprec_nohdbeta ts env evd c =
   let (t,sk as appr) = Reductionops.whd_nored_state evd (EConstr.of_constr c, []) in
@@ -106,8 +109,9 @@ let position_problem l2r = function
   | CUMUL -> Some l2r
 
 let occur_rigidly (evk,_ as ev) evd t =
+  let open EConstr in
   let rec aux t =
-    match kind_of_term (whd_evar evd t) with
+    match EConstr.kind evd t with
     | App (f, c) -> if aux f then Array.exists aux c else false
     | Construct _ | Ind _ | Sort _ | Meta _ | Fix _ | CoFix _ -> true
     | Proj (p, c) -> not (aux c)
@@ -117,7 +121,7 @@ let occur_rigidly (evk,_ as ev) evd t =
     | Const _ -> false
     | Prod (_, b, t) -> ignore(aux b || aux t); true
     | Rel _ | Var _ -> false
-    | Case (_,_,c,_) -> if eq_constr (mkEvar ev) c then raise Occur else false
+    | Case (_,_,c,_) -> if eq_constr evd (mkEvar ev) c then raise Occur else false
   in try ignore(aux t); false with Occur -> true
 
 (* [check_conv_record env sigma (t1,stack1) (t2,stack2)] tries to decompose 
@@ -382,6 +386,7 @@ let rec evar_conv_x ts env evd pbty term1 term2 =
 
 and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     ((term1,sk1 as appr1),csts1) ((term2,sk2 as appr2),csts2) =
+  let open EConstr in
   let quick_fail i = (* not costly, loses info *)
     UnifFailure (i, NotSameHead)
   in
@@ -408,11 +413,11 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
       |Some _, _ -> UnifFailure (evd,NotSameArgSize) in
   let eta env evd onleft sk term sk' term' =
     assert (match sk with [] -> true | _ -> false);
-    let (na,c1,c'1) = destLambda term in
-    let c = nf_evar evd c1 in
+    let (na,c1,c'1) = destLambda evd term in
+    let c = EConstr.to_constr evd c1 in
     let env' = push_rel (RelDecl.LocalAssum (na,c)) env in
     let out1 = whd_betaiota_deltazeta_for_iota_state
-      (fst ts) env' evd Cst_stack.empty (EConstr.of_constr c'1, Stack.empty) in
+      (fst ts) env' evd Cst_stack.empty (c'1, Stack.empty) in
     let out2 = whd_nored_state evd
       (Stack.zip evd (term', sk' @ [Stack.Shift 1]), Stack.append_app [|EConstr.mkRel 1|] Stack.empty), 
       Cst_stack.empty in
@@ -438,12 +443,12 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
       match Stack.list_of_app_stack skF with
       | None -> quick_fail evd
       | Some lF -> 
-        let tM = zip evd apprM in
+        let tM = Stack.zip evd apprM in
 	  miller_pfenning on_left
 	    (fun () -> if not_only_app then (* Postpone the use of an heuristic *)
-	      switch (fun x y -> Success (add_conv_pb (pbty,env,x,y) i)) (zip evd apprF) tM
+	      switch (fun x y -> Success (add_conv_pb (pbty,env,x,y) i)) (Stack.zip evd apprF) tM
 	    else quick_fail i)
-	  ev lF (EConstr.of_constr tM) i
+	  ev lF tM i
     and consume (termF,skF as apprF) (termM,skM as apprM) i = 
       if not (Stack.is_empty skF && Stack.is_empty skM) then
         consume_stack on_left apprF apprM i
@@ -487,7 +492,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     let eta evd =
       match EConstr.kind evd termR with
       | Lambda _ when (* if ever problem is ill-typed: *) List.is_empty skR ->
-         eta env evd false skR (EConstr.Unsafe.to_constr termR) skF termF
+         eta env evd false skR termR skF termF
       | Construct u -> eta_constructor ts env evd skR u skF termF
       | _ -> UnifFailure (evd,NotSameHead)
     in
@@ -495,7 +500,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     | None ->
         ise_try evd [consume_stack on_left apprF apprR; eta]
     | Some lF ->
-        let tR = zip evd apprR in
+        let tR = Stack.zip evd apprR in
 	  miller_pfenning on_left
 	    (fun () ->
 	      ise_try evd 
@@ -503,17 +508,17 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 		 (fun i -> 
 		   if not (occur_rigidly ev i tR) then
                      let i,tF =
-                       if isRel tR || isVar tR then
+                       if isRel i tR || isVar i tR then
                          (* Optimization so as to generate candidates *)
-                         let i,ev = evar_absorb_arguments env i (fst ev, Array.map EConstr.of_constr (snd ev)) lF in
+                         let i,ev = evar_absorb_arguments env i ev lF in
                          i,mkEvar ev
                        else
-                         i,zip evd apprF in
+                         i,Stack.zip evd apprF in
 		     switch (fun x y -> Success (add_conv_pb (pbty,env,x,y) i))
 	               tF tR
 		   else
-                     UnifFailure (evd,OccurCheck (fst ev,EConstr.of_constr tR)))])
-	    (fst ev, Array.map EConstr.of_constr (snd ev)) lF (EConstr.of_constr tR) evd
+                     UnifFailure (evd,OccurCheck (fst ev,tR)))])
+	    ev lF tR evd
   in
   let app_empty = match sk1, sk2 with [], [] -> true | _ -> false in
   (* Evar must be undefined since we have flushed evars *)
@@ -531,7 +536,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	  | None, Success i' ->
             (* We do have sk1[] = sk2[]: we now unify ?ev1 and ?ev2 *)
             (* Note that ?ev1 and ?ev2, may have been instantiated in the meantime *)
-	    let ev1' = EConstr.of_constr (whd_evar i' (mkEvar ev1)) in
+	    let ev1' = EConstr.of_constr (whd_evar i' (EConstr.Unsafe.to_constr (mkEvar ev1))) in
 	      if EConstr.isEvar i' ev1' then
 		solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env i'
 		  (position_problem true pbty,EConstr.destEvar i' ev1', term2)
@@ -541,7 +546,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	  | Some (r,[]), Success i' ->
             (* We have sk1'[] = sk2[] for some sk1' s.t. sk1[]=sk1'[r[]] *)
             (* we now unify r[?ev1] and ?ev2 *)
-	    let ev2' = EConstr.of_constr (whd_evar i' (mkEvar ev2)) in
+	    let ev2' = EConstr.of_constr (whd_evar i' (EConstr.Unsafe.to_constr (mkEvar ev2))) in
 	      if EConstr.isEvar i' ev2' then
 		solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env i'
 		  (position_problem false pbty,EConstr.destEvar i' ev2',Stack.zip evd (term1,r))
@@ -552,7 +557,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
             (* Symmetrically *)
             (* We have sk1[] = sk2'[] for some sk2' s.t. sk2[]=sk2'[r[]] *)
             (* we now unify ?ev1 and r[?ev2] *)
-	    let ev1' = EConstr.of_constr (whd_evar i' (mkEvar ev1)) in
+	    let ev1' = EConstr.of_constr (whd_evar i' (EConstr.Unsafe.to_constr (mkEvar ev1))) in
 	      if EConstr.isEvar i' ev1' then
 		solve_simple_eqn (to_conv_fun (evar_conv_x ts)) env i'
 	          (position_problem true pbty,EConstr.destEvar i' ev1',Stack.zip evd (term2,r))
@@ -594,7 +599,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	    |None, Success i' ->
               Success (solve_refl (to_conv_fun (fun env i pbty a1 a2 ->
                 is_success (evar_conv_x ts env i pbty a1 a2)))
-                env i' (position_problem true pbty) sp1 (Array.map EConstr.of_constr al1) (Array.map EConstr.of_constr al2))
+                env i' (position_problem true pbty) sp1 al1 al2)
 	    |_, (UnifFailure _ as x) -> x
             |Some _, _ -> UnifFailure (i,NotSameArgSize)
           else UnifFailure (i,NotSameHead)
@@ -602,10 +607,10 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	ise_try evd [f1; f2]
 
     | Flexible ev1, MaybeFlexible v2 ->
-      flex_maybeflex true (fst ev1, Array.map EConstr.of_constr (snd ev1)) (appr1,csts1) (appr2,csts2) (EConstr.of_constr v2)
+      flex_maybeflex true ev1 (appr1,csts1) (appr2,csts2) v2
 
     | MaybeFlexible v1, Flexible ev2 -> 
-      flex_maybeflex false (fst ev2, Array.map EConstr.of_constr (snd ev2)) (appr2,csts2) (appr1,csts1) (EConstr.of_constr v1)
+      flex_maybeflex false ev2 (appr2,csts2) (appr1,csts1) v1
 
     | MaybeFlexible v1, MaybeFlexible v2 -> begin
         match kind_of_term (EConstr.Unsafe.to_constr term1), kind_of_term (EConstr.Unsafe.to_constr term2) with
@@ -623,8 +628,8 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	       evar_conv_x ts (push_rel (RelDecl.LocalDef (na,b,t)) env) i pbty c'1 c'2);
 	     (fun i -> exact_ise_stack2 env i (evar_conv_x ts) sk1 sk2)]
 	and f2 i =
-          let out1 = whd_betaiota_deltazeta_for_iota_state (fst ts) env i csts1 (EConstr.of_constr v1,sk1)
-          and out2 = whd_betaiota_deltazeta_for_iota_state (fst ts) env i csts2 (EConstr.of_constr v2,sk2)
+          let out1 = whd_betaiota_deltazeta_for_iota_state (fst ts) env i csts1 (v1,sk1)
+          and out2 = whd_betaiota_deltazeta_for_iota_state (fst ts) env i csts2 (v2,sk2)
 	  in evar_eqappr_x ts env i pbty out1 out2
 	in
 	ise_try evd [f1; f2]
@@ -636,8 +641,8 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	    [(fun i -> evar_conv_x ts env i CONV c c');
 	     (fun i -> exact_ise_stack2 env i (evar_conv_x ts) sk1 sk2)]
 	  and f2 i =
-            let out1 = whd_betaiota_deltazeta_for_iota_state (fst ts) env i csts1 (EConstr.of_constr v1,sk1)
-            and out2 = whd_betaiota_deltazeta_for_iota_state (fst ts) env i csts2 (EConstr.of_constr v2,sk2)
+            let out1 = whd_betaiota_deltazeta_for_iota_state (fst ts) env i csts1 (v1,sk1)
+            and out2 = whd_betaiota_deltazeta_for_iota_state (fst ts) env i csts2 (v2,sk2)
 	    in evar_eqappr_x ts env i pbty out1 out2
 	  in
 	    ise_try evd [f1; f2]
@@ -710,7 +715,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	    let applicative_stack = fst (Stack.strip_app sk2) in
 	    is_unnamed
 	      (fst (whd_betaiota_deltazeta_for_iota_state
-		      (fst ts) env i Cst_stack.empty (EConstr.of_constr v2, applicative_stack))) in
+		      (fst ts) env i Cst_stack.empty (v2, applicative_stack))) in
           let rhs_is_already_stuck =
             rhs_is_already_stuck || rhs_is_stuck_and_unnamed () in
 
@@ -718,12 +723,12 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	    && (not (Stack.not_purely_applicative sk1)) then
 	    evar_eqappr_x ~rhs_is_already_stuck ts env i pbty
 	      (whd_betaiota_deltazeta_for_iota_state
-		 (fst ts) env i (Cst_stack.add_cst term1 csts1) (EConstr.of_constr v1,sk1))
+		 (fst ts) env i (Cst_stack.add_cst term1 csts1) (v1,sk1))
 	      (appr2,csts2)
 	  else
 	    evar_eqappr_x ts env i pbty (appr1,csts1)
 	      (whd_betaiota_deltazeta_for_iota_state
-		 (fst ts) env i (Cst_stack.add_cst term2 csts2) (EConstr.of_constr v2,sk2))
+		 (fst ts) env i (Cst_stack.add_cst term2 csts2) (v2,sk2))
 	in
 	ise_try evd [f1; f2; f3]
     end
@@ -752,7 +757,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	and f4 i =
 	  evar_eqappr_x ts env i pbty
 	    (whd_betaiota_deltazeta_for_iota_state
-	       (fst ts) env i (Cst_stack.add_cst term1 csts1) (EConstr.of_constr v1,sk1))
+	       (fst ts) env i (Cst_stack.add_cst term1 csts1) (v1,sk1))
 	    (appr2,csts2)
 	in
 	  ise_try evd [f3; f4]
@@ -766,16 +771,16 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	and f4 i =
 	  evar_eqappr_x ts env i pbty (appr1,csts1)
 	    (whd_betaiota_deltazeta_for_iota_state
-	       (fst ts) env i (Cst_stack.add_cst term2 csts2) (EConstr.of_constr v2,sk2))
+	       (fst ts) env i (Cst_stack.add_cst term2 csts2) (v2,sk2))
 	in
 	  ise_try evd [f3; f4]
 
     (* Eta-expansion *)
-    | Rigid, _ when EConstr.isLambda evd term1 && (* if ever ill-typed: *) List.is_empty sk1 ->
-        eta env evd true sk1 (EConstr.Unsafe.to_constr term1) sk2 term2
+    | Rigid, _ when isLambda evd term1 && (* if ever ill-typed: *) List.is_empty sk1 ->
+        eta env evd true sk1 term1 sk2 term2
 
-    | _, Rigid when EConstr.isLambda evd term2 && (* if ever ill-typed: *) List.is_empty sk2 ->
-        eta env evd false sk2 (EConstr.Unsafe.to_constr term2) sk1 term1
+    | _, Rigid when isLambda evd term2 && (* if ever ill-typed: *) List.is_empty sk2 ->
+        eta env evd false sk2 term2 sk1 term1
 
     | Rigid, Rigid -> begin
         let inj = EConstr.Unsafe.to_constr in
@@ -1042,6 +1047,7 @@ let set_solve_evars f = solve_evars := f
 exception TypingFailed of evar_map
 
 let second_order_matching ts env_rhs evd (evk,args) argoccs rhs =
+  let args = Array.map EConstr.Unsafe.to_constr args in
   try
   let evi = Evd.find_undefined evd evk in
   let env_evar = evar_filtered_env evi in

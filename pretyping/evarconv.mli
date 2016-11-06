@@ -54,7 +54,7 @@ val check_conv_record : env -> evar_map ->
     matching, using typing to select occurrences *)
 
 val second_order_matching : transparent_state -> env -> evar_map ->
-  existential -> occurrences option list -> constr -> evar_map * bool
+  EConstr.existential -> occurrences option list -> constr -> evar_map * bool
 
 (** Declare function to enforce evars resolution by using typing constraints *)
 
