@@ -145,23 +145,22 @@ let occur_rigidly (evk,_ as ev) evd t =
    projection would have been reduced) *)
 
 let check_conv_record env sigma (t1,sk1) (t2,sk2) =
-  let t1 = EConstr.Unsafe.to_constr t1 in
-  let t2 = EConstr.Unsafe.to_constr t2 in
-  let (proji, u), arg = Universes.global_app_of_constr t1 in
+  let open EConstr in
+  let (proji, u), arg = Termops.global_app_of_constr sigma t1 in
   let canon_s,sk2_effective =
     try
-      match kind_of_term t2 with
+      match EConstr.kind sigma t2 with
 	Prod (_,a,b) -> (* assert (l2=[]); *)
-	  let _, a, b = destProd (Evarutil.nf_evar sigma t2) in
-          if EConstr.Vars.noccurn sigma 1 (EConstr.of_constr b) then
+	  let _, a, b = destProd sigma t2 in
+          if Vars.noccurn sigma 1 b then
             lookup_canonical_conversion (proji, Prod_cs),
-	    (Stack.append_app [|EConstr.of_constr a;EConstr.of_constr (pop (EConstr.of_constr b))|] Stack.empty)
+	    (Stack.append_app [|a;EConstr.of_constr (pop b)|] Stack.empty)
           else raise Not_found
       | Sort s ->
 	lookup_canonical_conversion
 	  (proji, Sort_cs (family_of_sort s)),[]
       | _ ->
-	let c2 = global_of_constr t2 in
+	let c2 = global_of_constr (EConstr.to_constr sigma t2) in
 	  lookup_canonical_conversion (proji, Const_cs c2),sk2
     with Not_found ->
       let (c, cs) = lookup_canonical_conversion (proji,Default_cs) in 
@@ -172,14 +171,14 @@ let check_conv_record env sigma (t1,sk1) (t2,sk2) =
   let params1, c1, extra_args1 =
     match arg with
     | Some c -> (* A primitive projection applied to c *)
-      let ty = Retyping.get_type_of ~lax:true env sigma (EConstr.of_constr c) in
+      let ty = Retyping.get_type_of ~lax:true env sigma c in
       let (i,u), ind_args = 
 	try Inductiveops.find_mrectype env sigma (EConstr.of_constr ty)
 	with _ -> raise Not_found
       in Stack.append_app_list (List.map EConstr.of_constr ind_args) Stack.empty, c, sk1
     | None ->
       match Stack.strip_n_app nparams sk1 with
-      | Some (params1, c1, extra_args1) -> params1, EConstr.Unsafe.to_constr c1, extra_args1
+      | Some (params1, c1, extra_args1) -> params1, c1, extra_args1
       | _ -> raise Not_found in
   let us2,extra_args2 =
     let l_us = List.length us in
@@ -194,7 +193,7 @@ let check_conv_record env sigma (t1,sk1) (t2,sk2) =
   let h, _ = decompose_app_vect sigma (EConstr.of_constr t') in
     ctx',(h, t2),c',bs',(Stack.append_app_list (List.map EConstr.of_constr params) Stack.empty,params1),
     (Stack.append_app_list (List.map EConstr.of_constr us) Stack.empty,us2),(extra_args1,extra_args2),c1,
-    (n, zip sigma (EConstr.of_constr t2,sk2))
+    (n, zip sigma (t2,sk2))
 
 (* Precondition: one of the terms of the pb is an uninstantiated evar,
  * possibly applied to arguments. *)
@@ -916,10 +915,10 @@ and conv_record trs env evd (ctx,(h,h2),c,bs,(params,params1),(us,us2),(sk1,sk2)
 	 exact_ise_stack2 env i
            (fun env' i' cpb u1 u -> evar_conv_x trs env' i' cpb u1 (substl ks u))
            us2 us);
-       (fun i -> evar_conv_x trs env i CONV c1 app);
+       (fun i -> evar_conv_x trs env i CONV (EConstr.Unsafe.to_constr c1) app);
        (fun i -> exact_ise_stack2 env i (evar_conv_x trs) sk1 sk2);
        test;
-       (fun i -> evar_conv_x trs env i CONV h2
+       (fun i -> evar_conv_x trs env i CONV (EConstr.Unsafe.to_constr h2)
 	 (fst (decompose_app_vect i (EConstr.of_constr (substl ks h)))))]
   else UnifFailure(evd,(*dummy*)NotSameHead)
 

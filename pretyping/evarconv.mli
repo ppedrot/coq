@@ -44,10 +44,10 @@ val check_problems_are_solved : env -> evar_map -> unit
 
 val check_conv_record : env -> evar_map -> 
   state -> state ->
-  Univ.universe_context_set * (constr * constr) 
+  Univ.universe_context_set * (constr * EConstr.constr) 
   * constr * constr list * (EConstr.t Stack.t * EConstr.t Stack.t) *
     (EConstr.t Stack.t * EConstr.t Stack.t) *
-    (EConstr.t Stack.t * EConstr.t Stack.t) * constr *
+    (EConstr.t Stack.t * EConstr.t Stack.t) * EConstr.constr *
     (int option * constr)
 
 (** Try to solve problems of the form ?x[args] = c by second-order
