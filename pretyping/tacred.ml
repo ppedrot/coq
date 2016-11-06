@@ -1104,9 +1104,9 @@ let string_of_evaluable_ref env = function
       string_of_qualid
         (Nametab.shortest_qualid_of_global (vars_of_env env) (ConstRef kn))
 
-let unfold env sigma name =
+let unfold env sigma name c =
   if is_evaluable env name then
-    clos_norm_flags (unfold_red name) env sigma
+    EConstr.of_constr (clos_norm_flags (unfold_red name) env sigma c)
   else
     error (string_of_evaluable_ref env name^" is opaque.")
 
@@ -1124,17 +1124,17 @@ let unfoldoccs env sigma (occs,name) c =
     | [] -> ()
     | _ -> error_invalid_occurrence rest
     in
-    nf_betaiotazeta sigma uc
+    EConstr.of_constr (nf_betaiotazeta sigma uc)
   in
   match occs with
-    | NoOccurrences -> EConstr.Unsafe.to_constr c
+    | NoOccurrences -> c
     | AllOccurrences -> unfold env sigma name c
     | OnlyOccurrences l -> unfo true l
     | AllOccurrencesBut l -> unfo false l
 
 (* Unfold reduction tactic: *)
 let unfoldn loccname env sigma c =
-  EConstr.Unsafe.to_constr (List.fold_left (fun c occname -> EConstr.of_constr (unfoldoccs env sigma occname c)) c loccname)
+  EConstr.Unsafe.to_constr (List.fold_left (fun c occname -> unfoldoccs env sigma occname c) c loccname)
 
 (* Re-folding constants tactics: refold com in term c *)
 let fold_one_com com env sigma c =
@@ -1218,28 +1218,31 @@ let check_not_primitive_record env ind =
    return name, B and t' *)
 
 let reduce_to_ind_gen allow_product env sigma t =
+  let open EConstr in
   let rec elimrec env t l =
-    let t = hnf_constr env sigma (EConstr.of_constr t) in
-    match kind_of_term (fst (decompose_app t)) with
-      | Ind ind-> (check_privacy env ind, it_mkProd_or_LetIn t l)
+    let t = hnf_constr env sigma t in
+    let t = EConstr.of_constr t in
+    match EConstr.kind sigma (EConstr.of_constr (fst (decompose_app_vect sigma t))) with
+      | Ind ind-> (check_privacy env ind, EConstr.Unsafe.to_constr (it_mkProd_or_LetIn t l))
       | Prod (n,ty,t') ->
 	  let open Context.Rel.Declaration in
 	  if allow_product then
-	    elimrec (push_rel (LocalAssum (n,ty)) env) t' ((LocalAssum (n,ty))::l)
+	    elimrec (push_rel (local_assum (n,ty)) env) t' ((local_assum (n,ty))::l)
 	  else
 	    user_err  (str"Not an inductive definition.")
       | _ ->
 	  (* Last chance: we allow to bypass the Opaque flag (as it
 	     was partially the case between V5.10 and V8.1 *)
-	  let t' = whd_all env sigma (EConstr.of_constr t) in
-	  match kind_of_term (fst (decompose_app t')) with
-	    | Ind ind-> (check_privacy env ind, it_mkProd_or_LetIn t' l)
+	  let t' = whd_all env sigma t in
+	  let t' = EConstr.of_constr t' in
+	  match EConstr.kind sigma (EConstr.of_constr (fst (decompose_app_vect sigma t'))) with
+	    | Ind ind-> (check_privacy env ind, EConstr.Unsafe.to_constr (it_mkProd_or_LetIn t' l))
 	    | _ -> user_err  (str"Not an inductive product.")
   in
   elimrec env t []
 
-let reduce_to_quantified_ind x = reduce_to_ind_gen true x
-let reduce_to_atomic_ind x = reduce_to_ind_gen false x
+let reduce_to_quantified_ind env sigma c = reduce_to_ind_gen true env sigma (EConstr.of_constr c)
+let reduce_to_atomic_ind env sigma c = reduce_to_ind_gen false env sigma (EConstr.of_constr c)
 
 let find_hnf_rectype env sigma t =
   let ind,t = reduce_to_atomic_ind env sigma t in
@@ -1299,26 +1302,29 @@ let reduce_to_ref_gen allow_product env sigma ref t =
   else
   (* lazily reduces to match the head of [t] with the expected [ref] *)
   let rec elimrec env t l =
-    let c, _ = decompose_app_vect sigma (EConstr.of_constr t) in
-    match kind_of_term c with
+    let open EConstr in
+    let c, _ = decompose_app_vect sigma t in
+    let c = EConstr.of_constr c in
+    match EConstr.kind sigma c with
       | Prod (n,ty,t') ->
           if allow_product then
 	    let open Context.Rel.Declaration in
-	    elimrec (push_rel (LocalAssum (n,t)) env) t' ((LocalAssum (n,ty))::l)
+	    elimrec (push_rel (local_assum (n,t)) env) t' ((local_assum (n,ty))::l)
           else
             error_cannot_recognize ref
       | _ ->
 	  try
-	    if eq_gr (global_of_constr c) ref
+	    if eq_gr (global_of_constr (EConstr.to_constr sigma c)) ref
 	    then it_mkProd_or_LetIn t l
 	    else raise Not_found
 	  with Not_found ->
           try
-	    let t' = nf_betaiota sigma (one_step_reduce env sigma (EConstr.of_constr t)) in
+	    let t' = nf_betaiota sigma (one_step_reduce env sigma t) in
+	    let t' = EConstr.of_constr t' in
             elimrec env t' l
           with NotStepReducible -> error_cannot_recognize ref
   in
-  elimrec env t []
+  EConstr.Unsafe.to_constr (elimrec env t [])
 
 let reduce_to_quantified_ref = reduce_to_ref_gen true
 let reduce_to_atomic_ref = reduce_to_ref_gen false

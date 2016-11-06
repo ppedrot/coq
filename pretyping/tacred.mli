@@ -85,10 +85,10 @@ val reduce_to_quantified_ind : env ->  evar_map -> types -> pinductive * types
 (** [reduce_to_quantified_ref env sigma ref t] try to put [t] in the form
    [t'=(x1:A1)..(xn:An)(ref args)] and fails with user error if not possible *)
 val reduce_to_quantified_ref :
-  env ->  evar_map -> global_reference -> types -> types
+  env ->  evar_map -> global_reference -> EConstr.types -> types
 
 val reduce_to_atomic_ref :
-  env ->  evar_map -> global_reference -> types -> types
+  env ->  evar_map -> global_reference -> EConstr.types -> types
 
 val find_hnf_rectype : 
   env ->  evar_map -> types -> pinductive * constr list

@@ -300,7 +300,7 @@ let project_hint pri l2r r =
   let sigma, c = Evd.fresh_global env sigma gr in
   let t = Retyping.get_type_of env sigma (EConstr.of_constr c) in
   let t =
-    Tacred.reduce_to_quantified_ref env sigma (Lazy.force coq_iff_ref) t in
+    Tacred.reduce_to_quantified_ref env sigma (Lazy.force coq_iff_ref) (EConstr.of_constr t) in
   let sign,ccl = decompose_prod_assum t in
   let (a,b) = match snd (decompose_app ccl) with
     | [a;b] -> (a,b)
