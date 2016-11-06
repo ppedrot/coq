@@ -594,7 +594,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	    |None, Success i' ->
               Success (solve_refl (to_conv_fun (fun env i pbty a1 a2 ->
                 is_success (evar_conv_x ts env i pbty a1 a2)))
-                env i' (position_problem true pbty) sp1 al1 al2)
+                env i' (position_problem true pbty) sp1 (Array.map EConstr.of_constr al1) (Array.map EConstr.of_constr al2))
 	    |_, (UnifFailure _ as x) -> x
             |Some _, _ -> UnifFailure (i,NotSameArgSize)
           else UnifFailure (i,NotSameHead)
@@ -1177,7 +1177,7 @@ let apply_conversion_problem_heuristic ts env evd pbty t1 t2 =
   | Evar (evk1,args1), Evar (evk2,args2) when Evar.equal evk1 evk2 ->
       let f env evd pbty x y = is_fconv ~reds:ts pbty env evd (EConstr.of_constr x) (EConstr.of_constr y) in
       Success (solve_refl ~can_drop:true (to_conv_fun f) env evd
-                 (position_problem true pbty) evk1 args1 args2)
+                 (position_problem true pbty) evk1 (Array.map EConstr.of_constr args1) (Array.map EConstr.of_constr args2))
   | Evar ev1, Evar ev2 when app_empty ->
       let ev1 = (fst ev1, Array.map EConstr.of_constr (snd ev1)) in
       let ev2 = (fst ev2, Array.map EConstr.of_constr (snd ev2)) in

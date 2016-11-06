@@ -570,14 +570,14 @@ let make_projectable_subst aliases sigma evi args =
         | LocalAssum (id,c), a::rest ->
             let cstrs =
               let a',args = decompose_app_vect sigma a in
-              match kind_of_term a' with
+              match EConstr.kind sigma (EConstr.of_constr a') with
               | Construct cstr ->
                   let l = try Constrmap.find (fst cstr) cstrs with Not_found -> [] in
                   Constrmap.add (fst cstr) ((args,id)::l) cstrs
               | _ -> cstrs in
             (rest,Id.Map.add id [a,normalize_alias_opt sigma aliases a,id] all,cstrs)
         | LocalDef (id,c,_), a::rest ->
-            (match kind_of_term c with
+            (match EConstr.kind sigma (EConstr.of_constr c) with
             | Var id' ->
                 let idc = normalize_alias_var sigma evar_aliases id' in
                 let sub = try Id.Map.find idc all with Not_found -> [] in
@@ -1005,7 +1005,7 @@ let restrict_hyps evd evk filter candidates =
     let typablefilter = closure_of_filter evd evk (Some filter) in
     (typablefilter,candidates)
 
-exception EvarSolvedWhileRestricting of evar_map * constr
+exception EvarSolvedWhileRestricting of evar_map * EConstr.constr
 
 let do_restrict_hyps evd (evk,args as ev) filter candidates =
   let open EConstr in
@@ -1016,7 +1016,7 @@ let do_restrict_hyps evd (evk,args as ev) filter candidates =
   | UpdateWith [], _ -> error "Not solvable."
   | UpdateWith [nc],_ ->
       let evd = Evd.define evk (EConstr.Unsafe.to_constr nc) evd in
-      raise (EvarSolvedWhileRestricting (evd,whd_evar evd (EConstr.Unsafe.to_constr (mkEvar ev))))
+      raise (EvarSolvedWhileRestricting (evd,mkEvar ev))
   | NoUpdate, None -> evd,ev
   | _ -> restrict_applied_evar evd ev filter candidates
 
@@ -1123,7 +1123,7 @@ exception CannotProject of evar_map * EConstr.existential
 
 let rec is_constrainable_in top evd k (ev,(fv_rels,fv_ids) as g) t =
   let f,args = decompose_app_vect evd t in
-  match kind_of_term f with
+  match EConstr.kind evd (EConstr.of_constr f) with
   | Construct ((ind,_),u) ->
     let n = Inductiveops.inductive_nparams ind in
     if n > Array.length args then true (* We don't try to be more clever *)
@@ -1131,7 +1131,7 @@ let rec is_constrainable_in top evd k (ev,(fv_rels,fv_ids) as g) t =
       let params = fst (Array.chop n args) in
       Array.for_all (EConstr.of_constr %> is_constrainable_in false evd k g) params
   | Ind _ -> Array.for_all (EConstr.of_constr %> is_constrainable_in false evd k g) args
-  | Prod (na,t1,t2) -> is_constrainable_in false evd k g (EConstr.of_constr t1) && is_constrainable_in false evd k g (EConstr.of_constr t2)
+  | Prod (na,t1,t2) -> is_constrainable_in false evd k g t1 && is_constrainable_in false evd k g t2
   | Evar (ev',_) -> top || not (Evar.equal ev' ev) (*If ev' needed, one may also try to restrict it*)
   | Var id -> Id.Set.mem id fv_ids
   | Rel n -> n <= k || Int.Set.mem n fv_rels
@@ -1156,7 +1156,7 @@ let has_constrainable_free_vars env evd aliases force k ev (fv_rels,fv_ids,let_r
     | Rel n -> n <= k || Int.Set.mem n fv_rels
     | _ -> (not force || noccur_evar env evd ev t) && is_constrainable_in true evd k (ev,(fv_rels,fv_ids)) t
 
-exception EvarSolvedOnTheFly of evar_map * constr
+exception EvarSolvedOnTheFly of evar_map * EConstr.constr
 
 (* Try to project evk1[argsv1] on evk2[argsv2], if [ev1] is a pattern on
    the common domain of definition *)
@@ -1215,7 +1215,7 @@ let solve_evar_evar_l2r force f g env evd aliases pbty ev1 (evk2,_ as ev2) =
     let evd' = update_evar_source (fst (destEvar evd body)) evk2 evd' in
       check_evar_instance evd' evk2 body g
   with EvarSolvedOnTheFly (evd,c) ->
-    f env evd pbty ev2 (EConstr.of_constr c)
+    f env evd pbty ev2 c
 
 let opp_problem = function None -> None | Some b -> Some (not b)
 
@@ -1288,13 +1288,14 @@ type conv_fun_bool =
  * depend on these args). *)
 
 let solve_refl ?(can_drop=false) conv_algo env evd pbty evk argsv1 argsv2 =
+  let open EConstr in
   let evdref = ref evd in
-  if Array.equal (e_eq_constr_univs evdref) argsv1 argsv2 then !evdref else
+  if Array.equal (fun c1 c2 -> e_eq_constr_univs evdref (EConstr.Unsafe.to_constr c1) (EConstr.Unsafe.to_constr c2) ) argsv1 argsv2 then !evdref else
   (* Filter and restrict if needed *)
   let args = Array.map2 (fun a1 a2 -> (a1, a2)) argsv1 argsv2 in
   let untypedfilter =
     restrict_upon_filter evd evk
-      (fun (a1,a2) -> conv_algo env evd Reduction.CONV (EConstr.of_constr a1) (EConstr.of_constr a2)) args in
+      (fun (a1,a2) -> conv_algo env evd Reduction.CONV a1 a2) args in
   let candidates = filter_candidates evd evk untypedfilter NoUpdate in
   let filter = closure_of_filter evd evk untypedfilter in
   let evd,ev1 = restrict_applied_evar evd (evk,argsv1) filter candidates in
@@ -1306,7 +1307,7 @@ let solve_refl ?(can_drop=false) conv_algo env evd pbty evk argsv1 argsv2 =
   let argsv2 = restrict_instance evd evk filter argsv2 in
   let ev2 = (fst ev1,argsv2) in
   (* Leave a unification problem *)
-  add_conv_oriented_pb (pbty,env,EConstr.of_constr (mkEvar ev1),EConstr.of_constr (mkEvar ev2)) evd
+  add_conv_oriented_pb (pbty,env,mkEvar ev1,mkEvar ev2) evd
 
 (* If the evar can be instantiated by a finite set of candidates known
    in advance, we check which of them apply *)
@@ -1339,6 +1340,7 @@ let solve_candidates conv_algo env evd (evk,argsv) rhs =
 let occur_evar_upto_types sigma n c =
   let c = EConstr.Unsafe.to_constr c in
   let seen = ref Evar.Set.empty in
+  (** FIXME: Is that supposed to be evar-insensitive? *)
   let rec occur_rec c = match kind_of_term c with
     | Evar (sp,_) when Evar.equal sp n -> raise Occur
     | Evar (sp,args as e) ->
@@ -1457,7 +1459,7 @@ let rec invert_definition conv_algo choose env evd pbty (evk,argsv as ev) rhs =
           evdref := evd;
           body
         with
-        | EvarSolvedOnTheFly (evd,t) -> evdref:=evd; imitate envk (EConstr.of_constr t)
+        | EvarSolvedOnTheFly (evd,t) -> evdref:=evd; imitate envk t
         | CannotProject (evd,ev') ->
           if not !progress then
             raise (NotEnoughInformationEvarEvar t);
@@ -1484,7 +1486,7 @@ let rec invert_definition conv_algo choose env evd pbty (evk,argsv as ev) rhs =
         progress := true;
         match
           let c,args = decompose_app_vect !evdref t in
-          match kind_of_term c with
+          match EConstr.kind !evdref (EConstr.of_constr c) with
           | Construct (cstr,u) when Vars.noccur_between !evdref 1 k t ->
             (* This is common case when inferring the return clause of match *)
             (* (currently rudimentary: we do not treat the case of multiple *)
@@ -1554,7 +1556,7 @@ and evar_define conv_algo ?(choose=false) env evd pbty (evk,argsv as ev) rhs =
   | Evar (evk2,argsv2 as ev2) ->
       if Evar.equal evk evk2 then
         solve_refl ~can_drop:choose
-          (test_success conv_algo) env evd pbty evk (Array.map EConstr.Unsafe.to_constr argsv) (Array.map EConstr.Unsafe.to_constr argsv2)
+          (test_success conv_algo) env evd pbty evk argsv argsv2
       else
         solve_evar_evar ~force:choose
           (evar_define conv_algo) conv_algo env evd pbty ev ev2
@@ -1602,7 +1604,7 @@ and evar_define conv_algo ?(choose=false) env evd pbty (evk,argsv as ev) rhs =
         match EConstr.kind evd c with
         | Evar (evk',argsv2) when Evar.equal evk evk' ->
 	    solve_refl (fun env sigma pb c c' -> is_fconv pb env sigma c c')
-              env evd pbty evk (Array.map EConstr.Unsafe.to_constr argsv) (Array.map EConstr.Unsafe.to_constr argsv2)
+              env evd pbty evk argsv argsv2
         | _ ->
 	    raise (OccurCheckIn (evd,rhs))
 
