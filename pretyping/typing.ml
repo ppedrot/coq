@@ -33,12 +33,12 @@ let meta_type evd mv =
 
 let constant_type_knowing_parameters env cst jl =
   let paramstyp = Array.map (fun j -> lazy j.uj_type) jl in
-  type_of_constant_knowing_parameters_in env cst paramstyp
+  EConstr.of_constr (type_of_constant_knowing_parameters_in env cst paramstyp)
 
 let inductive_type_knowing_parameters env (ind,u) jl =
   let mspec = lookup_mind_specif env ind in
   let paramstyp = Array.map (fun j -> lazy j.uj_type) jl in
-  Inductive.type_of_inductive_knowing_parameters env (mspec,u) paramstyp
+  EConstr.of_constr (Inductive.type_of_inductive_knowing_parameters env (mspec,u) paramstyp)
 
 let e_type_judgment env evdref j =
   match EConstr.kind !evdref (EConstr.of_constr (whd_all env !evdref (EConstr.of_constr j.uj_type))) with
@@ -89,27 +89,28 @@ let max_sort l =
   if Sorts.List.mem InSet l then InSet else InProp
 
 let e_is_correct_arity env evdref c pj ind specif params =
+  let open EConstr in
   let arsign = make_arity_signature env true (make_ind_family (ind,params)) in
   let allowed_sorts = elim_sorts specif in
   let error () = error_elim_arity env ind allowed_sorts c pj None in
   let rec srec env pt ar =
-    let pt' = whd_all env !evdref (EConstr.of_constr pt) in
-    match kind_of_term pt', ar with
+    let pt' = EConstr.of_constr (whd_all env !evdref pt) in
+    match EConstr.kind !evdref pt', ar with
     | Prod (na1,a1,t), (LocalAssum (_,a1'))::ar' ->
-        if not (Evarconv.e_cumul env evdref (EConstr.of_constr a1) (EConstr.of_constr a1')) then error ();
-        srec (push_rel (LocalAssum (na1,a1)) env) t ar'
+        if not (Evarconv.e_cumul env evdref a1 (EConstr.of_constr a1')) then error ();
+        srec (push_rel (LocalAssum (na1,EConstr.Unsafe.to_constr a1)) env) t ar'
     | Sort s, [] ->
         if not (Sorts.List.mem (Sorts.family s) allowed_sorts)
         then error ()
     | Evar (ev,_), [] ->
         let evd, s = Evd.fresh_sort_in_family env !evdref (max_sort allowed_sorts) in
-        evdref := Evd.define ev (mkSort s) evd
+        evdref := Evd.define ev (Constr.mkSort s) evd
     | _, (LocalDef _ as d)::ar' ->
-        srec (push_rel d env) (lift 1 pt') ar'
+        srec (push_rel d env) (Vars.lift 1 pt') ar'
     | _ ->
         error ()
   in
-  srec env pj.uj_type (List.rev arsign)
+  srec env (EConstr.of_constr pj.uj_type) (List.rev arsign)
 
 let e_type_case_branches env evdref (ind,largs) pj c =
   let specif = lookup_mind_specif env (fst ind) in
@@ -247,13 +248,13 @@ let rec execute env evdref cstr =
 	    | Ind ind when Environ.template_polymorphic_pind ind env ->
 		(* Sort-polymorphism of inductive types *)
 		make_judge f
-		  (EConstr.of_constr (inductive_type_knowing_parameters env ind
-		    (Evarutil.jv_nf_evar !evdref jl)))
+		  (inductive_type_knowing_parameters env ind
+		    (Evarutil.jv_nf_evar !evdref jl))
 	    | Const cst when Environ.template_polymorphic_pconstant cst env ->
 		(* Sort-polymorphism of inductive types *)
 		make_judge f
-		  (EConstr.of_constr (constant_type_knowing_parameters env cst
-		    (Evarutil.jv_nf_evar !evdref jl)))
+		  (constant_type_knowing_parameters env cst
+		    (Evarutil.jv_nf_evar !evdref jl))
 	    | _ ->
 		execute env evdref f
 	in
