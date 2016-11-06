@@ -993,22 +993,25 @@ let matches_head env sigma c t =
     of the projection and its eta expanded form.
 *)
 let change_map_constr_with_binders_left_to_right g f (env, l as acc) sigma c = 
-  match kind_of_term c with
+  let open EConstr in
+  match EConstr.kind sigma c with
   | Proj (p, r) -> (* Treat specially for partial applications *)
-    let t = Retyping.expand_projection env sigma p (EConstr.of_constr r) [] in
-    let hdf, al = destApp t in
+    let t = Retyping.expand_projection env sigma p r [] in
+    let t = EConstr.of_constr t in
+    let hdf, al = destApp sigma t in
     let a = al.(Array.length al - 1) in
     let app = (mkApp (hdf, Array.sub al 0 (Array.length al - 1))) in
     let app' = f acc app in
     let a' = f acc a in
-      (match kind_of_term app' with
+      (match EConstr.kind sigma app' with
       | App (hdf', al') when hdf' == hdf ->
         (* Still the same projection, we ignore the change in parameters *)
 	mkProj (p, a')
       | _ -> mkApp (app', [| a' |]))
-  | _ -> map_constr_with_binders_left_to_right g f acc c
+  | _ -> map_constr_with_binders_left_to_right sigma g f acc c
 
 let e_contextually byhead (occs,c) f = { e_redfun = begin fun env sigma t ->
+  let open EConstr in
   let (nowhere_except_in,locs) = Locusops.convert_occs occs in
   let maxocc = List.fold_right max locs 0 in
   let pos = ref 1 in
@@ -1020,8 +1023,8 @@ let e_contextually byhead (occs,c) f = { e_redfun = begin fun env sigma t ->
     else
     try
       let subst =
-        if byhead then matches_head env sigma c (EConstr.of_constr t) 
-	else Constr_matching.matches env sigma c (EConstr.of_constr t) in
+        if byhead then matches_head env sigma c t 
+	else Constr_matching.matches env sigma c t in
       let ok =
 	if nowhere_except_in then Int.List.mem !pos locs
 	else not (Int.List.mem !pos locs) in
@@ -1032,8 +1035,8 @@ let e_contextually byhead (occs,c) f = { e_redfun = begin fun env sigma t ->
         (* Skip inner occurrences for stable counting of occurrences *)
         if locs != [] then
           ignore (traverse_below (Some (!pos-1)) envc t);
-	let Sigma (t, evm, _) = (f subst).e_redfun env (Sigma.Unsafe.of_evar_map !evd) (EConstr.of_constr t) in
-	(evd := Sigma.to_evar_map evm; t)
+	let Sigma (t, evm, _) = (f subst).e_redfun env (Sigma.Unsafe.of_evar_map !evd) t in
+	(evd := Sigma.to_evar_map evm; EConstr.of_constr t)
       end
       else
 	traverse_below nested envc t
@@ -1042,7 +1045,7 @@ let e_contextually byhead (occs,c) f = { e_redfun = begin fun env sigma t ->
   and traverse_below nested envc t =
     (* when byhead, find other occurrences without matching again partial
        application with same head *)
-    match kind_of_term t with
+    match EConstr.kind !evd t with
     | App (f,l) when byhead -> mkApp (f, Array.map_left (traverse nested envc) l)
     | Proj (p,c) when byhead -> mkProj (p,traverse nested envc c)
     | _ ->
@@ -1050,9 +1053,9 @@ let e_contextually byhead (occs,c) f = { e_redfun = begin fun env sigma t ->
           (fun d (env,c) -> (push_rel d env,lift_pattern 1 c))
           (traverse nested) envc sigma t
   in
-  let t' = traverse None (env,c) (EConstr.Unsafe.to_constr t) in
+  let t' = traverse None (env,c) t in
   if List.exists (fun o -> o >= !pos) locs then error_invalid_occurrence locs;
-  Sigma.Unsafe.of_pair (t', !evd)
+  Sigma.Unsafe.of_pair (EConstr.Unsafe.to_constr t', !evd)
   end }
 
 let contextually byhead occs f env sigma t =
@@ -1088,10 +1091,9 @@ let substlin env sigma evalref n (nowhere_except_in,locs) c =
 	  incr pos;
 	  if ok then value u else c
       | None -> 
-        let self () c = EConstr.Unsafe.to_constr (substrec () (EConstr.of_constr c)) in
-        EConstr.of_constr (map_constr_with_binders_left_to_right
+        map_constr_with_binders_left_to_right sigma
 	  (fun _ () -> ())
-          self () (EConstr.Unsafe.to_constr c))
+          substrec () c
   in
   let t' = substrec () c in
   (!pos, t')
