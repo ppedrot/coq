@@ -875,7 +875,7 @@ let normalise_vm_in_concl = reduct_in_concl (Redexpr.cbv_vm,VMcast)
 let unfold_in_concl loccname = reduct_in_concl (unfoldn loccname,REVERTcast)
 let unfold_in_hyp   loccname = reduct_in_hyp   (unfoldn loccname)
 let unfold_option   loccname = reduct_option (unfoldn loccname,DEFAULTcast)
-let pattern_option l = e_reduct_option (pattern_occs l,DEFAULTcast)
+let pattern_option l = e_reduct_option (pattern_occs (List.map (on_snd EConstr.of_constr) l),DEFAULTcast)
 
 (* The main reduction function *)
 

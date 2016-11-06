@@ -17,7 +17,7 @@ open Locus
 open Univ
 
 type reduction_tactic_error =
-    InvalidAbstraction of env * evar_map * constr * (env * Type_errors.type_error)
+    InvalidAbstraction of env * evar_map * EConstr.constr * (env * Type_errors.type_error)
 
 exception ReductionTacticError of reduction_tactic_error
 
@@ -58,10 +58,10 @@ val unfoldn :
   (occurrences * evaluable_global_reference) list ->  reduction_function
 
 (** Fold *)
-val fold_commands : constr list ->  reduction_function
+val fold_commands : EConstr.constr list ->  reduction_function
 
 (** Pattern *)
-val pattern_occs : (occurrences * constr) list -> e_reduction_function
+val pattern_occs : (occurrences * EConstr.constr) list -> e_reduction_function
 
 (** Rem: Lazy strategies are defined in Reduction *)
 

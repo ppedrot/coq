@@ -738,7 +738,7 @@ let  mkCaseEq a  : unit Proofview.tactic =
             let concl = Proofview.Goal.concl gl in
             let env = Proofview.Goal.env gl in
             (** FIXME: this looks really wrong. Does anybody really use this tactic? *)
-            let Sigma (c, _, _) = (Tacred.pattern_occs [Locus.OnlyOccurrences [1], a]).Reductionops.e_redfun env (Sigma.Unsafe.of_evar_map Evd.empty) (EConstr.of_constr concl) in
+            let Sigma (c, _, _) = (Tacred.pattern_occs [Locus.OnlyOccurrences [1], EConstr.of_constr a]).Reductionops.e_redfun env (Sigma.Unsafe.of_evar_map Evd.empty) (EConstr.of_constr concl) in
 	    change_concl c
           end };
 	  simplest_case a]
