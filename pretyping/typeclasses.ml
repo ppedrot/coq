@@ -144,11 +144,12 @@ let global_class_of_constr env sigma c =
   with Not_found -> not_a_class env c
 
 let dest_class_app env sigma c =
-  let cl, args = decompose_app c in
-    global_class_of_constr env sigma (EConstr.of_constr cl), args
+  let cl, args = EConstr.decompose_app sigma c in
+    global_class_of_constr env sigma cl, (List.map EConstr.Unsafe.to_constr args)
 
 let dest_class_arity env sigma c =
-  let rels, c = decompose_prod_assum c in
+  let open EConstr in
+  let rels, c = decompose_prod_assum sigma c in
     rels, dest_class_app env sigma c
 
 let class_of_constr sigma c =
@@ -221,7 +222,7 @@ let discharge_class (_,cl) =
   let discharge_context ctx' subst (grs, ctx) =
     let grs' =
       let newgrs = List.map (fun decl ->
-			     match decl |> RelDecl.get_type |> class_of_constr Evd.empty with
+			     match decl |> RelDecl.get_type |> EConstr.of_constr |> class_of_constr Evd.empty with
 			     | None -> None
 			     | Some (_, ((tc,_), _)) -> Some (tc.cl_impl, true))
 			    ctx'
@@ -269,7 +270,7 @@ let add_class cl =
 let check_instance env sigma c =
   try 
     let (evd, c) = resolve_one_typeclass env sigma
-      (Retyping.get_type_of env sigma c) in
+      (EConstr.of_constr (Retyping.get_type_of env sigma c)) in
       not (Evd.has_undefined evd)
   with e when CErrors.noncritical e -> false
 
@@ -281,9 +282,9 @@ let build_subclasses ~check env sigma glob pri =
         Nameops.add_suffix _id ("_subinstance_" ^ string_of_int !i))
   in
   let ty, ctx = Global.type_of_global_in_context env glob in
+  let ty = EConstr.of_constr ty in
   let sigma = Evd.merge_context_set Evd.univ_rigid sigma (Univ.ContextSet.of_context ctx) in
   let rec aux pri c ty path =
-    let ty = Evarutil.nf_evar sigma ty in
       match class_of_constr sigma ty with
       | None -> []
       | Some (rels, ((tc,u), args)) ->
@@ -312,7 +313,7 @@ let build_subclasses ~check env sigma glob pri =
 	let declare_proj hints (cref, pri, body) =
 	  let path' = cref :: path in
 	  let ty = Retyping.get_type_of env sigma (EConstr.of_constr body) in
-	  let rest = aux pri body ty path' in
+	  let rest = aux pri body (EConstr.of_constr ty) path' in
 	    hints @ (path', pri, body) :: rest
 	in List.fold_left declare_proj [] projs 
   in
@@ -405,7 +406,7 @@ let remove_instance i =
 
 let declare_instance pri local glob =
   let ty = Global.type_of_global_unsafe glob in
-    match class_of_constr Evd.empty ty with
+    match class_of_constr Evd.empty (EConstr.of_constr ty) with
     | Some (rels, ((tc,_), args) as _cl) ->
       add_instance (new_instance tc pri (not local) (Flags.use_polymorphic_flag ()) glob)
 (*       let path, hints = build_subclasses (not local) (Global.env ()) Evd.empty glob in *)
