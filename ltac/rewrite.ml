@@ -1926,7 +1926,7 @@ let build_morphism_signature env sigma m =
   let evd = solve_constraints env !evd in
   let evd = Evd.nf_constraints evd in
   let m = Evarutil.nf_evars_universes evd morph in
-  Pretyping.check_evars env Evd.empty evd m;
+  Pretyping.check_evars env Evd.empty evd (EConstr.of_constr m);
   Evd.evar_universe_context evd, m
 
 let default_morphism sign m =

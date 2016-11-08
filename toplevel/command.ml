@@ -618,10 +618,10 @@ let interp_mutual_inductive (paramsl,indl) notations poly prv finite =
   let ctx_params = Context.Rel.map nf ctx_params in
   let evd = !evdref in
   let pl, uctx = Evd.universe_context ?names:pl evd in
-  List.iter (check_evars env_params Evd.empty evd) arities;
-  Context.Rel.iter (check_evars env0 Evd.empty evd) ctx_params;
+  List.iter (fun c -> check_evars env_params Evd.empty evd (EConstr.of_constr c)) arities;
+  Context.Rel.iter (fun c -> check_evars env0 Evd.empty evd (EConstr.of_constr c)) ctx_params;
   List.iter (fun (_,ctyps,_) ->
-    List.iter (check_evars env_ar_params Evd.empty evd) ctyps)
+    List.iter (fun c -> check_evars env_ar_params Evd.empty evd (EConstr.of_constr c)) ctyps)
     constructors;
 
   (* Build the inductive entries *)

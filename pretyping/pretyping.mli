@@ -139,7 +139,7 @@ val check_evars_are_solved :
 
 (** [check_evars env initial_sigma extended_sigma c] fails if some
    new unresolved evar remains in [c] *)
-val check_evars : env -> evar_map -> evar_map -> constr -> unit
+val check_evars : env -> evar_map -> evar_map -> EConstr.constr -> unit
 
 (**/**)
 (** Internal of Pretyping... *)

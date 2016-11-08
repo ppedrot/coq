@@ -313,17 +313,15 @@ let check_extra_evars_are_solved env current_sigma pending =
 
 let check_evars env initial_sigma sigma c =
   let rec proc_rec c =
-    match kind_of_term c with
-    | Evar (evk,_ as ev) ->
-        (match existential_opt_value sigma ev with
-        | Some c -> proc_rec c
-        | None ->
-	  if not (Evd.mem initial_sigma evk) then
-            let (loc,k) = evar_source evk sigma in
-	      match k with
-	      | Evar_kinds.ImplicitArg (gr, (i, id), false) -> ()
-	      | _ -> Pretype_errors.error_unsolvable_implicit ~loc env sigma evk None)
-      | _ -> Constr.iter proc_rec c
+    match EConstr.kind sigma c with
+    | Evar (evk, _) ->
+      if not (Evd.mem initial_sigma evk) then
+        let (loc,k) = evar_source evk sigma in
+        begin match k with
+          | Evar_kinds.ImplicitArg (gr, (i, id), false) -> ()
+          | _ -> Pretype_errors.error_unsolvable_implicit ~loc env sigma evk None
+        end
+    | _ -> EConstr.iter sigma proc_rec c
   in proc_rec c
 
 let check_evars_are_solved env current_sigma frozen pending =
@@ -457,9 +455,6 @@ let pretype_id pretype k0 loc env evdref lvar id =
       with Not_found ->
 	  (* [id] not found, standard error message *)
 	  error_var_not_found ~loc id
-
-let evar_kind_of_term sigma c =
-  kind_of_term (whd_evar sigma c)
 
 (*************************************************************************)
 (* Main pretyping function                                               *)
@@ -748,15 +743,14 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
     in
     let resj = apply_rec env 1 fj candargs args in
     let resj =
-      match evar_kind_of_term !evdref resj.uj_val with
+      match EConstr.kind !evdref (EConstr.of_constr resj.uj_val) with
       | App (f,args) ->
-        let f = whd_evar !evdref f in
-          if is_template_polymorphic env.ExtraEnv.env !evdref (EConstr.of_constr f) then
+          let open EConstr in
+          if is_template_polymorphic env.ExtraEnv.env !evdref f then
 	    (* Special case for inductive type applications that must be 
 	       refreshed right away. *)
-	    let sigma = !evdref in
-	    let c = mkApp (f,Array.map (whd_evar sigma) args) in
-	    let c = evd_comb1 (Evarsolve.refresh_universes (Some true) env.ExtraEnv.env) evdref (EConstr.of_constr c) in
+	    let c = mkApp (f, args) in
+	    let c = evd_comb1 (Evarsolve.refresh_universes (Some true) env.ExtraEnv.env) evdref c in
 	    let t = Retyping.get_type_of env.ExtraEnv.env !evdref (EConstr.of_constr c) in
 	      make_judge c (* use this for keeping evars: resj.uj_val *) t
 	  else resj
