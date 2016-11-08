@@ -235,5 +235,5 @@ val meta_counter_summary_name : string
 
 (** Deprecater *)
 
-type type_constraint = types option
-type val_constraint = constr option
+type type_constraint = EConstr.types option
+type val_constraint = EConstr.constr option

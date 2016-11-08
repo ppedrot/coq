@@ -357,7 +357,7 @@ let allow_anonymous_refs = ref false
 let inh_conv_coerce_to_tycon resolve_tc loc env evdref j = function
   | None -> j
   | Some t ->
-      evd_comb2 (Coercion.inh_conv_coerce_to resolve_tc loc env.ExtraEnv.env) evdref j (EConstr.of_constr t)
+      evd_comb2 (Coercion.inh_conv_coerce_to resolve_tc loc env.ExtraEnv.env) evdref j t
 
 let check_instance loc subst = function
   | [] -> ()
@@ -565,7 +565,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
     let env = ltac_interp_name_env k0 lvar env in
     let ty =
       match tycon with
-      | Some ty -> ty
+      | Some ty -> EConstr.Unsafe.to_constr ty
       | None -> new_type_evar env evdref loc in
     let k = Evar_kinds.MatchingVar (someta,n) in
       { uj_val = e_new_evar env evdref ~src:(loc,k) ty; uj_type = ty }
@@ -574,7 +574,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
       let env = ltac_interp_name_env k0 lvar env in
       let ty =
         match tycon with
-        | Some ty -> ty
+        | Some ty -> EConstr.Unsafe.to_constr ty
         | None ->
           new_type_evar env evdref loc in
         { uj_val = e_new_evar env evdref ~src:(loc,k) ~naming ty; uj_type = ty }
@@ -583,7 +583,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
       let env = ltac_interp_name_env k0 lvar env in
       let ty =
         match tycon with
-        | Some ty -> ty
+        | Some ty -> EConstr.Unsafe.to_constr ty
         | None ->
           new_type_evar env evdref loc in
       let ist = lvar.ltac_genargs in
@@ -621,7 +621,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
  	let fixi = match fixkind with
 	  | GFix (vn,i) -> i
 	  | GCoFix i -> i
-	in e_conv env.ExtraEnv.env evdref (EConstr.of_constr ftys.(fixi)) (EConstr.of_constr t)
+	in e_conv env.ExtraEnv.env evdref (EConstr.of_constr ftys.(fixi)) t
       | None -> true
     in
       (* Note: bodies are not used by push_rec_types, so [||] is safe *)
@@ -695,7 +695,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
 	    if Int.equal npars 0 then []
 	    else
 	      try
-	  	let IndType (indf, args) = find_rectype env.ExtraEnv.env !evdref (EConstr.of_constr ty) in
+	  	let IndType (indf, args) = find_rectype env.ExtraEnv.env !evdref ty in
 	  	let ((ind',u'),pars) = dest_ind_family indf in
 	  	  if eq_ind ind ind' then pars
 	  	  else (* Let the usual code throw an error *) []
@@ -721,7 +721,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
         let resty = whd_all env.ExtraEnv.env !evdref (EConstr.of_constr resj.uj_type) in
       	  match kind_of_term resty with
 	  | Prod (na,c1,c2) ->
-	    let tycon = Some c1 in
+	    let tycon = Some (EConstr.of_constr c1) in
 	    let hj = pretype tycon env evdref lvar c in
 	    let candargs, ujval =
 	      match candargs with
@@ -764,8 +764,8 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
 	match tycon with
 	| None -> evd, tycon
 	| Some ty ->
-	  let evd, ty' = Coercion.inh_coerce_to_prod loc env.ExtraEnv.env evd (EConstr.of_constr ty) in
-	    evd, Some (EConstr.Unsafe.to_constr ty'))
+	  let evd, ty' = Coercion.inh_coerce_to_prod loc env.ExtraEnv.env evd ty in
+	    evd, Some ty')
       evdref tycon
     in
     let (name',dom,rng) = evd_comb1 (split_tycon loc env.ExtraEnv.env) evdref tycon' in
@@ -946,7 +946,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
 	    pred, typ
 	| None ->
 	  let p = match tycon with
-	    | Some ty -> ty
+	    | Some ty -> EConstr.Unsafe.to_constr ty
 	    | None ->
               let env = ltac_interp_name_env k0 lvar env in
               new_type_evar env evdref loc
@@ -1061,14 +1061,14 @@ and pretype_type k0 resolve_tc valcon (env : ExtraEnv.t) evdref lvar = function
        | Some v ->
            let s =
 	     let sigma =  !evdref in
-	     let t = Retyping.get_type_of env.ExtraEnv.env sigma (EConstr.of_constr v) in
+	     let t = Retyping.get_type_of env.ExtraEnv.env sigma v in
 	       match EConstr.kind sigma (EConstr.of_constr (whd_all env.ExtraEnv.env sigma (EConstr.of_constr t))) with
                | Sort s -> s
                | Evar ev when is_Type (existential_type sigma (fst ev, Array.map EConstr.Unsafe.to_constr (snd ev))) ->
 		   evd_comb1 (define_evar_as_sort env.ExtraEnv.env) evdref ev
                | _ -> anomaly (Pp.str "Found a type constraint which is not a type")
            in
-	     { utj_val = v;
+	     { utj_val = EConstr.Unsafe.to_constr v;
 	       utj_type = s }
        | None ->
            let env = ltac_interp_name_env k0 lvar env in
@@ -1082,10 +1082,10 @@ and pretype_type k0 resolve_tc valcon (env : ExtraEnv.t) evdref lvar = function
 	match valcon with
 	| None -> tj
 	| Some v ->
-	    if e_cumul env.ExtraEnv.env evdref (EConstr.of_constr v) (EConstr.of_constr tj.utj_val) then tj
+	    if e_cumul env.ExtraEnv.env evdref v (EConstr.of_constr tj.utj_val) then tj
 	    else
 	      error_unexpected_type
-                ~loc:(loc_of_glob_constr c) env.ExtraEnv.env !evdref tj.utj_val v
+                ~loc:(loc_of_glob_constr c) env.ExtraEnv.env !evdref tj.utj_val (EConstr.Unsafe.to_constr v)
 
 let ise_pretype_gen flags env sigma lvar kind c =
   let env = make_env env in

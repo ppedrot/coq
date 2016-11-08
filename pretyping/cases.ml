@@ -2469,7 +2469,6 @@ let compile_program_cases loc style (typing_function, evdref) tycon env
   (* constructors found in patterns *)
   let tomatchs = coerce_to_indtype typing_function evdref env matx tomatchl in
   let tycon = valcon_of_tycon tycon in
-  let tycon = Option.map EConstr.of_constr tycon in
   let tomatchs, tomatchs_lets, tycon' = abstract_tomatch env !evdref tomatchs tycon in
   let env = push_rel_context tomatchs_lets env in
   let len = List.length eqns in
@@ -2583,7 +2582,6 @@ let compile_cases loc style (typing_fun, evdref) tycon env (predopt, tomatchl, e
      with the type of arguments to match; if none is provided, we
      build alternative possible predicates *)
   let arsign = extract_arity_signature env tomatchs tomatchl in
-  let tycon = Option.map EConstr.of_constr tycon in
   let preds = prepare_predicate loc typing_fun env !evdref tomatchs arsign tycon predopt in
 
   let compile_for_one_predicate (sigma,nal,pred) =
