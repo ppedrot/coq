@@ -80,7 +80,8 @@ let define_pure_evar_as_product evd evk =
   let evenv = evar_env evi in
   let id = next_ident_away idx (ids_of_named_context (evar_context evi)) in
   let concl = Reductionops.whd_all evenv evd (EConstr.of_constr evi.evar_concl) in
-  let s = destSort evd (EConstr.of_constr concl) in
+  let concl = EConstr.of_constr concl in
+  let s = destSort evd concl in
   let evd1,(dom,u1) =
     let evd = Sigma.Unsafe.of_evar_map evd in
     let Sigma (e, evd1, _) = new_type_evar evenv evd univ_flexible_alg ~filter:(evar_filter evi) in
@@ -146,7 +147,7 @@ let define_pure_evar_as_lambda env evd evk =
   let newenv = push_named (LocalAssum (id, dom)) evenv in
   let filter = Filter.extend 1 (evar_filter evi) in
   let src = evar_source evk evd1 in
-  let evd2,body = new_evar_unsafe newenv evd1 ~src (EConstr.Unsafe.to_constr (Vars.subst1 (mkVar id) rng)) ~filter in
+  let evd2,body = new_evar_unsafe newenv evd1 ~src (Vars.subst1 (mkVar id) rng) ~filter in
   let lam = mkLambda (Name id, EConstr.of_constr dom, Vars.subst_var id (EConstr.of_constr body)) in
   Evd.define evk (EConstr.Unsafe.to_constr lam) evd2, lam
 

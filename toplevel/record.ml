@@ -364,13 +364,13 @@ let structure_signature ctx =
       | [decl] ->
         let env = Environ.empty_named_context_val in
         let evm = Sigma.Unsafe.of_evar_map evm in
-        let Sigma (_, evm, _) = Evarutil.new_pure_evar env evm (RelDecl.get_type decl) in
+        let Sigma (_, evm, _) = Evarutil.new_pure_evar env evm (EConstr.of_constr (RelDecl.get_type decl)) in
         let evm = Sigma.to_evar_map evm in
         evm
       | decl::tl ->
           let env = Environ.empty_named_context_val in
           let evm = Sigma.Unsafe.of_evar_map evm in
-          let Sigma (ev, evm, _) = Evarutil.new_pure_evar env evm (RelDecl.get_type decl) in
+          let Sigma (ev, evm, _) = Evarutil.new_pure_evar env evm (EConstr.of_constr (RelDecl.get_type decl)) in
           let evm = Sigma.to_evar_map evm in
 	  let new_tl = Util.List.map_i
 	    (fun pos decl ->

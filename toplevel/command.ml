@@ -1031,7 +1031,7 @@ let build_wellfounded (recname,pl,n,bl,arityc,body) poly r measure notation =
     mkApp (Universes.constr_of_global (delayed_force fix_sub_ref),
 	  [| argtyp ; wf_rel ;
 	     Evarutil.e_new_evar env evdref
-	       ~src:(Loc.ghost, Evar_kinds.QuestionMark (Evar_kinds.Define false)) wf_proof;
+	       ~src:(Loc.ghost, Evar_kinds.QuestionMark (Evar_kinds.Define false)) (EConstr.of_constr wf_proof);
 	     prop |])
   in
   let def = Typing.e_solve_evars env evdref (EConstr.of_constr def) in
