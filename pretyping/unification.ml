@@ -55,23 +55,20 @@ let _ = Goptions.declare_bool_option {
 }
 
 let occur_meta_or_undefined_evar evd c =
-  let rec occrec c = match kind_of_term c with
+  let rec occrec c = match EConstr.kind evd c with
     | Meta _ -> raise Occur
-    | Evar (ev,args) ->
-        (match evar_body (Evd.find evd ev) with
-        | Evar_defined c ->
-            occrec c; Array.iter occrec args
-        | Evar_empty -> raise Occur)
-    | _ -> Constr.iter occrec c
+    | Evar _ -> raise Occur
+    | _ -> EConstr.iter evd occrec c
   in try occrec c; false with Occur | Not_found -> true
 
 let occur_meta_evd sigma mv c =
   let rec occrec c =
     (* Note: evars are not instantiated by terms with metas *)
-    let c = whd_evar sigma (whd_meta sigma (EConstr.of_constr c)) in
-    match kind_of_term c with
+    let c = whd_meta sigma c in
+    let c = EConstr.of_constr c in
+    match EConstr.kind sigma c with
     | Meta mv' when Int.equal mv mv' -> raise Occur
-    | _ -> Constr.iter occrec c
+    | _ -> EConstr.iter sigma occrec c
   in try occrec c; false with Occur -> true
 
 (* if lname_typ is [xn,An;..;x1,A1] and l is a list of terms,
@@ -1068,7 +1065,7 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst) conv_at_top env cv_pb 
   try
   let res = 
     if subterm_restriction opt flags ||
-      occur_meta_or_undefined_evar sigma m || occur_meta_or_undefined_evar sigma n
+      occur_meta_or_undefined_evar sigma (EConstr.of_constr m) || occur_meta_or_undefined_evar sigma (EConstr.of_constr n)
     then
       None
     else 
@@ -1352,7 +1349,7 @@ let w_merge env with_types flags (evd,metas,evars) =
               w_merge_rec evd' (metas'@metas@metas'') (evars'@evars'') eqns
     	  else
             let evd' =
-              if occur_meta_evd evd mv c then
+              if occur_meta_evd evd mv (EConstr.of_constr c) then
                 if isMetaOf mv (whd_all env evd (EConstr.of_constr c)) then evd
                 else error_cannot_unify env evd (mkMeta mv,c)
               else
