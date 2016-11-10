@@ -1245,37 +1245,40 @@ let applyHead env (type r) (evd : r Sigma.t) n c =
   in
     apprec n c (EConstr.of_constr (Typing.unsafe_type_of env (Sigma.to_evar_map evd) c)) Sigma.refl evd
 
-let is_mimick_head ts f =
-  match kind_of_term f with
+let is_mimick_head sigma ts f =
+  match EConstr.kind sigma f with
   | Const (c,u) -> not (CClosure.is_transparent_constant ts c)
   | Var id -> not (CClosure.is_transparent_variable ts id)
   | (Rel _|Construct _|Ind _) -> true
   | _ -> false
+
+let make_judge c t =
+  make_judge (EConstr.Unsafe.to_constr c) (EConstr.Unsafe.to_constr t)
 
 let try_to_coerce env evd c cty tycon =
   let j = make_judge c cty in
   let (evd',j') = inh_conv_coerce_rigid_to true Loc.ghost env evd j tycon in
   let evd' = Evarconv.consider_remaining_unif_problems env evd' in
   let evd' = Evd.map_metas_fvalue (nf_evar evd') evd' in
-    (evd',j'.uj_val)
+    (evd',EConstr.of_constr j'.uj_val)
 
 let w_coerce_to_type env evd c cty mvty =
-  let evd,tycon = pose_all_metas_as_evars env evd (EConstr.of_constr mvty) in
+  let evd,tycon = pose_all_metas_as_evars env evd mvty in
     try try_to_coerce env evd c cty tycon
     with e when precatchable_exception e ->
     (* inh_conv_coerce_rigid_to should have reasoned modulo reduction
        but there are cases where it though it was not rigid (like in
        fst (nat,nat)) and stops while it could have seen that it is rigid *)
-    let cty = Tacred.hnf_constr env evd (EConstr.of_constr cty) in
-      try_to_coerce env evd c cty tycon
+    let cty = Tacred.hnf_constr env evd cty in
+      try_to_coerce env evd c (EConstr.of_constr cty) tycon
 	  
 let w_coerce env evd mv c =
-  let cty = get_type_of env evd (EConstr.of_constr c) in
+  let cty = get_type_of env evd c in
   let mvty = Typing.meta_type evd mv in
-  w_coerce_to_type env evd c cty mvty
+  w_coerce_to_type env evd c (EConstr.of_constr cty) (EConstr.of_constr mvty)
 
 let unify_to_type env sigma flags c status u =
-  let sigma, c = refresh_universes (Some false) env sigma (EConstr.of_constr c) in
+  let sigma, c = refresh_universes (Some false) env sigma c in
   let t = get_type_of env sigma (EConstr.of_constr (nf_meta sigma c)) in
   let t = nf_betaiota sigma (EConstr.of_constr (nf_meta sigma t)) in
     unify_0 env sigma CUMUL flags (EConstr.of_constr t) (EConstr.of_constr u)
@@ -1313,26 +1316,26 @@ let solve_simple_evar_eqn ts env evd ev rhs =
    is true, unification of types of metas is required *)
 
 let w_merge env with_types flags (evd,metas,evars : subst0) =
+  let open EConstr in
+  let open Vars in
   let rec w_merge_rec evd metas evars eqns =
 
     (* Process evars *)
     match evars with
     | (curenv,(evk,_ as ev),rhs)::evars' ->
-        let rhs = EConstr.Unsafe.to_constr rhs in
-        let ev = (fst ev, Array.map EConstr.Unsafe.to_constr (snd ev)) in
 	if Evd.is_defined evd evk then
-	  let v = Evd.existential_value evd ev in
+	  let v = mkEvar ev in
 	  let (evd,metas',evars'') =
-	    unify_0 curenv evd CONV flags (EConstr.of_constr rhs) (EConstr.of_constr v) in
+	    unify_0 curenv evd CONV flags rhs v in
 	  w_merge_rec evd (metas'@metas) (evars''@evars') eqns
     	else begin
 	  (* This can make rhs' ill-typed if metas are *)
-          let rhs' = subst_meta_instances evd metas (EConstr.of_constr rhs) in
-          match kind_of_term rhs with
+          let rhs' = subst_meta_instances evd metas rhs in
+          match EConstr.kind evd rhs with
 	  | App (f,cl) when occur_meta evd rhs' ->
 	      if occur_evar evd evk rhs' then
                 error_occur_check curenv evd evk rhs';
-	      if is_mimick_head flags.modulo_delta f then
+	      if is_mimick_head evd flags.modulo_delta f then
 		let evd' =
 		  mimick_undefined_evar evd flags f (Array.length cl) evk in
 		(* let evd' = Evarconv.consider_remaining_unif_problems env evd' in *)
@@ -1340,15 +1343,15 @@ let w_merge env with_types flags (evd,metas,evars : subst0) =
 	      else
 		let evd' = 
 		  let evd', rhs'' = pose_all_metas_as_evars curenv evd rhs' in
-		    try solve_simple_evar_eqn flags.modulo_delta_types curenv evd' (fst ev, Array.map EConstr.of_constr (snd ev)) rhs''
+		    try solve_simple_evar_eqn flags.modulo_delta_types curenv evd' ev rhs''
 		    with Retyping.RetypeError _ ->
-		      error_cannot_unify curenv evd' (EConstr.of_constr (mkEvar ev),rhs'')
+		      error_cannot_unify curenv evd' (mkEvar ev,rhs'')
 		in w_merge_rec evd' metas evars' eqns
           | _ ->
 	      let evd', rhs'' = pose_all_metas_as_evars curenv evd rhs' in
 	      let evd' = 
-		try solve_simple_evar_eqn flags.modulo_delta_types curenv evd' (fst ev, Array.map EConstr.of_constr (snd ev)) rhs''
-		with Retyping.RetypeError _ -> error_cannot_unify curenv evd' (EConstr.of_constr (mkEvar ev), rhs'')
+		try solve_simple_evar_eqn flags.modulo_delta_types curenv evd' ev rhs''
+		with Retyping.RetypeError _ -> error_cannot_unify curenv evd' (mkEvar ev, rhs'')
 	      in
 		w_merge_rec evd' metas evars' eqns
 	end
@@ -1357,7 +1360,6 @@ let w_merge env with_types flags (evd,metas,evars : subst0) =
     (* Process metas *)
     match metas with
     | (mv,c,(status,to_type))::metas ->
-        let c = EConstr.Unsafe.to_constr c in
         let ((evd,c),(metas'',evars'')),eqns =
 	  if with_types && to_type != TypeProcessed then
 	    begin match to_type with
@@ -1374,19 +1376,18 @@ let w_merge env with_types flags (evd,metas,evars : subst0) =
 	  if meta_defined evd mv then
 	    let {rebus=c'},(status',_) = meta_fvalue evd mv in
             let (take_left,st,(evd,metas',evars')) =
-	      merge_instances env evd flags status' status (EConstr.of_constr c') (EConstr.of_constr c)
+	      merge_instances env evd flags status' status (EConstr.of_constr c') c
 	    in
 	    let evd' =
               if take_left then evd
-              else meta_reassign mv (c,(st,TypeProcessed)) evd
+              else meta_reassign mv (EConstr.Unsafe.to_constr c,(st,TypeProcessed)) evd
 	    in
               w_merge_rec evd' (metas'@metas@metas'') (evars'@evars'') eqns
     	  else
             let evd' =
-              let c = EConstr.of_constr c in
               if occur_meta_evd evd mv c then
                 if isMetaOf mv (whd_all env evd c) then evd
-                else error_cannot_unify env evd (EConstr.of_constr (mkMeta mv),c)
+                else error_cannot_unify env evd (mkMeta mv,c)
               else
 	        meta_assign mv (EConstr.Unsafe.to_constr c,(status,TypeProcessed)) evd in
 	    w_merge_rec evd' (metas''@metas) evars'' eqns
@@ -1410,7 +1411,7 @@ let w_merge env with_types flags (evd,metas,evars : subst0) =
     let ev = Evd.find_undefined evd sp in
     let sp_env = Global.env_of_context ev.evar_hyps in
     let evd = Sigma.Unsafe.of_evar_map evd in
-    let Sigma (c, evd', _) = applyHead sp_env evd nargs (EConstr.of_constr hdc) in
+    let Sigma (c, evd', _) = applyHead sp_env evd nargs hdc in
     let evd' = Sigma.to_evar_map evd' in
     let (evd'',mc,ec) =
       unify_0 sp_env evd' CUMUL flags
@@ -1424,7 +1425,7 @@ let w_merge env with_types flags (evd,metas,evars : subst0) =
     let metas = Evd.meta_list evd in
     let eqns = List.fold_left (fun acc (mv, b) ->
       match b with
-      | Clval (n, (t, (c, TypeNotProcessed)), v) -> (mv, c, t.rebus) :: acc
+      | Clval (n, (t, (c, TypeNotProcessed)), v) -> (mv, c, EConstr.of_constr t.rebus) :: acc
       | _ -> acc) [] metas
     in w_merge_rec evd [] [] eqns
   in

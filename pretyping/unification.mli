@@ -61,8 +61,8 @@ val w_unify_meta_types : env -> ?flags:unify_flags -> evar_map -> evar_map
 
 (** [w_coerce_to_type env evd c ctyp typ] tries to coerce [c] of type
    [ctyp] so that its gets type [typ]; [typ] may contain metavariables *)
-val w_coerce_to_type : env -> evar_map -> constr -> types -> types ->
-  evar_map * constr
+val w_coerce_to_type : env -> evar_map -> EConstr.constr -> EConstr.types -> EConstr.types ->
+  evar_map * EConstr.constr
 
 (* Looking for subterms in contexts at some occurrences, possibly with pattern*)
 

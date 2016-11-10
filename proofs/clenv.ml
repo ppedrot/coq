@@ -482,13 +482,15 @@ let error_already_defined b =
           (str "Position " ++ int n ++ str" already defined.")
 
 let clenv_unify_binding_type clenv c t u =
-  if isMeta (fst (decompose_appvect (whd_nored clenv.evd (EConstr.of_constr u)))) then
+  let u = EConstr.of_constr u in
+  if isMeta (fst (decompose_appvect (whd_nored clenv.evd u))) then
     (* Not enough information to know if some subtyping is needed *)
     CoerceToType, clenv, c
   else
     (* Enough information so as to try a coercion now *)
     try
-      let evd,c = w_coerce_to_type (cl_env clenv) clenv.evd c t u in
+      let evd,c = w_coerce_to_type (cl_env clenv) clenv.evd (EConstr.of_constr c) (EConstr.of_constr t) u in
+      let c = EConstr.Unsafe.to_constr c in
       TypeProcessed, { clenv with evd = evd }, c
     with 
       | PretypeError (_,_,ActualTypeNotCoercible (_,_,
