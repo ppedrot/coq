@@ -110,8 +110,8 @@ val unify_0 :            Environ.env ->
            Evd.evar_map ->
            Evd.conv_pb ->
            core_unify_flags ->
-           Term.types ->
-           Term.types ->
+           EConstr.types ->
+           EConstr.types ->
            subst0
 
 val unify_0_with_initial_metas : 
@@ -120,6 +120,6 @@ val unify_0_with_initial_metas :
            Environ.env ->
            Evd.conv_pb ->
            core_unify_flags ->
-           Term.types ->
-           Term.types ->
+           EConstr.types ->
+           EConstr.types ->
            subst0

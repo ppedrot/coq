@@ -272,7 +272,7 @@ let explain_ill_formed_branch env sigma c ci actty expty =
 let explain_generalization env sigma (name,var) j =
   let pe = pr_ne_context_of (str "In environment") env sigma in
   let pv = pr_ltype_env env sigma var in
-  let (pc,pt) = pr_ljudge_env (push_rel_assum (name,var) env) sigma j in
+  let (pc,pt) = pr_ljudge_env (push_rel_assum (name,EConstr.of_constr var) env) sigma j in
   pe ++ str "Cannot generalize" ++ brk(1,1) ++ pv ++ spc () ++
   str "over" ++ brk(1,1) ++ pc ++ str "," ++ spc () ++
   str "it has type" ++ spc () ++ pt ++
