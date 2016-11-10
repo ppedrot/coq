@@ -637,6 +637,9 @@ let explain_cannot_unify env sigma m n e =
   str "with" ++ brk(1,1) ++ pn ++ ppreason ++ str "."
 
 let explain_cannot_unify_local env sigma m n subn =
+  let m = EConstr.to_constr sigma m in
+  let n = EConstr.to_constr sigma n in
+  let subn = EConstr.to_constr sigma subn in
   let pm = pr_lconstr_env env sigma m in
   let pn = pr_lconstr_env env sigma n in
   let psubn = pr_lconstr_env env sigma subn in

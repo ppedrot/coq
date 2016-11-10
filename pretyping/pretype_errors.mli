@@ -41,7 +41,7 @@ type pretype_error =
   | UnifOccurCheck of existential_key * EConstr.constr
   | UnsolvableImplicit of existential_key * Evd.unsolvability_explanation option
   | CannotUnify of constr * constr * unification_error option
-  | CannotUnifyLocal of constr * constr * constr
+  | CannotUnifyLocal of EConstr.constr * EConstr.constr * EConstr.constr
   | CannotUnifyBindingType of constr * constr
   | CannotGeneralize of constr
   | NoOccurrenceFound of constr * Id.t option
@@ -107,7 +107,7 @@ val error_unsolvable_implicit :
 val error_cannot_unify : ?loc:Loc.t -> env -> Evd.evar_map ->
   ?reason:unification_error -> constr * constr -> 'b
 
-val error_cannot_unify_local : env -> Evd.evar_map -> constr * constr * constr -> 'b
+val error_cannot_unify_local : env -> Evd.evar_map -> EConstr.constr * EConstr.constr * EConstr.constr -> 'b
 
 val error_cannot_find_well_typed_abstraction : env -> Evd.evar_map ->
       EConstr.constr -> EConstr.constr list -> (env * type_error) option -> 'b
