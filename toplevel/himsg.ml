@@ -749,7 +749,13 @@ let explain_cannot_unify_occurrences env sigma nested ((cl2,pos2),t2) ((cl1,pos1
     str "Found nested occurrences of the pattern at positions " ++
     int pos1 ++ strbrk " and " ++ pr_position (cl2,pos2) ++ str "."
   else
-    let ppreason = match e with None -> mt() | Some (c1,c2,e) -> explain_unification_error env sigma c1 c2 (Some e) in
+    let ppreason = match e with
+    | None -> mt()
+    | Some (c1,c2,e) ->
+      let c1 = EConstr.to_constr sigma c1 in
+      let c2 = EConstr.to_constr sigma c2 in
+      explain_unification_error env sigma c1 c2 (Some e)
+    in
     str "Found incompatible occurrences of the pattern" ++ str ":" ++
     spc () ++ str "Matched term " ++ pr_lconstr_env env sigma (EConstr.to_constr sigma t2) ++
     strbrk " at position " ++ pr_position (cl2,pos2) ++
@@ -826,6 +832,8 @@ let explain_pretype_error env sigma err =
     explain_unexpected_type env sigma actual expect
   | NotProduct c -> explain_not_product env sigma c
   | CannotUnify (m,n,e) ->
+    let m = EConstr.Unsafe.to_constr m in
+    let n = EConstr.Unsafe.to_constr n in
     let env, m, n = contract2 env m n in
     explain_cannot_unify env sigma m n e
   | CannotUnifyLocal (m,n,sn) -> explain_cannot_unify_local env sigma m n sn

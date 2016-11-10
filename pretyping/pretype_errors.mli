@@ -30,7 +30,7 @@ type position = (Id.t * Locus.hyp_location_flag) option
 
 type position_reporting = (position * int) * EConstr.t
 
-type subterm_unification_error = bool * position_reporting * position_reporting * (constr * constr * unification_error) option
+type subterm_unification_error = bool * position_reporting * position_reporting * (EConstr.constr * EConstr.constr * unification_error) option
 
 type pretype_error =
   (** Old Case *)
@@ -40,7 +40,7 @@ type pretype_error =
   (** Tactic Unification *)
   | UnifOccurCheck of existential_key * EConstr.constr
   | UnsolvableImplicit of existential_key * Evd.unsolvability_explanation option
-  | CannotUnify of constr * constr * unification_error option
+  | CannotUnify of EConstr.constr * EConstr.constr * unification_error option
   | CannotUnifyLocal of EConstr.constr * EConstr.constr * EConstr.constr
   | CannotUnifyBindingType of constr * constr
   | CannotGeneralize of constr
@@ -94,7 +94,7 @@ val error_ill_typed_rec_body :
 val error_not_a_type :
   ?loc:Loc.t -> env -> Evd.evar_map -> unsafe_judgment -> 'b
 
-val error_cannot_coerce : env -> Evd.evar_map -> constr * constr -> 'b
+val error_cannot_coerce : env -> Evd.evar_map -> EConstr.constr * EConstr.constr -> 'b
 
 (** {6 Implicit arguments synthesis errors } *)
 
@@ -105,7 +105,7 @@ val error_unsolvable_implicit :
       Evd.unsolvability_explanation option -> 'b
 
 val error_cannot_unify : ?loc:Loc.t -> env -> Evd.evar_map ->
-  ?reason:unification_error -> constr * constr -> 'b
+  ?reason:unification_error -> EConstr.constr * EConstr.constr -> 'b
 
 val error_cannot_unify_local : env -> Evd.evar_map -> EConstr.constr * EConstr.constr * EConstr.constr -> 'b
 

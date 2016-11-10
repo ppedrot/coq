@@ -625,7 +625,7 @@ let check_compatibility env pbty flags (sigma,metasubst,evarsubst : subst0) tyM 
     if is_ground_term sigma m && is_ground_term sigma n then
       let sigma, b = infer_conv ~pb:pbty ~ts:flags.modulo_delta_types env sigma m n in
 	if b then sigma
-	else error_cannot_unify env sigma (EConstr.Unsafe.to_constr m,EConstr.Unsafe.to_constr n)
+	else error_cannot_unify env sigma (m,n)
     else sigma
 
 
@@ -680,11 +680,6 @@ let print_constr_env env c =
 let rec unify_0_with_initial_metas (sigma,ms,es as subst : subst0) conv_at_top env cv_pb flags m n =
   let open EConstr in
   let open Vars in
-  let error_cannot_unify curenv sigma (m, n) =
-    let m = EConstr.Unsafe.to_constr m in
-    let n = EConstr.Unsafe.to_constr n in
-    error_cannot_unify curenv sigma (m, n)
-  in
   let rec unirec_rec (curenv,nb as curenvnb) pb opt ((sigma,metasubst,evarsubst) as substn : subst0) curm curn =
     let cM = Evarutil.whd_head_evar sigma curm
     and cN = Evarutil.whd_head_evar sigma curn in
@@ -1233,18 +1228,22 @@ let merge_instances env sigma flags st1 st2 c1 c2 =
  * since other metavars might also need to be resolved. *)
 
 let applyHead env (type r) (evd : r Sigma.t) n c =
+  let open EConstr in
+  let open Vars in
   let rec apprec : type s. _ -> _ -> _ -> (r, s) Sigma.le -> s Sigma.t -> (constr, r) Sigma.sigma =
     fun n c cty p evd ->
     if Int.equal n 0 then
       Sigma (c, evd, p)
     else
-      match kind_of_term (whd_all env (Sigma.to_evar_map evd) (EConstr.of_constr cty)) with
+      let sigma = Sigma.to_evar_map evd in
+      match EConstr.kind sigma (EConstr.of_constr (whd_all env sigma cty)) with
       | Prod (_,c1,c2) ->
-        let Sigma (evar, evd', q) = Evarutil.new_evar env evd ~src:(Loc.ghost,Evar_kinds.GoalEvar) (EConstr.of_constr c1) in
+        let Sigma (evar, evd', q) = Evarutil.new_evar env evd ~src:(Loc.ghost,Evar_kinds.GoalEvar) c1 in
+        let evar = EConstr.of_constr evar in
 	  apprec (n-1) (mkApp(c,[|evar|])) (subst1 evar c2) (p +> q) evd'
       | _ -> error "Apply_Head_Then"
   in
-    apprec n c (Typing.unsafe_type_of env (Sigma.to_evar_map evd) (EConstr.of_constr c)) Sigma.refl evd
+    apprec n c (EConstr.of_constr (Typing.unsafe_type_of env (Sigma.to_evar_map evd) c)) Sigma.refl evd
 
 let is_mimick_head ts f =
   match kind_of_term f with
@@ -1302,9 +1301,10 @@ let order_metas metas =
 (* Solve an equation ?n[x1=u1..xn=un] = t where ?n is an evar *)
 
 let solve_simple_evar_eqn ts env evd ev rhs =
+  let open EConstr in
   match solve_simple_eqn (Evarconv.evar_conv_x ts) env evd (None,ev,rhs) with
   | UnifFailure (evd,reason) ->
-      error_cannot_unify env evd ~reason (EConstr.Unsafe.to_constr (EConstr.mkEvar ev),EConstr.Unsafe.to_constr rhs);
+      error_cannot_unify env evd ~reason (mkEvar ev,rhs);
   | Success evd ->
       Evarconv.consider_remaining_unif_problems env evd
 
@@ -1342,13 +1342,13 @@ let w_merge env with_types flags (evd,metas,evars : subst0) =
 		  let evd', rhs'' = pose_all_metas_as_evars curenv evd rhs' in
 		    try solve_simple_evar_eqn flags.modulo_delta_types curenv evd' (fst ev, Array.map EConstr.of_constr (snd ev)) rhs''
 		    with Retyping.RetypeError _ ->
-		      error_cannot_unify curenv evd' (mkEvar ev,EConstr.Unsafe.to_constr rhs'')
+		      error_cannot_unify curenv evd' (EConstr.of_constr (mkEvar ev),rhs'')
 		in w_merge_rec evd' metas evars' eqns
           | _ ->
 	      let evd', rhs'' = pose_all_metas_as_evars curenv evd rhs' in
 	      let evd' = 
 		try solve_simple_evar_eqn flags.modulo_delta_types curenv evd' (fst ev, Array.map EConstr.of_constr (snd ev)) rhs''
-		with Retyping.RetypeError _ -> error_cannot_unify curenv evd' (mkEvar ev, EConstr.Unsafe.to_constr rhs'')
+		with Retyping.RetypeError _ -> error_cannot_unify curenv evd' (EConstr.of_constr (mkEvar ev), rhs'')
 	      in
 		w_merge_rec evd' metas evars' eqns
 	end
@@ -1383,11 +1383,12 @@ let w_merge env with_types flags (evd,metas,evars : subst0) =
               w_merge_rec evd' (metas'@metas@metas'') (evars'@evars'') eqns
     	  else
             let evd' =
-              if occur_meta_evd evd mv (EConstr.of_constr c) then
-                if isMetaOf mv (whd_all env evd (EConstr.of_constr c)) then evd
-                else error_cannot_unify env evd (mkMeta mv,c)
+              let c = EConstr.of_constr c in
+              if occur_meta_evd evd mv c then
+                if isMetaOf mv (whd_all env evd c) then evd
+                else error_cannot_unify env evd (EConstr.of_constr (mkMeta mv),c)
               else
-	        meta_assign mv (c,(status,TypeProcessed)) evd in
+	        meta_assign mv (EConstr.Unsafe.to_constr c,(status,TypeProcessed)) evd in
 	    w_merge_rec evd' (metas''@metas) evars'' eqns
     | [] ->
 	(* Process type eqns *)
@@ -1409,15 +1410,15 @@ let w_merge env with_types flags (evd,metas,evars : subst0) =
     let ev = Evd.find_undefined evd sp in
     let sp_env = Global.env_of_context ev.evar_hyps in
     let evd = Sigma.Unsafe.of_evar_map evd in
-    let Sigma (c, evd', _) = applyHead sp_env evd nargs hdc in
+    let Sigma (c, evd', _) = applyHead sp_env evd nargs (EConstr.of_constr hdc) in
     let evd' = Sigma.to_evar_map evd' in
     let (evd'',mc,ec) =
       unify_0 sp_env evd' CUMUL flags
-        (EConstr.of_constr (get_type_of sp_env evd' (EConstr.of_constr c))) (EConstr.of_constr ev.evar_concl) in
+        (EConstr.of_constr (get_type_of sp_env evd' c)) (EConstr.of_constr ev.evar_concl) in
     let evd''' = w_merge_rec evd'' mc ec [] in
     if evd' == evd'''
-    then Evd.define sp c evd'''
-    else Evd.define sp (Evarutil.nf_evar evd''' c) evd''' in
+    then Evd.define sp (EConstr.Unsafe.to_constr c) evd'''
+    else Evd.define sp (Evarutil.nf_evar evd''' (EConstr.Unsafe.to_constr c)) evd''' in
 
   let check_types evd = 
     let metas = Evd.meta_list evd in
