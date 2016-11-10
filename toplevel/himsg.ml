@@ -652,6 +652,7 @@ let explain_refiner_cannot_generalize env sigma ty =
   pr_lconstr_env env sigma ty ++ str "."
 
 let explain_no_occurrence_found env sigma c id =
+  let c = EConstr.to_constr sigma c in
   str "Found no subterm matching " ++ pr_lconstr_env env sigma c ++
   str " in " ++
     (match id with
@@ -688,6 +689,7 @@ let explain_abstraction_over_meta _ m n =
   pr_name m ++ spc () ++ str "and " ++ pr_name n ++ str "."
 
 let explain_non_linear_unification env sigma m t =
+  let t = EConstr.to_constr sigma t in
   strbrk "Cannot unambiguously instantiate " ++
   pr_name m ++ str ":" ++
   strbrk " which would require to abstract twice on " ++

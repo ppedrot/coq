@@ -46,16 +46,16 @@ val is_keyed_unification : unit -> bool
 
 (** The "unique" unification fonction *)
 val w_unify :
-  env -> evar_map -> conv_pb -> ?flags:unify_flags -> constr -> constr -> evar_map
+  env -> evar_map -> conv_pb -> ?flags:unify_flags -> EConstr.constr -> EConstr.constr -> evar_map
 
 (** [w_unify_to_subterm env m (c,t)] performs unification of [c] with a
    subterm of [t]. Constraints are added to [m] and the matched
    subterm of [t] is also returned. *)
 val w_unify_to_subterm :
-  env -> evar_map -> ?flags:unify_flags -> constr * constr -> evar_map * constr
+  env -> evar_map -> ?flags:unify_flags -> EConstr.constr * EConstr.constr -> evar_map * EConstr.constr
 
 val w_unify_to_subterm_all :
-  env -> evar_map -> ?flags:unify_flags -> constr * constr -> (evar_map * constr) list
+  env -> evar_map -> ?flags:unify_flags -> EConstr.constr * EConstr.constr -> (evar_map * EConstr.constr) list
 
 val w_unify_meta_types : env -> ?flags:unify_flags -> evar_map -> evar_map
 
@@ -70,17 +70,19 @@ exception PatternNotFound
 
 type prefix_of_inductive_support_flag = bool
 
+type pending_constr = Evd.pending * EConstr.constr
+
 type abstraction_request =
-| AbstractPattern of prefix_of_inductive_support_flag * (types -> bool) * Names.Name.t * pending_constr * Locus.clause * bool
-| AbstractExact of Names.Name.t * constr * types option * Locus.clause * bool
+| AbstractPattern of prefix_of_inductive_support_flag * (EConstr.types -> bool) * Names.Name.t * pending_constr * Locus.clause * bool
+| AbstractExact of Names.Name.t * EConstr.constr * EConstr.types option * Locus.clause * bool
 
 val finish_evar_resolution : ?flags:Pretyping.inference_flags ->
-  env -> 'r Sigma.t -> pending_constr -> (constr, 'r) Sigma.sigma
+  env -> 'r Sigma.t -> pending_constr -> (EConstr.constr, 'r) Sigma.sigma
 
 type 'r abstraction_result =
   Names.Id.t * named_context_val *
     Context.Named.Declaration.t list * Names.Id.t option *
-    types * (constr, 'r) Sigma.sigma option
+    types * (EConstr.constr, 'r) Sigma.sigma option
 
 val make_abstraction : env -> 'r Sigma.t -> constr ->
   abstraction_request -> 'r abstraction_result

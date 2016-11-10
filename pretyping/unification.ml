@@ -1457,19 +1457,23 @@ let w_unify_meta_types env ?(flags=default_unify_flags ()) evd =
    types of metavars are unifiable with the types of their instances    *)
 
 let head_app sigma m =
-  EConstr.Unsafe.to_constr (fst (whd_nored_state sigma (EConstr.of_constr m, Stack.empty)))
+  fst (whd_nored_state sigma (m, Stack.empty))
+
+let isEvar_or_Meta sigma c = match EConstr.kind sigma c with
+| Evar _ | Meta _ -> true
+| _ -> false
 
 let check_types env flags (sigma,_,_ as subst) m n =
-  if isEvar_or_Meta (head_app sigma m) then
+  if isEvar_or_Meta sigma (head_app sigma m) then
     unify_0_with_initial_metas subst true env CUMUL
       flags
-      (EConstr.of_constr (get_type_of env sigma (EConstr.of_constr n)))
-      (EConstr.of_constr (get_type_of env sigma (EConstr.of_constr m)))
-  else if isEvar_or_Meta (head_app sigma n) then
+      (EConstr.of_constr (get_type_of env sigma n))
+      (EConstr.of_constr (get_type_of env sigma m))
+  else if isEvar_or_Meta sigma (head_app sigma n) then
     unify_0_with_initial_metas subst true env CUMUL
       flags
-      (EConstr.of_constr (get_type_of env sigma (EConstr.of_constr m)))
-      (EConstr.of_constr (get_type_of env sigma (EConstr.of_constr n)))
+      (EConstr.of_constr (get_type_of env sigma m))
+      (EConstr.of_constr (get_type_of env sigma n))
   else subst
 
 let try_resolve_typeclasses env evd flag m n =
@@ -1483,7 +1487,7 @@ let w_unify_core_0 env evd with_types cv_pb flags m n =
   let (sigma,ms,es) = check_types env (set_flags_for_type flags.core_unify_flags) (evd',mc1,[]) m n in
   let subst2 =
      unify_0_with_initial_metas (sigma,ms,es) false env cv_pb
-       flags.core_unify_flags (EConstr.of_constr m) (EConstr.of_constr n)
+       flags.core_unify_flags m n
   in
   let evd = w_merge env with_types flags.merge_unify_flags subst2 in
   try_resolve_typeclasses env evd flags.resolve_evars m n
@@ -1522,7 +1526,8 @@ let iter_fail f a =
    contexts, with evars, and possibly with occurrences *)
 
 let indirectly_dependent sigma c d decls =
-  not (isVar c) &&
+  let open EConstr in
+  not (isVar sigma c) &&
     (* This test is not needed if the original term is a variable, but
        it is needed otherwise, as e.g. when abstracting over "2" in
        "forall H:0=2, H=H:>(0=1+1) -> 0=2." where there is now obvious
@@ -1536,7 +1541,8 @@ let finish_evar_resolution ?(flags=Pretyping.all_and_fail_flags) env current_sig
   let current_sigma = Sigma.to_evar_map current_sigma in
   let sigma = Pretyping.solve_remaining_evars flags env current_sigma pending in
   let sigma, subst = nf_univ_variables sigma in
-  Sigma.Unsafe.of_pair (subst_univs_constr subst (nf_evar sigma c), sigma)
+  let c = EConstr.Unsafe.to_constr c in
+  Sigma.Unsafe.of_pair (EConstr.of_constr (subst_univs_constr subst (nf_evar sigma c)), sigma)
 
 let default_matching_core_flags sigma =
   let ts = Names.full_transparent_state in {
@@ -1581,6 +1587,7 @@ let default_matching_flags (sigma,_) =
 exception PatternNotFound
 
 let make_pattern_test from_prefix_of_ind is_correct_type env sigma (pending,c) =
+  let open EConstr in
   let flags =
     if from_prefix_of_ind then
       let flags = default_matching_flags pending in
@@ -1588,7 +1595,7 @@ let make_pattern_test from_prefix_of_ind is_correct_type env sigma (pending,c) =
         modulo_conv_on_closed_terms = Some Names.full_transparent_state;
         restrict_conv_on_strict_subterms = true } }
     else default_matching_flags pending in
-  let n = List.length (snd (decompose_app c)) in
+  let n = Array.length (snd (decompose_app_vect sigma c)) in
   let matching_fun _ t =
     let open EConstr in
     try
@@ -1603,8 +1610,9 @@ let make_pattern_test from_prefix_of_ind is_correct_type env sigma (pending,c) =
           else
             applist (t,l1), l2
         else t, [] in
-      let sigma = w_typed_unify env sigma Reduction.CONV flags c (EConstr.Unsafe.to_constr t') in
+      let sigma = w_typed_unify env sigma Reduction.CONV flags c t' in
       let ty = Retyping.get_type_of env sigma t in
+      let ty = EConstr.of_constr ty in
       if not (is_correct_type ty) then raise (NotUnifiable None);
       Some(sigma, t, l2)
     with
@@ -1625,19 +1633,20 @@ let make_pattern_test from_prefix_of_ind is_correct_type env sigma (pending,c) =
   (fun test -> match test.testing_state with
   | None -> None
   | Some (sigma,_,l) ->
-     let c = applist (nf_evar sigma (local_strong whd_meta sigma (EConstr.of_constr c)), List.map (EConstr.to_constr sigma) l) in
+     let c = applist (EConstr.of_constr (nf_evar sigma (local_strong whd_meta sigma c)), l) in
      let univs, subst = nf_univ_variables sigma in
-     Some (sigma,subst_univs_constr subst c))
+     Some (sigma,EConstr.of_constr (subst_univs_constr subst (EConstr.Unsafe.to_constr c))))
 
 let make_eq_test env evd c =
   let out cstr =
-    match cstr.last_found with None -> None | _ -> Some (cstr.testing_state, EConstr.Unsafe.to_constr c)
+    match cstr.last_found with None -> None | _ -> Some (cstr.testing_state, c)
   in
   (make_eq_univs_test env evd c, out)
 
 let make_abstraction_core name (test,out) env sigma c ty occs check_occs concl =
   let id =
-    let t = match ty with Some t -> t | None -> get_type_of env sigma (EConstr.of_constr c) in
+    let ty = Option.map EConstr.Unsafe.to_constr ty in
+    let t = match ty with Some t -> t | None -> get_type_of env sigma c in
     let x = id_of_name_using_hdchar (Global.env()) t name in
     let ids = ids_of_named_context (named_context env) in
     if name == Anonymous then next_ident_away_in_goal x ids else
@@ -1703,14 +1712,16 @@ let make_abstraction_core name (test,out) env sigma c ty occs check_occs concl =
 
 type prefix_of_inductive_support_flag = bool
 
+type pending_constr = Evd.pending * EConstr.constr
+
 type abstraction_request =
-| AbstractPattern of prefix_of_inductive_support_flag * (types -> bool) * Name.t * pending_constr * clause * bool
-| AbstractExact of Name.t * constr * types option * clause * bool
+| AbstractPattern of prefix_of_inductive_support_flag * (EConstr.types -> bool) * Name.t * pending_constr * clause * bool
+| AbstractExact of Name.t * EConstr.constr * EConstr.types option * clause * bool
 
 type 'r abstraction_result =
   Names.Id.t * named_context_val *
     Context.Named.Declaration.t list * Names.Id.t option *
-    types * (constr, 'r) Sigma.sigma option
+    types * (EConstr.constr, 'r) Sigma.sigma option
 
 let make_abstraction env evd ccl abs =
   let evd = Sigma.to_evar_map evd in
@@ -1721,7 +1732,7 @@ let make_abstraction env evd ccl abs =
         env evd (snd c) None occs check_occs ccl
   | AbstractExact (name,c,ty,occs,check_occs) ->
       make_abstraction_core name
-        (make_eq_test env evd (EConstr.of_constr c))
+        (make_eq_test env evd c)
         env evd c ty occs check_occs ccl
 
 let keyed_unify env evd kop = 
@@ -1731,7 +1742,7 @@ let keyed_unify env evd kop =
     | None -> fun _ -> true
     | Some kop ->
       fun cl ->
-	let kc = Keys.constr_key cl in
+	let kc = Keys.constr_key (EConstr.to_constr evd cl) in
 	  match kc with
 	  | None -> false
 	  | Some kc -> Keys.equiv_keys kop kc
@@ -1740,23 +1751,25 @@ let keyed_unify env evd kop =
    Unifies [cl] to every subterm of [op] until it finds a match.
    Fails if no match is found *)
 let w_unify_to_subterm env evd ?(flags=default_unify_flags ()) (op,cl) =
+  let open EConstr in
+  let open Vars in
   let bestexn = ref None in
-  let kop = Keys.constr_key op in
+  let kop = Keys.constr_key (EConstr.to_constr evd op) in
   let rec matchrec cl =
-    let cl = strip_outer_cast evd (EConstr.of_constr cl) in
+    let cl = EConstr.of_constr (strip_outer_cast evd cl) in
     (try
-       if closed0 cl && not (isEvar cl) && keyed_unify env evd kop cl then
+       if closed0 evd cl && not (isEvar evd cl) && keyed_unify env evd kop cl then
        (try
          if !keyed_unification then
-           let f1, l1 = decompose_app_vect evd (EConstr.of_constr op) in
-	   let f2, l2 = decompose_app_vect evd (EConstr.of_constr cl) in
+           let f1, l1 = decompose_app_vect evd op in
+	   let f2, l2 = decompose_app_vect evd cl in
 	   w_typed_unify_array env evd flags f1 l1 f2 l2,cl
 	 else w_typed_unify env evd CONV flags op cl,cl
        with ex when Pretype_errors.unsatisfiable_exception ex ->
 	    bestexn := Some ex; error "Unsat")
        else error "Bound 1"
      with ex when precatchable_exception ex ->
-       (match kind_of_term cl with
+       (match EConstr.kind evd cl with
 	  | App (f,args) ->
 	      let n = Array.length args in
 	      assert (n>0);
@@ -1815,9 +1828,11 @@ let w_unify_to_subterm env evd ?(flags=default_unify_flags ()) (op,cl) =
    Unifies [cl] to every subterm of [op] and return all the matches.
    Fails if no match is found *)
 let w_unify_to_subterm_all env evd ?(flags=default_unify_flags ()) (op,cl) =
+  let open EConstr in
+  let open Vars in
   let return a b =
     let (evd,c as a) = a () in
-      if List.exists (fun (evd',c') -> Term.eq_constr c c') b then b else a :: b
+      if List.exists (fun (evd',c') -> EConstr.eq_constr evd' c c') b then b else a :: b
   in
   let fail str _ = error str in
   let bind f g a =
@@ -1836,12 +1851,13 @@ let w_unify_to_subterm_all env evd ?(flags=default_unify_flags ()) (op,cl) =
     in ffail 0
   in
   let rec matchrec cl =
-    let cl = strip_outer_cast evd (EConstr.of_constr cl) in
+    let cl = strip_outer_cast evd cl in
+    let cl = EConstr.of_constr cl in
       (bind
-	  (if closed0 cl
+	  (if closed0 evd cl
 	  then return (fun () -> w_typed_unify env evd CONV flags op cl,cl)
             else fail "Bound 1")
-          (match kind_of_term cl with
+          (match EConstr.kind evd cl with
 	    | App (f,args) ->
 		let n = Array.length args in
 		assert (n>0);
@@ -1878,16 +1894,18 @@ let w_unify_to_subterm_all env evd ?(flags=default_unify_flags ()) (op,cl) =
   | _ -> res
 
 let w_unify_to_subterm_list env evd flags hdmeta oplist t =
+  let open EConstr in
   List.fold_right
     (fun op (evd,l) ->
-      let op = whd_meta evd (EConstr.of_constr op) in
-      if isMeta op then
+      let op = whd_meta evd op in
+      let op = EConstr.of_constr op in
+      if isMeta evd op then
 	if flags.allow_K_in_toplevel_higher_order_unification then (evd,op::l)
-	else error_abstraction_over_meta env evd hdmeta (destMeta op)
+	else error_abstraction_over_meta env evd hdmeta (destMeta evd op)
       else
         let allow_K = flags.allow_K_in_toplevel_higher_order_unification in
         let flags =
-          if occur_meta_or_existential evd (EConstr.of_constr op) || !keyed_unification then
+          if occur_meta_or_existential evd op || !keyed_unification then
 	    (* This is up to delta for subterms w/o metas ... *)
             flags
           else
@@ -1896,7 +1914,7 @@ let w_unify_to_subterm_list env evd flags hdmeta oplist t =
                unify pre-existing non frozen evars of the goal or of the
                pattern *)
           set_no_delta_flags flags in
-	let t' = (strip_outer_cast evd (EConstr.of_constr op),t) in
+	let t' = (EConstr.of_constr (strip_outer_cast evd op),t) in
         let (evd',cl) =
           try
   	    if is_keyed_unification () then
@@ -1912,11 +1930,11 @@ let w_unify_to_subterm_list env evd flags hdmeta oplist t =
                 (* w_unify_to_subterm does not go through evars, so
                    the next step, which was already in <= 8.4, is
                    needed at least for compatibility of rewrite *)
-                dependent evd (EConstr.of_constr op) (EConstr.of_constr t) -> (evd,op)
+                dependent evd op t -> (evd,op)
         in
 	  if not allow_K &&
             (* ensure we found a different instance *)
-	    List.exists (fun op -> Term.eq_constr op cl) l
+	    List.exists (fun op -> EConstr.eq_constr evd' op cl) l
 	  then error_non_linear_unification env evd hdmeta cl
 	  else (evd',cl::l))
     oplist
@@ -1925,10 +1943,10 @@ let w_unify_to_subterm_list env evd flags hdmeta oplist t =
 let secondOrderAbstraction env evd flags typ (p, oplist) =
   (* Remove delta when looking for a subterm *)
   let flags = { flags with core_unify_flags = flags.subterm_unify_flags } in
-  let (evd',cllist) = w_unify_to_subterm_list env evd flags p oplist (EConstr.Unsafe.to_constr typ) in
+  let (evd',cllist) = w_unify_to_subterm_list env evd flags p oplist typ in
   let typp = Typing.meta_type evd' p in
   let typp = EConstr.of_constr typp in
-  let evd',(pred,predtyp) = abstract_list_all env evd' typp typ (List.map EConstr.of_constr cllist) in
+  let evd',(pred,predtyp) = abstract_list_all env evd' typp typ cllist in
   let evd', b = infer_conv ~pb:CUMUL env evd' predtyp typp in
   if not b then
     error_wrong_abstraction_type env evd'
@@ -1946,7 +1964,7 @@ let secondOrderAbstraction env evd flags typ (p, oplist) =
 
 let secondOrderDependentAbstraction env evd flags typ (p, oplist) =
   let typp = Typing.meta_type evd p in
-  let evd, pred = abstract_list_all_with_dependencies env evd (EConstr.of_constr typp) typ (List.map EConstr.of_constr oplist) in
+  let evd, pred = abstract_list_all_with_dependencies env evd (EConstr.of_constr typp) typ oplist in
   let pred = EConstr.of_constr pred in
   w_merge env false flags.merge_unify_flags
     (evd,[p,pred,(Conv,TypeProcessed)],[])
@@ -1955,16 +1973,15 @@ let secondOrderAbstractionAlgo dep =
   if dep then secondOrderDependentAbstraction else secondOrderAbstraction
 
 let w_unify2 env evd flags dep cv_pb ty1 ty2 =
-  let inj = EConstr.Unsafe.to_constr in
-  let c1, oplist1 = whd_nored_stack evd (EConstr.of_constr ty1) in
-  let c2, oplist2 = whd_nored_stack evd (EConstr.of_constr ty2) in
+  let c1, oplist1 = whd_nored_stack evd ty1 in
+  let c2, oplist2 = whd_nored_stack evd ty2 in
   match EConstr.kind evd c1, EConstr.kind evd c2 with
     | Meta p1, _ ->
         (* Find the predicate *)
-        secondOrderAbstractionAlgo dep env evd flags (EConstr.of_constr ty2) (p1, List.map inj oplist1)
+        secondOrderAbstractionAlgo dep env evd flags ty2 (p1, oplist1)
     | _, Meta p2 ->
         (* Find the predicate *)
-        secondOrderAbstractionAlgo dep env evd flags (EConstr.of_constr ty1) (p2, List.map inj oplist2)
+        secondOrderAbstractionAlgo dep env evd flags ty1 (p2, oplist2)
     | _ -> error "w_unify2"
 
 (* The unique unification algorithm works like this: If the pattern is
@@ -1988,8 +2005,9 @@ let w_unify2 env evd flags dep cv_pb ty1 ty2 =
    convertible and first-order otherwise. But if failed if e.g. the type of
    Meta(1) had meta-variables in it. *)
 let w_unify env evd cv_pb ?(flags=default_unify_flags ()) ty1 ty2 =
-  let hd1,l1 = decompose_appvect (whd_nored evd (EConstr.of_constr ty1)) in
-  let hd2,l2 = decompose_appvect (whd_nored evd (EConstr.of_constr ty2)) in
+  let open EConstr in
+  let hd1,l1 = decompose_app_vect evd (EConstr.of_constr (whd_nored evd ty1)) in
+  let hd2,l2 = decompose_app_vect evd (EConstr.of_constr (whd_nored evd ty2)) in
   let is_empty1 = Array.is_empty l1 in
   let is_empty2 = Array.is_empty l2 in
     match kind_of_term hd1, not is_empty1, kind_of_term hd2, not is_empty2 with

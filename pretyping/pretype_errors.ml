@@ -43,11 +43,11 @@ type pretype_error =
   | CannotUnifyLocal of EConstr.constr * EConstr.constr * EConstr.constr
   | CannotUnifyBindingType of constr * constr
   | CannotGeneralize of constr
-  | NoOccurrenceFound of constr * Id.t option
+  | NoOccurrenceFound of EConstr.constr * Id.t option
   | CannotFindWellTypedAbstraction of EConstr.constr * EConstr.constr list * (env * type_error) option
   | WrongAbstractionType of Name.t * EConstr.constr * EConstr.types * EConstr.types
   | AbstractionOverMeta of Name.t * Name.t
-  | NonLinearUnification of Name.t * constr
+  | NonLinearUnification of Name.t * EConstr.constr
   (* Pretyping *)
   | VarNotFound of Id.t
   | UnexpectedType of constr * constr
