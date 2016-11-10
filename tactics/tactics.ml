@@ -2696,7 +2696,9 @@ let letin_tac with_eq id c ty occs =
     let ccl = Proofview.Goal.concl gl in
     let c = EConstr.of_constr c in
     let abs = AbstractExact (id,c,Option.map EConstr.of_constr ty,occs,true) in
+    let ccl = EConstr.of_constr ccl in
     let (id,_,depdecls,lastlhyp,ccl,res) = make_abstraction env sigma ccl abs in
+    let ccl = EConstr.Unsafe.to_constr ccl in
     (* We keep the original term to match but record the potential side-effects
        of unifying universes. *)
     let Sigma (c, sigma, p) = match res with
@@ -2715,7 +2717,9 @@ let letin_pat_tac with_eq id c occs =
     let ccl = Proofview.Goal.concl gl in
     let check t = true in
     let abs = AbstractPattern (false,check,id,c,occs,false) in
+    let ccl = EConstr.of_constr ccl in
     let (id,_,depdecls,lastlhyp,ccl,res) = make_abstraction env sigma ccl abs in
+    let ccl = EConstr.Unsafe.to_constr ccl in
     let Sigma (c, sigma, p) = match res with
     | None -> finish_evar_resolution ~flags:(tactic_infer_flags false) env sigma c
     | Some res -> res in
@@ -4321,7 +4325,9 @@ let pose_induction_arg_then isrec with_evars (is_arg_pure_hyp,from_prefix) elim
   let Sigma (c, sigma', p) = use_bindings env sigma elim false (c0,lbind) t0 in
   let c = EConstr.of_constr c in
   let abs = AbstractPattern (from_prefix,check,Name id,(pending,c),cls,false) in
+  let ccl = EConstr.of_constr ccl in
   let (id,sign,_,lastlhyp,ccl,res) = make_abstraction env sigma' ccl abs in
+  let ccl = EConstr.Unsafe.to_constr ccl in
   match res with
   | None ->
       (* pattern not found *)

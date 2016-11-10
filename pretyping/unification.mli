@@ -7,6 +7,7 @@
 (************************************************************************)
 
 open Term
+open EConstr
 open Environ
 open Evd
 
@@ -46,23 +47,23 @@ val is_keyed_unification : unit -> bool
 
 (** The "unique" unification fonction *)
 val w_unify :
-  env -> evar_map -> conv_pb -> ?flags:unify_flags -> EConstr.constr -> EConstr.constr -> evar_map
+  env -> evar_map -> conv_pb -> ?flags:unify_flags -> constr -> constr -> evar_map
 
 (** [w_unify_to_subterm env m (c,t)] performs unification of [c] with a
    subterm of [t]. Constraints are added to [m] and the matched
    subterm of [t] is also returned. *)
 val w_unify_to_subterm :
-  env -> evar_map -> ?flags:unify_flags -> EConstr.constr * EConstr.constr -> evar_map * EConstr.constr
+  env -> evar_map -> ?flags:unify_flags -> constr * constr -> evar_map * constr
 
 val w_unify_to_subterm_all :
-  env -> evar_map -> ?flags:unify_flags -> EConstr.constr * EConstr.constr -> (evar_map * EConstr.constr) list
+  env -> evar_map -> ?flags:unify_flags -> constr * constr -> (evar_map * constr) list
 
 val w_unify_meta_types : env -> ?flags:unify_flags -> evar_map -> evar_map
 
 (** [w_coerce_to_type env evd c ctyp typ] tries to coerce [c] of type
    [ctyp] so that its gets type [typ]; [typ] may contain metavariables *)
-val w_coerce_to_type : env -> evar_map -> EConstr.constr -> EConstr.types -> EConstr.types ->
-  evar_map * EConstr.constr
+val w_coerce_to_type : env -> evar_map -> constr -> types -> types ->
+  evar_map * constr
 
 (* Looking for subterms in contexts at some occurrences, possibly with pattern*)
 
@@ -70,24 +71,24 @@ exception PatternNotFound
 
 type prefix_of_inductive_support_flag = bool
 
-type pending_constr = Evd.pending * EConstr.constr
+type pending_constr = Evd.pending * constr
 
 type abstraction_request =
-| AbstractPattern of prefix_of_inductive_support_flag * (EConstr.types -> bool) * Names.Name.t * pending_constr * Locus.clause * bool
-| AbstractExact of Names.Name.t * EConstr.constr * EConstr.types option * Locus.clause * bool
+| AbstractPattern of prefix_of_inductive_support_flag * (types -> bool) * Names.Name.t * pending_constr * Locus.clause * bool
+| AbstractExact of Names.Name.t * constr * types option * Locus.clause * bool
 
 val finish_evar_resolution : ?flags:Pretyping.inference_flags ->
-  env -> 'r Sigma.t -> pending_constr -> (EConstr.constr, 'r) Sigma.sigma
+  env -> 'r Sigma.t -> pending_constr -> (constr, 'r) Sigma.sigma
 
 type 'r abstraction_result =
   Names.Id.t * named_context_val *
     Context.Named.Declaration.t list * Names.Id.t option *
-    types * (EConstr.constr, 'r) Sigma.sigma option
+    types * (constr, 'r) Sigma.sigma option
 
 val make_abstraction : env -> 'r Sigma.t -> constr ->
   abstraction_request -> 'r abstraction_result
 
-val pose_all_metas_as_evars : env -> evar_map -> EConstr.constr -> evar_map * EConstr.constr
+val pose_all_metas_as_evars : env -> evar_map -> constr -> evar_map * constr
 
 (*i This should be in another module i*)
 
@@ -95,16 +96,16 @@ val pose_all_metas_as_evars : env -> evar_map -> EConstr.constr -> evar_map * EC
    abstracts the terms in l over c to get a term of type t
    (exported for inv.ml) *)
 val abstract_list_all :
-  env -> evar_map -> EConstr.constr -> EConstr.constr -> EConstr.constr list -> evar_map * (EConstr.constr * EConstr.types)
+  env -> evar_map -> constr -> constr -> constr list -> evar_map * (constr * types)
 
 (* For tracing *)
 
-type metabinding = (metavariable * EConstr.constr * (instance_constraint * instance_typing_status))
+type metabinding = (metavariable * constr * (instance_constraint * instance_typing_status))
 
 type subst0 =
   (evar_map *
     metabinding list *
-      (Environ.env * EConstr.existential * EConstr.t) list)
+      (Environ.env * existential * t) list)
 
 val w_merge : env -> bool -> core_unify_flags -> subst0 -> evar_map
 
@@ -112,8 +113,8 @@ val unify_0 :            Environ.env ->
            Evd.evar_map ->
            Evd.conv_pb ->
            core_unify_flags ->
-           EConstr.types ->
-           EConstr.types ->
+           types ->
+           types ->
            subst0
 
 val unify_0_with_initial_metas : 
@@ -122,6 +123,6 @@ val unify_0_with_initial_metas :
            Environ.env ->
            Evd.conv_pb ->
            core_unify_flags ->
-           EConstr.types ->
-           EConstr.types ->
+           types ->
+           types ->
            subst0

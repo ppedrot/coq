@@ -6,13 +6,16 @@
 (*         *       GNU Lesser General Public License Version 2.1        *)
 (************************************************************************)
 
+module CVars = Vars
+
 open CErrors
 open Pp
 open Util
 open Names
 open Term
-open Vars
 open Termops
+open EConstr
+open Vars
 open Namegen
 open Environ
 open Evd
@@ -1542,7 +1545,7 @@ let finish_evar_resolution ?(flags=Pretyping.all_and_fail_flags) env current_sig
   let sigma = Pretyping.solve_remaining_evars flags env current_sigma pending in
   let sigma, subst = nf_univ_variables sigma in
   let c = EConstr.Unsafe.to_constr c in
-  Sigma.Unsafe.of_pair (EConstr.of_constr (subst_univs_constr subst (nf_evar sigma c)), sigma)
+  Sigma.Unsafe.of_pair (EConstr.of_constr (CVars.subst_univs_constr subst (nf_evar sigma c)), sigma)
 
 let default_matching_core_flags sigma =
   let ts = Names.full_transparent_state in {
@@ -1635,7 +1638,7 @@ let make_pattern_test from_prefix_of_ind is_correct_type env sigma (pending,c) =
   | Some (sigma,_,l) ->
      let c = applist (EConstr.of_constr (nf_evar sigma (local_strong whd_meta sigma c)), l) in
      let univs, subst = nf_univ_variables sigma in
-     Some (sigma,EConstr.of_constr (subst_univs_constr subst (EConstr.Unsafe.to_constr c))))
+     Some (sigma,EConstr.of_constr (CVars.subst_univs_constr subst (EConstr.Unsafe.to_constr c))))
 
 let make_eq_test env evd c =
   let out cstr =
@@ -1686,7 +1689,7 @@ let make_abstraction_core name (test,out) env sigma c ty occs check_occs concl =
       | NoOccurrences -> concl
       | occ ->
           let occ = if likefirst then LikeFirst else AtOccs occ in
-          replace_term_occ_modulo sigma occ test mkvarid (EConstr.of_constr concl)
+          EConstr.of_constr (replace_term_occ_modulo sigma occ test mkvarid concl)
     in
     let lastlhyp =
       if List.is_empty depdecls then None else Some (NamedDecl.get_id (List.last depdecls)) in
@@ -1712,16 +1715,16 @@ let make_abstraction_core name (test,out) env sigma c ty occs check_occs concl =
 
 type prefix_of_inductive_support_flag = bool
 
-type pending_constr = Evd.pending * EConstr.constr
+type pending_constr = Evd.pending * constr
 
 type abstraction_request =
-| AbstractPattern of prefix_of_inductive_support_flag * (EConstr.types -> bool) * Name.t * pending_constr * clause * bool
-| AbstractExact of Name.t * EConstr.constr * EConstr.types option * clause * bool
+| AbstractPattern of prefix_of_inductive_support_flag * (types -> bool) * Name.t * pending_constr * clause * bool
+| AbstractExact of Name.t * constr * types option * clause * bool
 
 type 'r abstraction_result =
   Names.Id.t * named_context_val *
     Context.Named.Declaration.t list * Names.Id.t option *
-    types * (EConstr.constr, 'r) Sigma.sigma option
+    types * (constr, 'r) Sigma.sigma option
 
 let make_abstraction env evd ccl abs =
   let evd = Sigma.to_evar_map evd in
