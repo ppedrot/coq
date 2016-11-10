@@ -75,18 +75,24 @@ let occur_meta_evd sigma mv c =
    gives [x1:A1]..[xn:An]c' such that c converts to ([x1:A1]..[xn:An]c' l) *)
 
 let abstract_scheme env evd c l lname_typ =
+  let open EConstr in
+  let mkLambda_name env (n,a,b) =
+    mkLambda (named_hd env (EConstr.Unsafe.to_constr a) n, a, b)
+  in
   List.fold_left2
     (fun (t,evd) (locc,a) decl ->
        let na = RelDecl.get_name decl in
        let ta = RelDecl.get_type decl in
-       let na = match kind_of_term a with Var id -> Name id | _ -> na in
+       let ta = EConstr.of_constr ta in
+       let na = match EConstr.kind evd a with Var id -> Name id | _ -> na in
 (* [occur_meta ta] test removed for support of eelim/ecase but consequences
    are unclear...
        if occur_meta ta then error "cannot find a type for the generalisation"
        else *) 
-       if occur_meta evd (EConstr.of_constr a) then mkLambda_name env (na,ta,t), evd
+       if occur_meta evd a then mkLambda_name env (na,ta,t), evd
        else
-	 let t', evd' = Find_subterm.subst_closed_term_occ env evd locc (EConstr.of_constr a) (EConstr.of_constr t) in
+	 let t', evd' = Find_subterm.subst_closed_term_occ env evd locc a t in
+	 let t' = EConstr.of_constr t' in
 	   mkLambda_name env (na,ta,t'), evd')
     (c,evd)
     (List.rev l)
@@ -95,16 +101,17 @@ let abstract_scheme env evd c l lname_typ =
 (* Precondition: resulting abstraction is expected to be of type [typ] *)
 
 let abstract_list_all env evd typ c l =
-  let ctxt,_ = splay_prod_n env evd (List.length l) (EConstr.of_constr typ) in
+  let ctxt,_ = splay_prod_n env evd (List.length l) typ in
   let l_with_all_occs = List.map (function a -> (LikeFirst,a)) l in
   let p,evd = abstract_scheme env evd c l_with_all_occs ctxt in
   let evd,typp =
-    try Typing.type_of env evd (EConstr.of_constr p)
+    try Typing.type_of env evd p
     with
     | UserError _ ->
-        error_cannot_find_well_typed_abstraction env evd p (List.map EConstr.of_constr l) None
+        error_cannot_find_well_typed_abstraction env evd p l None
     | Type_errors.TypeError (env',x) ->
-        error_cannot_find_well_typed_abstraction env evd p (List.map EConstr.of_constr l) (Some (env',x)) in
+        error_cannot_find_well_typed_abstraction env evd p l (Some (env',x)) in
+  let typp = EConstr.of_constr typp in
   evd,(p,typp)
 
 let set_occurrences_of_last_arg args =
@@ -120,12 +127,12 @@ let abstract_list_all_with_dependencies env evd typ c l =
   let argoccs = set_occurrences_of_last_arg (Array.sub (snd ev') 0 n) in
   let evd,b =
     Evarconv.second_order_matching empty_transparent_state
-      env evd ev' argoccs (EConstr.of_constr c) in
+      env evd ev' argoccs c in
   if b then
     let p = nf_evar evd ev in
       evd, p
   else error_cannot_find_well_typed_abstraction env evd 
-    (nf_evar evd c) l None
+    c l None
 
 (**)
 
@@ -145,31 +152,31 @@ let extract_instance_status = function
   | CUMUL -> add_type_status (IsSubType, IsSuperType)
   | CONV -> add_type_status (Conv, Conv)
 
-let rec subst_meta_instances bl c =
-  match kind_of_term c with
+let rec subst_meta_instances sigma bl c =
+  match EConstr.kind sigma c with
     | Meta i ->
       let select (j,_,_) = Int.equal i j in
-      (try pi2 (List.find select bl) with Not_found -> c)
-    | _ -> Constr.map (subst_meta_instances bl) c
+      (try EConstr.of_constr (pi2 (List.find select bl)) with Not_found -> c)
+    | _ -> EConstr.map sigma (subst_meta_instances sigma bl) c
 
 (** [env] should be the context in which the metas live *)
 
 let pose_all_metas_as_evars env evd t =
   let evdref = ref evd in
-  let rec aux t = match kind_of_term t with
+  let rec aux t = match EConstr.kind !evdref t with
   | Meta mv ->
       (match Evd.meta_opt_fvalue !evdref mv with
-       | Some ({rebus=c},_) -> c
+       | Some ({rebus=c},_) -> EConstr.of_constr c
        | None ->
         let {rebus=ty;freemetas=mvs} = Evd.meta_ftype evd mv in
+        let ty = EConstr.of_constr ty in
         let ty = if Evd.Metaset.is_empty mvs then ty else aux ty in
         let src = Evd.evar_source_of_meta mv !evdref in
-        let ty = EConstr.of_constr ty in
         let ev = Evarutil.e_new_evar env evdref ~src ty in
         evdref := meta_assign mv (ev,(Conv,TypeNotProcessed)) !evdref;
-        ev)
+        EConstr.of_constr ev)
   | _ ->
-      Constr.map aux t in
+      EConstr.map !evdref aux t in
   let c = aux t in
   (* side-effect *)
   (!evdref, c)
@@ -180,16 +187,16 @@ let solve_pattern_eqn_array (env,nb) f l c (sigma,metasubst,evarsubst) =
 	(* We enforce that the Meta does not depend on the [nb]
 	   extra assumptions added by unification to the context *)
         let env' = pop_rel_context nb env in
-	let sigma,c = pose_all_metas_as_evars env' sigma c in
-	let c = solve_pattern_eqn env sigma (List.map EConstr.of_constr l) (EConstr.of_constr c) in
+	let sigma,c = pose_all_metas_as_evars env' sigma (EConstr.of_constr c) in
+	let c = solve_pattern_eqn env sigma (List.map EConstr.of_constr l) c in
 	let pb = (Conv,TypeNotProcessed) in
 	  if noccur_between 1 nb c then
             sigma,(k,lift (-nb) c,pb)::metasubst,evarsubst
 	  else error_cannot_unify_local env sigma (applist (f, l),c,c)
     | Evar ev ->
         let env' = pop_rel_context nb env in
-	let sigma,c = pose_all_metas_as_evars env' sigma c in
-	sigma,metasubst,(env,ev,solve_pattern_eqn env sigma (List.map EConstr.of_constr l) (EConstr.of_constr c))::evarsubst
+	let sigma,c = pose_all_metas_as_evars env' sigma (EConstr.of_constr c) in
+	sigma,metasubst,(env,ev,solve_pattern_eqn env sigma (List.map EConstr.of_constr l) c)::evarsubst
     | _ -> assert false
 
 let push d (env,n) = (push_rel_assum d env,n+1)
@@ -1224,13 +1231,13 @@ let is_mimick_head ts f =
 
 let try_to_coerce env evd c cty tycon =
   let j = make_judge c cty in
-  let (evd',j') = inh_conv_coerce_rigid_to true Loc.ghost env evd j (EConstr.of_constr tycon) in
+  let (evd',j') = inh_conv_coerce_rigid_to true Loc.ghost env evd j tycon in
   let evd' = Evarconv.consider_remaining_unif_problems env evd' in
   let evd' = Evd.map_metas_fvalue (nf_evar evd') evd' in
     (evd',j'.uj_val)
 
 let w_coerce_to_type env evd c cty mvty =
-  let evd,tycon = pose_all_metas_as_evars env evd mvty in
+  let evd,tycon = pose_all_metas_as_evars env evd (EConstr.of_constr mvty) in
     try try_to_coerce env evd c cty tycon
     with e when precatchable_exception e ->
     (* inh_conv_coerce_rigid_to should have reasoned modulo reduction
@@ -1271,9 +1278,9 @@ let order_metas metas =
 (* Solve an equation ?n[x1=u1..xn=un] = t where ?n is an evar *)
 
 let solve_simple_evar_eqn ts env evd ev rhs =
-  match solve_simple_eqn (Evarconv.evar_conv_x ts) env evd (None,ev,EConstr.of_constr rhs) with
+  match solve_simple_eqn (Evarconv.evar_conv_x ts) env evd (None,ev,rhs) with
   | UnifFailure (evd,reason) ->
-      error_cannot_unify env evd ~reason (EConstr.Unsafe.to_constr (EConstr.mkEvar ev),rhs);
+      error_cannot_unify env evd ~reason (EConstr.Unsafe.to_constr (EConstr.mkEvar ev),EConstr.Unsafe.to_constr rhs);
   | Success evd ->
       Evarconv.consider_remaining_unif_problems env evd
 
@@ -1294,10 +1301,10 @@ let w_merge env with_types flags (evd,metas,evars) =
 	  w_merge_rec evd (metas'@metas) (evars''@evars') eqns
     	else begin
 	  (* This can make rhs' ill-typed if metas are *)
-          let rhs' = subst_meta_instances metas rhs in
+          let rhs' = subst_meta_instances evd metas (EConstr.of_constr rhs) in
           match kind_of_term rhs with
-	  | App (f,cl) when occur_meta evd (EConstr.of_constr rhs') ->
-	      if occur_evar evd evk (EConstr.of_constr rhs') then
+	  | App (f,cl) when occur_meta evd rhs' ->
+	      if occur_evar evd evk rhs' then
                 error_occur_check curenv evd evk rhs';
 	      if is_mimick_head flags.modulo_delta f then
 		let evd' =
@@ -1309,13 +1316,13 @@ let w_merge env with_types flags (evd,metas,evars) =
 		  let evd', rhs'' = pose_all_metas_as_evars curenv evd rhs' in
 		    try solve_simple_evar_eqn flags.modulo_delta_types curenv evd' (fst ev, Array.map EConstr.of_constr (snd ev)) rhs''
 		    with Retyping.RetypeError _ ->
-		      error_cannot_unify curenv evd' (mkEvar ev,rhs'')
+		      error_cannot_unify curenv evd' (mkEvar ev,EConstr.Unsafe.to_constr rhs'')
 		in w_merge_rec evd' metas evars' eqns
           | _ ->
 	      let evd', rhs'' = pose_all_metas_as_evars curenv evd rhs' in
 	      let evd' = 
 		try solve_simple_evar_eqn flags.modulo_delta_types curenv evd' (fst ev, Array.map EConstr.of_constr (snd ev)) rhs''
-		with Retyping.RetypeError _ -> error_cannot_unify curenv evd' (mkEvar ev, rhs'')
+		with Retyping.RetypeError _ -> error_cannot_unify curenv evd' (mkEvar ev, EConstr.Unsafe.to_constr rhs'')
 	      in
 		w_merge_rec evd' metas evars' eqns
 	end
@@ -1879,15 +1886,16 @@ let w_unify_to_subterm_list env evd flags hdmeta oplist t =
 let secondOrderAbstraction env evd flags typ (p, oplist) =
   (* Remove delta when looking for a subterm *)
   let flags = { flags with core_unify_flags = flags.subterm_unify_flags } in
-  let (evd',cllist) = w_unify_to_subterm_list env evd flags p oplist typ in
+  let (evd',cllist) = w_unify_to_subterm_list env evd flags p oplist (EConstr.Unsafe.to_constr typ) in
   let typp = Typing.meta_type evd' p in
-  let evd',(pred,predtyp) = abstract_list_all env evd' typp typ cllist in
-  let evd', b = infer_conv ~pb:CUMUL env evd' (EConstr.of_constr predtyp) (EConstr.of_constr typp) in
+  let typp = EConstr.of_constr typp in
+  let evd',(pred,predtyp) = abstract_list_all env evd' typp typ (List.map EConstr.of_constr cllist) in
+  let evd', b = infer_conv ~pb:CUMUL env evd' predtyp typp in
   if not b then
     error_wrong_abstraction_type env evd'
       (Evd.meta_name evd p) pred typp predtyp;
   w_merge env false flags.merge_unify_flags
-    (evd',[p,pred,(Conv,TypeProcessed)],[])
+    (evd',[p,EConstr.Unsafe.to_constr pred,(Conv,TypeProcessed)],[])
 
   (* let evd',metas,evars =  *)
   (*   try unify_0 env evd' CUMUL flags predtyp typp  *)
@@ -1913,10 +1921,10 @@ let w_unify2 env evd flags dep cv_pb ty1 ty2 =
   match EConstr.kind evd c1, EConstr.kind evd c2 with
     | Meta p1, _ ->
         (* Find the predicate *)
-        secondOrderAbstractionAlgo dep env evd flags ty2 (p1, List.map inj oplist1)
+        secondOrderAbstractionAlgo dep env evd flags (EConstr.of_constr ty2) (p1, List.map inj oplist1)
     | _, Meta p2 ->
         (* Find the predicate *)
-        secondOrderAbstractionAlgo dep env evd flags ty1 (p2, List.map inj oplist2)
+        secondOrderAbstractionAlgo dep env evd flags (EConstr.of_constr ty1) (p2, List.map inj oplist2)
     | _ -> error "w_unify2"
 
 (* The unique unification algorithm works like this: If the pattern is

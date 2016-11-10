@@ -38,15 +38,15 @@ type pretype_error =
   (** Type inference unification *)
   | ActualTypeNotCoercible of unsafe_judgment * types * unification_error
   (** Tactic Unification *)
-  | UnifOccurCheck of existential_key * constr
+  | UnifOccurCheck of existential_key * EConstr.constr
   | UnsolvableImplicit of existential_key * Evd.unsolvability_explanation option
   | CannotUnify of constr * constr * unification_error option
   | CannotUnifyLocal of constr * constr * constr
   | CannotUnifyBindingType of constr * constr
   | CannotGeneralize of constr
   | NoOccurrenceFound of constr * Id.t option
-  | CannotFindWellTypedAbstraction of constr * EConstr.constr list * (env * type_error) option
-  | WrongAbstractionType of Name.t * constr * types * types
+  | CannotFindWellTypedAbstraction of EConstr.constr * EConstr.constr list * (env * type_error) option
+  | WrongAbstractionType of Name.t * EConstr.constr * EConstr.types * EConstr.types
   | AbstractionOverMeta of Name.t * Name.t
   | NonLinearUnification of Name.t * constr
   (** Pretyping *)
@@ -98,7 +98,7 @@ val error_cannot_coerce : env -> Evd.evar_map -> constr * constr -> 'b
 
 (** {6 Implicit arguments synthesis errors } *)
 
-val error_occur_check : env -> Evd.evar_map -> existential_key -> constr -> 'b
+val error_occur_check : env -> Evd.evar_map -> existential_key -> EConstr.constr -> 'b
 
 val error_unsolvable_implicit :
   ?loc:Loc.t -> env -> Evd.evar_map -> existential_key ->
@@ -110,10 +110,10 @@ val error_cannot_unify : ?loc:Loc.t -> env -> Evd.evar_map ->
 val error_cannot_unify_local : env -> Evd.evar_map -> constr * constr * constr -> 'b
 
 val error_cannot_find_well_typed_abstraction : env -> Evd.evar_map ->
-      constr -> EConstr.constr list -> (env * type_error) option -> 'b
+      EConstr.constr -> EConstr.constr list -> (env * type_error) option -> 'b
 
 val error_wrong_abstraction_type :  env -> Evd.evar_map ->
-      Name.t -> constr -> types -> types -> 'b
+      Name.t -> EConstr.constr -> EConstr.types -> EConstr.types -> 'b
 
 val error_abstraction_over_meta : env -> Evd.evar_map ->
   metavariable -> metavariable -> 'b

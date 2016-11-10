@@ -529,7 +529,7 @@ let explain_cant_find_case_type env sigma c =
     pe ++ str "."
 
 let explain_occur_check env sigma ev rhs =
-  let rhs = Evarutil.nf_evar sigma rhs in
+  let rhs = EConstr.to_constr sigma rhs in
   let env = make_all_name_different env in
   let pt = pr_lconstr_env env sigma rhs in
   str "Cannot define " ++ pr_existential_key sigma ev ++ str " with term" ++
@@ -662,6 +662,7 @@ let explain_cannot_unify_binding_type env sigma m n =
   str "which should be unifiable with" ++ brk(1,1) ++ pn ++ str "."
 
 let explain_cannot_find_well_typed_abstraction env sigma p l e =
+  let p = EConstr.to_constr sigma p in
   str "Abstracting over the " ++
   str (String.plural (List.length l) "term") ++ spc () ++
   hov 0 (pr_enum (fun c -> pr_lconstr_env env sigma (EConstr.to_constr sigma c)) l) ++ spc () ++
@@ -670,6 +671,9 @@ let explain_cannot_find_well_typed_abstraction env sigma p l e =
   (match e with None -> mt () | Some e -> fnl () ++ str "Reason is: " ++ e)
 
 let explain_wrong_abstraction_type env sigma na abs expected result =
+  let abs = EConstr.to_constr sigma abs in
+  let expected = EConstr.to_constr sigma expected in
+  let result = EConstr.to_constr sigma result in
   let ppname = match na with Name id -> pr_id id ++ spc () | _ -> mt () in
   str "Cannot instantiate metavariable " ++ ppname ++ strbrk "of type " ++
   pr_lconstr_env env sigma expected ++ strbrk " with abstraction " ++

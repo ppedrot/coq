@@ -37,15 +37,15 @@ type pretype_error =
   (* Type inference unification *)
   | ActualTypeNotCoercible of unsafe_judgment * types * unification_error
   (* Tactic unification *)
-  | UnifOccurCheck of existential_key * constr
+  | UnifOccurCheck of existential_key * EConstr.constr
   | UnsolvableImplicit of existential_key * Evd.unsolvability_explanation option
   | CannotUnify of constr * constr * unification_error option
   | CannotUnifyLocal of constr * constr * constr
   | CannotUnifyBindingType of constr * constr
   | CannotGeneralize of constr
   | NoOccurrenceFound of constr * Id.t option
-  | CannotFindWellTypedAbstraction of constr * EConstr.constr list * (env * type_error) option
-  | WrongAbstractionType of Name.t * constr * types * types
+  | CannotFindWellTypedAbstraction of EConstr.constr * EConstr.constr list * (env * type_error) option
+  | WrongAbstractionType of Name.t * EConstr.constr * EConstr.types * EConstr.types
   | AbstractionOverMeta of Name.t * Name.t
   | NonLinearUnification of Name.t * constr
   (* Pretyping *)

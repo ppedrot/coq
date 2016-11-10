@@ -4263,8 +4263,8 @@ let use_bindings env sigma elim must_be_closed (c,lbind) typ =
       if must_be_closed && occur_meta indclause.evd (EConstr.of_constr (clenv_value indclause)) then
         error "Need a fully applied argument.";
       (* We lose the possibility of coercions in with-bindings *)
-      let (sigma, c) = pose_all_metas_as_evars env indclause.evd (clenv_value indclause) in
-      Sigma.Unsafe.of_pair (c, sigma)
+      let (sigma, c) = pose_all_metas_as_evars env indclause.evd (EConstr.of_constr (clenv_value indclause)) in
+      Sigma.Unsafe.of_pair (EConstr.Unsafe.to_constr c, sigma)
     with e when catchable_exception e ->
     try find_clause (try_red_product env sigma (EConstr.of_constr typ))
     with Redelimination -> raise e in

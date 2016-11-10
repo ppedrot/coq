@@ -85,7 +85,7 @@ type 'r abstraction_result =
 val make_abstraction : env -> 'r Sigma.t -> constr ->
   abstraction_request -> 'r abstraction_result
 
-val pose_all_metas_as_evars : env -> evar_map -> constr -> evar_map * constr
+val pose_all_metas_as_evars : env -> evar_map -> EConstr.constr -> evar_map * EConstr.constr
 
 (*i This should be in another module i*)
 
@@ -93,7 +93,7 @@ val pose_all_metas_as_evars : env -> evar_map -> constr -> evar_map * constr
    abstracts the terms in l over c to get a term of type t
    (exported for inv.ml) *)
 val abstract_list_all :
-  env -> evar_map -> constr -> constr -> constr list -> evar_map * (constr * types)
+  env -> evar_map -> EConstr.constr -> EConstr.constr -> EConstr.constr list -> evar_map * (EConstr.constr * EConstr.types)
 
 (* For tracing *)
 
