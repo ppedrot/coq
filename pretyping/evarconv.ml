@@ -390,7 +390,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	let t2 = EConstr.of_constr (nf_evar evd (EConstr.Unsafe.to_constr tM)) (** FIXME *) in
 	let t2 = solve_pattern_eqn env evd l1' t2 in
 	  solve_simple_eqn (evar_conv_x ts) env evd
-	    (position_problem on_left pbty,ev,EConstr.of_constr t2) 
+	    (position_problem on_left pbty,ev,t2) 
   in
   let consume_stack on_left (termF,skF) (termO,skO) evd =
     let switch f a b = if on_left then f a b else f b a in
