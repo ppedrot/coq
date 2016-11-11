@@ -4308,13 +4308,15 @@ let use_bindings env sigma elim must_be_closed (c,lbind) typ =
 let check_expected_type env sigma (elimc,bl) elimt =
   (* Compute the expected template type of the term in case a using
      clause is given *)
-  let sign,_ = splay_prod env sigma (EConstr.of_constr elimt) in
+  let open EConstr in
+  let elimt = EConstr.of_constr elimt in
+  let sign,_ = splay_prod env sigma elimt in
   let n = List.length sign in
   if n == 0 then error "Scheme cannot be applied.";
   let sigma,cl = make_evar_clause env sigma ~len:(n - 1) elimt in
   let sigma = solve_evar_clause env sigma true cl bl in
-  let (_,u,_) = destProd cl.cl_concl in
-  fun t -> Evarconv.e_cumul env (ref sigma) t (EConstr.of_constr u)
+  let (_,u,_) = destProd sigma cl.cl_concl in
+  fun t -> Evarconv.e_cumul env (ref sigma) t u
 
 let check_enough_applied env sigma elim =
   let sigma = Sigma.to_evar_map sigma in
@@ -4327,6 +4329,7 @@ let check_enough_applied env sigma elim =
   | Some elimc ->
       let elimt = Retyping.get_type_of env sigma (EConstr.of_constr (fst elimc)) in
       let scheme = compute_elim_sig ~elimc elimt in
+      let elimc = Miscops.map_with_bindings EConstr.of_constr elimc in
       match scheme.indref with
       | None ->
          (* in the absence of information, do not assume it may be

@@ -247,6 +247,7 @@ let unify_resolve_refine poly flags =
   { enter = begin fun gls ((c, t, ctx),n,clenv) ->
     let env = Proofview.Goal.env gls in
     let concl = Proofview.Goal.concl gls in
+    let concl = EConstr.of_constr concl in
     Refine.refine ~unsafe:true { Sigma.run = fun sigma ->
       let sigma = Sigma.to_evar_map sigma in
       let sigma, term, ty =
@@ -259,17 +260,20 @@ let unify_resolve_refine poly flags =
           let sigma = Evd.merge_context_set Evd.univ_flexible sigma ctx in
           sigma, c, t
       in
+      let open EConstr in
+      let ty = EConstr.of_constr ty in
+      let term = EConstr.of_constr term in
       let sigma', cl = Clenv.make_evar_clause env sigma ?len:n ty in
-      let term = applistc term (List.map (fun x -> x.hole_evar) cl.cl_holes) in
+      let term = applist (term, List.map (fun x -> x.hole_evar) cl.cl_holes) in
       let sigma' =
         let evdref = ref sigma' in
         if not (Evarconv.e_cumul env ~ts:flags.core_unify_flags.modulo_delta
-                                      evdref (EConstr.of_constr cl.cl_concl) (EConstr.of_constr concl)) then
-          Type_errors.error_actual_type env
+                                      evdref cl.cl_concl concl) then
+          Pretype_errors.error_actual_type_core env sigma'
             {Environ.uj_val = term; Environ.uj_type = cl.cl_concl}
             concl;
         !evdref
-      in Sigma.here (EConstr.of_constr term) (Sigma.Unsafe.of_evar_map sigma') }
+      in Sigma.here term (Sigma.Unsafe.of_evar_map sigma') }
   end }
 
 (** Dealing with goals of the form A -> B and hints of the form

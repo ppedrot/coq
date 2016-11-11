@@ -134,9 +134,9 @@ val pr_clenv : clausenv -> Pp.std_ppcmds
 *)
 
 type hole = {
-  hole_evar : constr;
+  hole_evar : EConstr.constr;
   (** The hole itself. Guaranteed to be an evar. *)
-  hole_type : types;
+  hole_type : EConstr.types;
   (** Type of the hole in the current environment. *)
   hole_deps  : bool;
   (** Whether the remainder of the clause was dependent in the hole. Note that
@@ -148,10 +148,10 @@ type hole = {
 
 type clause = {
   cl_holes : hole list;
-  cl_concl : types;
+  cl_concl : EConstr.types;
 }
 
-val make_evar_clause : env -> evar_map -> ?len:int -> types ->
+val make_evar_clause : env -> evar_map -> ?len:int -> EConstr.types ->
   (evar_map * clause)
 (** An evar version of {!make_clenv_binding}. Given a type [t],
     [evar_environments env sigma ~len t bl] tries to eliminate at most [len]
@@ -159,7 +159,7 @@ val make_evar_clause : env -> evar_map -> ?len:int -> types ->
     type together with the list of holes generated. Assumes that [t] is
     well-typed in the environment. *)
 
-val solve_evar_clause : env -> evar_map -> bool -> clause -> constr bindings ->
+val solve_evar_clause : env -> evar_map -> bool -> clause -> EConstr.constr bindings ->
   evar_map
 (** [solve_evar_clause env sigma hyps cl bl] tries to solve the holes contained
     in [cl] according to the [bl] argument. Assumes that [bl] are well-typed in

@@ -588,34 +588,39 @@ let pr_clenv clenv =
 (** Evar version of mk_clenv *)
 
 type hole = {
-  hole_evar : constr;
-  hole_type : types;
+  hole_evar : EConstr.constr;
+  hole_type : EConstr.types;
   hole_deps  : bool;
   hole_name : Name.t;
 }
 
 type clause = {
   cl_holes : hole list;
-  cl_concl : types;
+  cl_concl : EConstr.types;
 }
 
 let make_evar_clause env sigma ?len t =
+  let open EConstr in
+  let open Vars in
   let bound = match len with
   | None -> -1
   | Some n -> assert (0 <= n); n
   in
   (** FIXME: do the renaming online *)
+  let t = EConstr.Unsafe.to_constr t in
   let t = rename_bound_vars_as_displayed [] [] t in
+  let t = EConstr.of_constr t in
   let rec clrec (sigma, holes) n t =
     if n = 0 then (sigma, holes, t)
-    else match kind_of_term t with
+    else match EConstr.kind sigma t with
     | Cast (t, _, _) -> clrec (sigma, holes) n t
     | Prod (na, t1, t2) ->
       let store = Typeclasses.set_resolvable Evd.Store.empty false in
       let sigma = Sigma.Unsafe.of_evar_map sigma in
-      let Sigma (ev, sigma, _) = new_evar ~store env sigma (EConstr.of_constr t1) in
+      let Sigma (ev, sigma, _) = new_evar ~store env sigma t1 in
       let sigma = Sigma.to_evar_map sigma in
-      let dep = not (EConstr.Vars.noccurn sigma 1 (EConstr.of_constr t2)) in
+      let ev = EConstr.of_constr ev in
+      let dep = not (noccurn sigma 1 t2) in
       let hole = {
         hole_evar = ev;
         hole_type = t1;
@@ -670,26 +675,28 @@ let evar_of_binder holes = function
     user_err  (str "No such binder.")
 
 let define_with_type sigma env ev c =
-  let c = EConstr.of_constr c in
-  let t = Retyping.get_type_of env sigma (EConstr.of_constr ev) in
+  let open EConstr in
+  let t = Retyping.get_type_of env sigma ev in
+  let t = EConstr.of_constr t in
   let ty = Retyping.get_type_of env sigma c in
   let ty = EConstr.of_constr ty in
   let j = Environ.make_judge c ty in
-  let (sigma, j) = Coercion.inh_conv_coerce_to true (Loc.ghost) env sigma j (EConstr.of_constr t) in
-  let (ev, _) = destEvar ev in
+  let (sigma, j) = Coercion.inh_conv_coerce_to true (Loc.ghost) env sigma j t in
+  let (ev, _) = destEvar sigma ev in
   let sigma = Evd.define ev (EConstr.Unsafe.to_constr j.Environ.uj_val) sigma in
   sigma
 
 let solve_evar_clause env sigma hyp_only clause = function
 | NoBindings -> sigma
 | ImplicitBindings largs ->
+  let open EConstr in
   let fold holes h =
     if h.hole_deps then
       (** Some subsequent term uses the hole *)
-      let (ev, _) = destEvar h.hole_evar in
-      let is_dep hole = occur_evar sigma ev (EConstr.of_constr hole.hole_type) in
+      let (ev, _) = destEvar sigma h.hole_evar in
+      let is_dep hole = occur_evar sigma ev hole.hole_type in
       let in_hyp = List.exists is_dep holes in
-      let in_ccl = occur_evar sigma ev (EConstr.of_constr clause.cl_concl) in
+      let in_ccl = occur_evar sigma ev clause.cl_concl in
       let dep = if hyp_only then in_hyp && not in_ccl else in_hyp || in_ccl in
       let h = { h with hole_deps = dep } in
       h :: holes
