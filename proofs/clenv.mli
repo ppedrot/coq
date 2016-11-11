@@ -14,6 +14,7 @@ open Names
 open Term
 open Environ
 open Evd
+open EConstr
 open Unification
 open Misctypes
 
@@ -28,8 +29,6 @@ type clausenv = {
   templtyp : constr freelisted (** its type *)}
 
 
-val map_clenv : (constr -> constr) -> clausenv -> clausenv
-
 (** subject of clenv (instantiated) *)
 val clenv_value     : clausenv -> constr
 
@@ -37,16 +36,16 @@ val clenv_value     : clausenv -> constr
 val clenv_type      : clausenv -> types
 
 (** substitute resolved metas *)
-val clenv_nf_meta   : clausenv -> constr -> constr
+val clenv_nf_meta   : clausenv -> Constr.constr -> Constr.constr
 
 (** type of a meta in clenv context *)
 val clenv_meta_type : clausenv -> metavariable -> types
 
-val mk_clenv_from : Goal.goal sigma -> constr * types -> clausenv
+val mk_clenv_from : Goal.goal sigma -> EConstr.constr * EConstr.types -> clausenv
 val mk_clenv_from_n :
-  Goal.goal sigma -> int option -> constr * types -> clausenv
-val mk_clenv_type_of : Goal.goal sigma -> constr -> clausenv
-val mk_clenv_from_env : env -> evar_map -> int option -> constr * types -> clausenv
+  Goal.goal sigma -> int option -> EConstr.constr * EConstr.types -> clausenv
+val mk_clenv_type_of : Goal.goal sigma -> EConstr.constr -> clausenv
+val mk_clenv_from_env : env -> evar_map -> int option -> EConstr.constr * EConstr.types -> clausenv
 
 (** Refresh the universes in a clenv *)
 val refresh_undefined_univs : clausenv -> clausenv * Univ.universe_level_subst
@@ -92,18 +91,18 @@ val clenv_unify_meta_types : ?flags:unify_flags -> clausenv -> clausenv
    the optional int tells how many prods of the lemma have to be used 
    use all of them if None *)
 val make_clenv_binding_env_apply :
-  env -> evar_map -> int option -> constr * constr -> constr bindings ->
+  env -> evar_map -> int option -> EConstr.constr * EConstr.constr -> constr bindings ->
    clausenv
 
 val make_clenv_binding_apply :
-  env -> evar_map -> int option -> constr * constr -> constr bindings ->
+  env -> evar_map -> int option -> EConstr.constr * EConstr.constr -> constr bindings ->
    clausenv
 
 val make_clenv_binding_env :
-  env -> evar_map -> constr * constr -> constr bindings -> clausenv
+  env -> evar_map -> EConstr.constr * EConstr.constr -> constr bindings -> clausenv
 
 val make_clenv_binding :
-  env -> evar_map -> constr * constr -> constr bindings -> clausenv
+  env -> evar_map -> EConstr.constr * EConstr.constr -> constr bindings -> clausenv
 
 (** if the clause is a product, add an extra meta for this product *)
 exception NotExtensibleClause

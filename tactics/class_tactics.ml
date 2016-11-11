@@ -227,6 +227,7 @@ let e_give_exact flags poly (c,clenv) gl =
     else c, gl
   in
   let t1 = pf_unsafe_type_of gl (EConstr.of_constr c) in
+  let t1 = EConstr.of_constr t1 in
   Proofview.V82.of_tactic (Clenvtac.unify ~flags t1 <*> exact_no_check c) gl
 
 let unify_e_resolve poly flags = { enter = begin fun gls (c,_,clenv) ->
@@ -283,9 +284,11 @@ let clenv_of_prods poly nprods (c, clenv) gl =
   let (c, _, _) = c in
   if poly || Int.equal nprods 0 then Some (None, clenv)
   else
+    let c = EConstr.of_constr c in
     let sigma = Tacmach.New.project gl in
-    let ty = Retyping.get_type_of (Proofview.Goal.env gl) sigma (EConstr.of_constr c) in
-    let diff = nb_prod sigma (EConstr.of_constr ty) - nprods in
+    let ty = Retyping.get_type_of (Proofview.Goal.env gl) sigma c in
+    let ty = EConstr.of_constr ty in
+    let diff = nb_prod sigma ty - nprods in
     if Pervasives.(>=) diff 0 then
       (* Was Some clenv... *)
       Some (Some diff,
@@ -1519,7 +1522,7 @@ let autoapply c i gl =
   let flags = auto_unif_flags Evar.Set.empty
     (Hints.Hint_db.transparent_state (Hints.searchtable_map i)) in
   let cty = pf_unsafe_type_of gl (EConstr.of_constr c) in
-  let ce = mk_clenv_from gl (c,cty) in
+  let ce = mk_clenv_from gl (EConstr.of_constr c,EConstr.of_constr cty) in
   let tac = { enter = fun gl -> (unify_e_resolve false flags).enter gl
     ((c,cty,Univ.ContextSet.empty),0,ce) } in
   Proofview.V82.of_tactic (Proofview.Goal.nf_enter tac) gl
