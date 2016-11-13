@@ -232,13 +232,13 @@ let convert_concl ?(check=true) ty k =
     let env = Proofview.Goal.env gl in
     let store = Proofview.Goal.extra gl in
     let conclty = Proofview.Goal.raw_concl gl in
-    let ty = EConstr.of_constr ty in
+    let conclty = EConstr.of_constr conclty in
     Refine.refine ~unsafe:true { run = begin fun sigma ->
       let Sigma ((), sigma, p) =
         if check then begin
           let sigma = Sigma.to_evar_map sigma in
           ignore (Typing.unsafe_type_of env sigma ty);
-          let sigma,b = Reductionops.infer_conv env sigma ty (EConstr.of_constr conclty) in
+          let sigma,b = Reductionops.infer_conv env sigma ty conclty in
           if not b then error "Not convertible.";
           Sigma.Unsafe.of_pair ((), sigma)
         end else Sigma.here () sigma in
@@ -649,16 +649,19 @@ type tactic_reduction = env -> evar_map -> EConstr.t -> constr
 
 let pf_reduce_decl redfun where decl gl =
   let open Context.Named.Declaration in
-  let redfun' c = Tacmach.New.pf_apply redfun gl (EConstr.of_constr c) in
+  let redfun' c = EConstr.of_constr (Tacmach.New.pf_apply redfun gl c) in
   match decl with
   | LocalAssum (id,ty) ->
+      let ty = EConstr.of_constr ty in
       if where == InHypValueOnly then
 	user_err  (pr_id id ++ str " has no value.");
-      LocalAssum (id,redfun' ty)
+      nlocal_assum (id,redfun' ty)
   | LocalDef (id,b,ty) ->
+      let b = EConstr.of_constr b in
+      let ty = EConstr.of_constr ty in
       let b' = if where != InHypTypeOnly then redfun' b else b in
       let ty' =	if where != InHypValueOnly then redfun' ty else ty in
-      LocalDef (id,b',ty')
+      nlocal_def (id,b',ty')
 
 (* Possibly equip a reduction with the occurrences mentioned in an
    occurrence clause *)
@@ -730,7 +733,7 @@ let bind_red_expr_occurrences occs nbcl redexp =
 
 let reduct_in_concl (redfun,sty) =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
-    convert_concl_no_check (Tacmach.New.pf_apply redfun gl (EConstr.of_constr (Tacmach.New.pf_concl gl))) sty
+    convert_concl_no_check (EConstr.of_constr (Tacmach.New.pf_apply redfun gl (EConstr.of_constr (Tacmach.New.pf_concl gl)))) sty
   end }
 
 let reduct_in_hyp ?(check=false) redfun (id,where) =
@@ -766,6 +769,7 @@ let e_reduct_in_concl ~check (redfun, sty) =
   Proofview.Goal.nf_s_enter { s_enter = begin fun gl ->
     let sigma = Proofview.Goal.sigma gl in
     let Sigma (c', sigma, p) = redfun.e_redfun (Tacmach.New.pf_env gl) sigma (EConstr.of_constr (Tacmach.New.pf_concl gl)) in
+    let c' = EConstr.of_constr c' in
     Sigma (convert_concl ~check c' sty, sigma, p)
   end }
 
@@ -786,6 +790,7 @@ let e_change_in_concl (redfun,sty) =
   Proofview.Goal.s_enter { s_enter = begin fun gl ->
     let sigma = Proofview.Goal.sigma gl in
     let Sigma (c, sigma, p) = redfun.e_redfun (Proofview.Goal.env gl) sigma (EConstr.of_constr (Proofview.Goal.raw_concl gl)) in
+    let c = EConstr.of_constr c in
     Sigma (convert_concl_no_check c sty, sigma, p)
   end }
 
@@ -1467,8 +1472,8 @@ let general_elim with_evars clear_flag (c, lbindc) elim =
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
   let ct = Retyping.get_type_of env sigma (EConstr.of_constr c) in
-  let t = try snd (reduce_to_quantified_ind env sigma (EConstr.of_constr ct)) with UserError _ -> ct in
-  let t = EConstr.of_constr t in
+  let ct = EConstr.of_constr ct in
+  let t = try snd (reduce_to_quantified_ind env sigma ct) with UserError _ -> ct in
   let elimtac = elimination_clause_scheme with_evars in
   let lbindc = Miscops.map_bindings EConstr.of_constr lbindc in
   let indclause  = make_clenv_binding env sigma (EConstr.of_constr c, t) lbindc in
@@ -1680,8 +1685,7 @@ let descend_in_conjunctions avoid tac (err, info) c =
     let t = Retyping.get_type_of env sigma (EConstr.of_constr c) in
     let t = EConstr.of_constr t in
     let ((ind,u),t) = reduce_to_quantified_ind env sigma t in
-    let sign,ccl = decompose_prod_assum t in
-    let ccl = EConstr.of_constr ccl in
+    let sign,ccl = EConstr.decompose_prod_assum sigma t in
     match match_with_tuple sigma ccl with
     | Some (_,_,isrec) ->
 	let n = (constructors_nrealargs ind).(0) in
@@ -2347,12 +2351,13 @@ let my_find_eq_data_decompose gl t =
   | Constr_matching.PatternMatchingFailure -> None
 
 let intro_decomp_eq loc l thin tac id =
+  let open EConstr in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
   let c = mkVar id in
-  let t = Tacmach.New.pf_unsafe_type_of gl (EConstr.of_constr c) in
+  let t = Tacmach.New.pf_unsafe_type_of gl c in
   let t = EConstr.of_constr t in
   let _,t = Tacmach.New.pf_reduce_to_quantified_ind gl t in
-  match my_find_eq_data_decompose gl (EConstr.of_constr t) with
+  match my_find_eq_data_decompose gl t with
   | Some (eq,u,eq_args) ->
     !intro_decomp_eq_function
     (fun n -> tac ((dloc,id)::thin) (Some (true,n)) l)
@@ -2707,6 +2712,7 @@ let letin_tac_gen with_eq (id,depdecls,lastlhyp,ccl,c) ty =
       | None ->
           Sigma.here (mkNamedLetIn id c t ccl, Proofview.tclUNIT ()) sigma
     in
+    let newcl = EConstr.of_constr newcl in
     let tac =
       Tacticals.New.tclTHENLIST
       [ convert_concl_no_check newcl DEFAULTcast;
@@ -3250,6 +3256,7 @@ let atomize_param_of_ind_then (indref,nparams,_) hyp0 tac =
   let tmptyp0 = Tacmach.New.pf_get_hyp_typ hyp0 (Proofview.Goal.assume gl) in
   let reduce_to_quantified_ref = Tacmach.New.pf_apply reduce_to_quantified_ref gl in
   let typ0 = reduce_to_quantified_ref indref (EConstr.of_constr tmptyp0) in
+  let typ0 = EConstr.Unsafe.to_constr typ0 in
   let prods, indtyp = decompose_prod_assum typ0 in
   let hd,argl = decompose_app indtyp in
   let env' = push_rel_context prods env in
@@ -4672,7 +4679,7 @@ let elim_scheme_type elim t =
     | Meta mv ->
         let clause' =
 	  (* t is inductive, then CUMUL or CONV is irrelevant *)
-	  clenv_unify ~flags:(elim_flags ()) Reduction.CUMUL (EConstr.of_constr t)
+	  clenv_unify ~flags:(elim_flags ()) Reduction.CUMUL t
             (clenv_meta_type clause mv) clause in
 	Clenvtac.res_pf clause' ~flags:(elim_flags ()) ~with_evars:false
     | _ -> anomaly (Pp.str "elim_scheme_type")
@@ -4775,7 +4782,8 @@ let symmetry_red allowred =
      inside setoid_reflexivity (see Optimize cases in setoid_replace.ml). *)
   let sigma = Tacmach.New.project gl in
   let concl = maybe_betadeltaiota_concl allowred gl in
-  match_with_equation sigma (EConstr.of_constr concl) >>= fun with_eqn ->
+  let concl = EConstr.of_constr concl in
+  match_with_equation sigma concl >>= fun with_eqn ->
   match with_eqn with
   | Some eq_data,_,_ ->
       Tacticals.New.tclTHEN
@@ -4878,7 +4886,8 @@ let transitivity_red allowred t =
      inside setoid_reflexivity (see Optimize cases in setoid_replace.ml). *)
   let sigma = Tacmach.New.project gl in
   let concl = maybe_betadeltaiota_concl allowred gl in
-  match_with_equation sigma (EConstr.of_constr concl) >>= fun with_eqn ->
+  let concl = EConstr.of_constr concl in
+  match_with_equation sigma concl >>= fun with_eqn ->
   match with_eqn with
   | Some eq_data,_,_ ->
       Tacticals.New.tclTHEN

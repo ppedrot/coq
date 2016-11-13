@@ -33,9 +33,9 @@ val is_quantified_hypothesis : Id.t -> ([`NF],'b) Proofview.Goal.t -> bool
 (** {6 Primitive tactics. } *)
 
 val introduction    : ?check:bool -> Id.t -> unit Proofview.tactic
-val convert_concl   : ?check:bool -> types -> cast_kind -> unit Proofview.tactic
+val convert_concl   : ?check:bool -> EConstr.types -> cast_kind -> unit Proofview.tactic
 val convert_hyp     : ?check:bool -> Context.Named.Declaration.t -> unit Proofview.tactic
-val convert_concl_no_check : types -> cast_kind -> unit Proofview.tactic
+val convert_concl_no_check : EConstr.types -> cast_kind -> unit Proofview.tactic
 val convert_hyp_no_check : Context.Named.Declaration.t -> unit Proofview.tactic
 val mutual_fix      :
   Id.t -> int -> (Id.t * int * constr) list -> int -> unit Proofview.tactic
@@ -412,9 +412,9 @@ val subst_one :
   (bool -> Id.t -> Id.t * constr * bool -> unit Proofview.tactic) Hook.t
 
 val declare_intro_decomp_eq :
-  ((int -> unit Proofview.tactic) -> Coqlib.coq_eq_data * types *
+  ((int -> unit Proofview.tactic) -> Coqlib.coq_eq_data * EConstr.types *
    (EConstr.types * EConstr.constr * EConstr.constr) ->
-   constr * types -> unit Proofview.tactic) -> unit
+   EConstr.constr * EConstr.types -> unit Proofview.tactic) -> unit
 
 (** {6 Simple form of basic tactics. } *)
 

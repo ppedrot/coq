@@ -186,8 +186,8 @@ let instantiate_lemma_all frzevars gl c ty l l2r concl =
 let instantiate_lemma gl c ty l l2r concl =
   let c = EConstr.of_constr c in
   let sigma, ct = pf_type_of gl c in
-  let t = try snd (reduce_to_quantified_ind (pf_env gl) sigma (EConstr.of_constr ct)) with UserError _ -> ct in
-  let t = EConstr.of_constr t in
+  let ct = EConstr.of_constr ct in
+  let t = try snd (reduce_to_quantified_ind (pf_env gl) sigma ct) with UserError _ -> ct in
   let l = Miscops.map_bindings EConstr.of_constr l in
   let eqclause = Clenv.make_clenv_binding (pf_env gl) sigma (c,t) l in
   [eqclause]
@@ -996,6 +996,7 @@ let discr_positions env sigma (lbeq,eqn,(t,t1,t2)) eq_clause cpath dirn =
   let t = EConstr.Unsafe.to_constr t in
   let t1 = EConstr.Unsafe.to_constr t1 in
   let t2 = EConstr.Unsafe.to_constr t2 in
+  let eqn = EConstr.Unsafe.to_constr eqn in
   let e = next_ident_away eq_baseid (ids_of_context env) in
   let e_env = push_named (Context.Named.Declaration.LocalAssum (e,t)) env in
   let discriminator =
@@ -1028,13 +1029,12 @@ let onEquality with_evars tac (c,lbindc) =
   let type_of = pf_unsafe_type_of gl in
   let reduce_to_quantified_ind = pf_apply Tacred.reduce_to_quantified_ind gl in
   let t = type_of c in
-  let t' = try snd (reduce_to_quantified_ind (EConstr.of_constr t)) with UserError _ -> t in
-  let t' = EConstr.of_constr t' in
+  let t = EConstr.of_constr t in
+  let t' = try snd (reduce_to_quantified_ind t) with UserError _ -> t in
   let eq_clause = pf_apply make_clenv_binding gl (c,t') lbindc in
   let eq_clause' = Clenvtac.clenv_pose_dependent_evars with_evars eq_clause in
   let eqn = clenv_type eq_clause' in
-  let eqn = EConstr.Unsafe.to_constr eqn in
-  let (eq,u,eq_args) = find_this_eq_data_decompose gl (EConstr.of_constr eqn) in
+  let (eq,u,eq_args) = find_this_eq_data_decompose gl eqn in
   tclTHEN
     (Proofview.Unsafe.tclEVARS eq_clause'.evd)
     (tac (eq,eqn,eq_args) eq_clause')
@@ -1501,8 +1501,6 @@ let dEq with_evars =
 
 let intro_decomp_eq tac data (c, t) =
   Proofview.Goal.enter { enter = begin fun gl ->
-    let c = EConstr.of_constr c in
-    let t = EConstr.of_constr t in
     let cl = pf_apply make_clenv_binding gl (c, t) NoBindings in
     decompEqThen (fun _ -> tac) data cl
   end }

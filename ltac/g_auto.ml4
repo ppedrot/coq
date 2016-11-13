@@ -168,7 +168,7 @@ END
 
 
 TACTIC EXTEND convert_concl_no_check
-| ["convert_concl_no_check" constr(x) ] -> [ Tactics.convert_concl_no_check x Term.DEFAULTcast ]
+| ["convert_concl_no_check" constr(x) ] -> [ Tactics.convert_concl_no_check (EConstr.of_constr x) Term.DEFAULTcast ]
 END
 
 let pr_hints_path_atom _ _ _ = Hints.pp_hints_path_atom

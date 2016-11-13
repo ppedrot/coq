@@ -1606,6 +1606,7 @@ let cl_rewrite_clause_newtac ?abs ?origsigma ~progress strat clause =
             Refine.refine ~unsafe:false make <*> Proofview.Unsafe.tclNEWGOALS gls
             end }
 	| None, None ->
+            let newt = EConstr.of_constr newt in
             Proofview.Unsafe.tclEVARS undef <*>
             convert_concl_no_check newt DEFAULTcast
   in

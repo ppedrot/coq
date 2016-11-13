@@ -828,6 +828,7 @@ let cast_tac id_or_thesis typ gls =
     | Thesis (For _ ) ->
 	error "\"thesis for ...\" is not applicable here."
     | Thesis Plain ->
+          let typ = EConstr.of_constr typ in
           Proofview.V82.of_tactic (convert_concl typ DEFAULTcast) gls
 
 (* per cases *)

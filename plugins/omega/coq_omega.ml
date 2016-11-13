@@ -569,6 +569,7 @@ let abstract_path typ path t =
 
 let focused_simpl path gl =
   let newc = context (fun i t -> pf_nf gl (EConstr.of_constr t)) (List.rev path) (pf_concl gl) in
+  let newc = EConstr.of_constr newc in
   Proofview.V82.of_tactic (convert_concl_no_check newc DEFAULTcast) gl
 
 let focused_simpl path = focused_simpl path
