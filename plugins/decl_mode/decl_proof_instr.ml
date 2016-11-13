@@ -1336,7 +1336,7 @@ let my_refine c gls =
   let oc = { run = begin fun sigma ->
     let sigma = Sigma.to_evar_map sigma in
     let (sigma, c) = understand_my_constr (pf_env gls) sigma c (pf_concl gls) in
-    Sigma.Unsafe.of_pair (c, sigma)
+    Sigma.Unsafe.of_pair (EConstr.of_constr c, sigma)
   end } in
   Proofview.V82.of_tactic (Tactics.New.refine oc) gls
 

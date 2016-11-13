@@ -608,6 +608,22 @@ let mkLambda_or_LetIn decl c =
   | LocalAssum (na,t) -> mkLambda (na, of_constr t, c)
   | LocalDef (na,b,t) -> mkLetIn (na, of_constr b, of_constr t, c)
 
+let mkNamedProd id typ c = mkProd (Name id, typ, Vars.subst_var id c)
+let mkNamedLambda id typ c = mkLambda (Name id, typ, Vars.subst_var id c)
+let mkNamedLetIn id c1 t c2 = mkLetIn (Name id, c1, t, Vars.subst_var id c2)
+
+let mkNamedProd_or_LetIn decl c =
+  let open Context.Named.Declaration in
+  match decl with
+    | LocalAssum (id,t) -> mkNamedProd id (of_constr t) c
+    | LocalDef (id,b,t) -> mkNamedLetIn id (of_constr b) (of_constr t) c
+
+let mkNamedLambda_or_LetIn decl c =
+  let open Context.Named.Declaration in
+  match decl with
+    | LocalAssum (id,t) -> mkNamedLambda id (of_constr t) c
+    | LocalDef (id,b,t) -> mkNamedLetIn id (of_constr b) (of_constr t) c
+
 let it_mkProd_or_LetIn t ctx = List.fold_left (fun c d -> mkProd_or_LetIn d c) t ctx
 let it_mkLambda_or_LetIn t ctx = List.fold_left (fun c d -> mkLambda_or_LetIn d c) t ctx
 

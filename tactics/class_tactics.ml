@@ -1483,7 +1483,7 @@ let resolve_one_typeclass env ?(sigma=Evd.empty) gl unique =
   let evd = sig_sig gls' in
   let t = EConstr.Unsafe.to_constr t in
   let t' = let (ev, inst) = destEvar t in
-    mkEvar (ev, Array.of_list subst)
+    mkEvar (ev, Array.map_of_list EConstr.Unsafe.to_constr subst)
   in
   let term = Evarutil.nf_evar evd t' in
     evd, term

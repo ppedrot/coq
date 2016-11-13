@@ -167,23 +167,47 @@ let _ =
 (*           Primitive tactics            *)
 (******************************************)
 
+let local_assum (na, t) =
+  let open Context.Rel.Declaration in
+  let inj = EConstr.Unsafe.to_constr in
+  LocalAssum (na, inj t)
+
+let local_def (na, b, t) =
+  let open Context.Rel.Declaration in
+  let inj = EConstr.Unsafe.to_constr in
+  LocalDef (na, inj b, inj t)
+
+let nlocal_assum (na, t) =
+  let open Context.Named.Declaration in
+  let inj = EConstr.Unsafe.to_constr in
+  LocalAssum (na, inj t)
+
+let nlocal_def (na, b, t) =
+  let open Context.Named.Declaration in
+  let inj = EConstr.Unsafe.to_constr in
+  LocalDef (na, inj b, inj t)
+
 (** This tactic creates a partial proof realizing the introduction rule, but
     does not check anything. *)
 let unsafe_intro env store decl b =
+  let open EConstr in
+  let open Vars in
   Refine.refine ~unsafe:true { run = begin fun sigma ->
     let ctx = named_context_val env in
     let nctx = push_named_context_val decl ctx in
     let inst = List.map (NamedDecl.get_id %> mkVar) (named_context env) in
     let ninst = mkRel 1 :: inst in
     let nb = subst1 (mkVar (NamedDecl.get_id decl)) b in
-    let Sigma (ev, sigma, p) = new_evar_instance nctx sigma (EConstr.of_constr nb) ~principal:true ~store ninst in
-    Sigma (EConstr.of_constr (mkNamedLambda_or_LetIn decl ev), sigma, p)
+    let Sigma (ev, sigma, p) = new_evar_instance nctx sigma nb ~principal:true ~store ninst in
+    let ev = EConstr.of_constr ev in
+    Sigma (mkNamedLambda_or_LetIn decl ev, sigma, p)
   end }
 
 let introduction ?(check=true) id =
   Proofview.Goal.enter { enter = begin fun gl ->
     let gl = Proofview.Goal.assume gl in
     let concl = Proofview.Goal.concl gl in
+    let concl = EConstr.of_constr concl in
     let sigma = Tacmach.New.project gl in
     let hyps = named_context_val (Proofview.Goal.env gl) in
     let store = Proofview.Goal.extra gl in
@@ -193,15 +217,17 @@ let introduction ?(check=true) id =
         (str "Variable " ++ pr_id id ++ str " is already declared.")
     in
     let open Context.Named.Declaration in
-    match kind_of_term (whd_evar sigma concl) with
-    | Prod (_, t, b) -> unsafe_intro env store (LocalAssum (id, t)) b
-    | LetIn (_, c, t, b) -> unsafe_intro env store (LocalDef (id, c, t)) b
+    match EConstr.kind sigma concl with
+    | Prod (_, t, b) -> unsafe_intro env store (nlocal_assum (id, t)) b
+    | LetIn (_, c, t, b) -> unsafe_intro env store (nlocal_def (id, c, t)) b
     | _ -> raise (RefinerError IntroNeedsProduct)
   end }
 
 let refine          = Tacmach.refine
 
 let convert_concl ?(check=true) ty k =
+  let open EConstr in
+  let open Vars in
   Proofview.Goal.enter { enter = begin fun gl ->
     let env = Proofview.Goal.env gl in
     let store = Proofview.Goal.extra gl in
@@ -217,8 +243,9 @@ let convert_concl ?(check=true) ty k =
           Sigma.Unsafe.of_pair ((), sigma)
         end else Sigma.here () sigma in
       let Sigma (x, sigma, q) = Evarutil.new_evar env sigma ~principal:true ~store ty in
+      let x = EConstr.of_constr x in
       let ans = if k == DEFAULTcast then x else mkCast(x,k,conclty) in
-      Sigma (EConstr.of_constr ans, sigma, p +> q)
+      Sigma (ans, sigma, p +> q)
     end }
   end }
 
@@ -386,7 +413,7 @@ let rename_hyp repl =
       let nhyps = List.map map hyps in
       let nconcl = subst concl in
       let nctx = Environ.val_of_named_context nhyps in
-      let instance = List.map (NamedDecl.get_id %> mkVar) hyps in
+      let instance = List.map (NamedDecl.get_id %> EConstr.mkVar) hyps in
       Refine.refine ~unsafe:true { run = begin fun sigma ->
         let Sigma (c, sigma, p) = Evarutil.new_evar_instance nctx sigma (EConstr.of_constr nconcl) ~principal:true ~store instance in
         Sigma (EConstr.of_constr c, sigma, p)
@@ -5026,8 +5053,6 @@ let tclABSTRACT name_op tac =
   abstract_subproof s gk tac
 
 let unify ?(state=full_transparent_state) x y =
-  let x = EConstr.of_constr x in
-  let y = EConstr.of_constr y in
   Proofview.Goal.nf_s_enter { s_enter = begin fun gl ->
   let sigma = Proofview.Goal.sigma gl in
   try
@@ -5081,10 +5106,6 @@ module New = struct
       {onhyps=None; concl_occs=AllOccurrences }
 
   let refine ?unsafe c =
-    let c = { run = begin fun sigma ->
-      let Sigma (c, sigma, p) = c.run sigma in
-      Sigma (EConstr.of_constr c, sigma, p)
-    end } in
     Refine.refine ?unsafe c <*>
     reduce_after_refine
 end

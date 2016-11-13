@@ -74,7 +74,7 @@ val new_evar_instance :
   ?src:Loc.t * Evar_kinds.t -> ?filter:Filter.t -> ?candidates:constr list ->
   ?store:Store.t -> ?naming:Misctypes.intro_pattern_naming_expr ->
   ?principal:bool ->
-  constr list -> (constr, 'r) Sigma.sigma
+  EConstr.constr list -> (constr, 'r) Sigma.sigma
 
 val make_pure_subst : evar_info -> 'a array -> (Id.t * 'a) list
 
@@ -218,7 +218,7 @@ val push_rel_decl_to_named_context :
   Context.Rel.Declaration.t -> ext_named_context -> ext_named_context
 
 val push_rel_context_to_named_context : Environ.env -> EConstr.types ->
-  named_context_val * EConstr.types * constr list * csubst * (identifier*EConstr.constr) list
+  named_context_val * EConstr.types * EConstr.constr list * csubst * (identifier*EConstr.constr) list
 
 val generalize_evar_over_rels : evar_map -> existential -> types * constr list
 

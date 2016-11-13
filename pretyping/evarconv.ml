@@ -1066,7 +1066,7 @@ let second_order_matching ts env_rhs evd (evk,args) argoccs rhs =
         | Some _ -> error "Selection of specific occurrences not supported"
         | None ->
         let evty = set_holes evdref cty subst in
-        let instance = List.map EConstr.Unsafe.to_constr (Filter.filter_list filter instance) in
+        let instance = Filter.filter_list filter instance in
         let evd = Sigma.Unsafe.of_evar_map !evdref in
         let Sigma (ev, evd, _) = new_evar_instance sign evd evty ~filter instance in
         let evd = Sigma.to_evar_map evd in

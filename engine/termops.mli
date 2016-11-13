@@ -41,7 +41,7 @@ val lookup_rel_id : Id.t -> Context.Rel.t -> int * constr option * types
     [rel_vect n m] builds [|Rel (n+m);...;Rel(n+1)|]
 *)
 val rel_vect : int -> int -> constr array
-val rel_list : int -> int -> constr list
+val rel_list : int -> int -> EConstr.constr list
 
 (** iterators/destructors on terms *)
 val mkProd_or_LetIn : Context.Rel.Declaration.t -> types -> types

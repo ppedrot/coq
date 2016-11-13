@@ -398,7 +398,7 @@ val generalize_dep  : ?with_let:bool (** Don't lose let bindings *) -> constr  -
 
 (** {6 Other tactics. } *)
 
-val unify           : ?state:Names.transparent_state -> constr -> constr -> unit Proofview.tactic
+val unify           : ?state:Names.transparent_state -> EConstr.constr -> EConstr.constr -> unit Proofview.tactic
 
 val tclABSTRACT : Id.t option -> unit Proofview.tactic -> unit Proofview.tactic
 
@@ -434,7 +434,7 @@ end
 
 module New : sig
 
-  val refine : ?unsafe:bool -> constr Sigma.run -> unit Proofview.tactic
+  val refine : ?unsafe:bool -> EConstr.constr Sigma.run -> unit Proofview.tactic
   (** [refine ?unsafe c] is [Refine.refine ?unsafe c]
       followed by beta-iota-reduction of the conclusion. *)
 

@@ -81,6 +81,12 @@ val mkLambda_or_LetIn : Rel.Declaration.t -> t -> t
 val it_mkProd_or_LetIn : t -> Rel.t -> t
 val it_mkLambda_or_LetIn : t -> Rel.t -> t
 
+val mkNamedLambda : Id.t -> types -> constr -> constr
+val mkNamedLetIn : Id.t -> constr -> types -> constr -> constr
+val mkNamedProd : Id.t -> types -> types -> types
+val mkNamedLambda_or_LetIn : Named.Declaration.t -> types -> types
+val mkNamedProd_or_LetIn : Named.Declaration.t -> types -> types
+
 (** {6 Simple case analysis} *)
 
 val isRel  : Evd.evar_map -> t -> bool

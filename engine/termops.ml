@@ -159,6 +159,7 @@ let print_env env =
 let rel_vect n m = Array.init m (fun i -> mkRel(n+m-i))
 
 let rel_list n m =
+  let open EConstr in
   let rec reln l p =
     if p>m then l else reln (mkRel(n+p)::l) (p+1)
   in
