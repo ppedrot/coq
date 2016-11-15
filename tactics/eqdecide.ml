@@ -222,6 +222,7 @@ let decideEqualityGoal = tclTHEN intros decideGralEquality
 let decideEquality rectype =
   Proofview.Goal.enter { enter = begin fun gl ->
   let decide = mkGenDecideEqGoal rectype gl in
+  let decide = EConstr.of_constr decide in
   (tclTHENS (cut decide) [default_auto;decideEqualityGoal])
   end }
 
@@ -232,6 +233,7 @@ let compare c1 c2 =
   Proofview.Goal.enter { enter = begin fun gl ->
   let rectype = pf_unsafe_type_of gl (EConstr.of_constr c1) in
   let decide = mkDecideEqGoal true (build_coq_sumbool ()) rectype c1 c2 in
+  let decide = EConstr.of_constr decide in
   (tclTHENS (cut decide)
             [(tclTHEN  intro
              (tclTHEN (onLastHyp simplest_case) clear_last));

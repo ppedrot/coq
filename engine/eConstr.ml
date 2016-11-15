@@ -98,6 +98,7 @@ let mkCase (ci, c, r, p) = of_kind (Case (ci, c, r, p))
 let mkFix f = of_kind (Fix f)
 let mkCoFix f = of_kind (CoFix f)
 let mkProj (p, c) = of_kind (Proj (p, c))
+let mkArrow t1 t2 = of_kind (Prod (Anonymous, t1, t2))
 
 let applist (f, arg) = mkApp (f, Array.of_list arg)
 

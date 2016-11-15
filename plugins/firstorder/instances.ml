@@ -131,7 +131,7 @@ let left_instance_tac (inst,id) continue seq=
 	if lookup (id,None) seq then
 	  tclFAIL 0 (Pp.str "already done")
 	else
-	  tclTHENS (Proofview.V82.of_tactic (cut dom))
+	  tclTHENS (Proofview.V82.of_tactic (cut (EConstr.of_constr dom)))
 	    [tclTHENLIST
 	       [Proofview.V82.of_tactic introf;
                 pf_constr_of_global id (fun idc ->
@@ -172,7 +172,7 @@ let left_instance_tac (inst,id) continue seq=
 let right_instance_tac inst continue seq=
   match inst with
       Phantom dom ->
-	tclTHENS (Proofview.V82.of_tactic (cut dom))
+	tclTHENS (Proofview.V82.of_tactic (cut (EConstr.of_constr dom)))
 	[tclTHENLIST
 	   [Proofview.V82.of_tactic introf;
 	    (fun gls->

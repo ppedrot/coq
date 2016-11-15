@@ -486,7 +486,7 @@ let mk_eq f c1 c2 k =
     let term = mkApp (fc, [| ty; c1; c2 |]) in
     let evm, _ =  type_of (pf_env gl) evm (EConstr.of_constr term) in
     Tacticals.New.tclTHEN (Proofview.V82.tactic (Refiner.tclEVARS evm))
-			  (k term)
+			  (k (EConstr.of_constr term))
     end })
 
 let f_equal =

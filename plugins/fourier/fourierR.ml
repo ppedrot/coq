@@ -584,7 +584,7 @@ let rec fourier () =
                       then tac_zero_inf_false gl (rational_to_fraction cres)
                       else tac_zero_infeq_false gl (rational_to_fraction cres)
            in
-           tac:=(Tacticals.New.tclTHENS (cut ineq)
+           tac:=(Tacticals.New.tclTHENS (cut (EConstr.of_constr ineq))
                      [Tacticals.New.tclTHEN (change_concl
 			       (mkAppL [| get coq_not; ineq|]
 				       ))
@@ -612,7 +612,7 @@ let rec fourier () =
 					 )
 				]));
                        !tac1]);
-	   tac:=(Tacticals.New.tclTHENS (cut (get coq_False))
+	   tac:=(Tacticals.New.tclTHENS (cut (EConstr.of_constr (get coq_False)))
 				  [Tacticals.New.tclTHEN intro (contradiction None);
 				   !tac])
       |_-> assert false) |_-> assert false

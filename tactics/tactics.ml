@@ -277,8 +277,8 @@ let convert_gen pb x y =
       Tacticals.New.tclFAIL 0 (str "Not convertible")
 end }
 
-let convert x y = convert_gen Reduction.CONV (EConstr.of_constr x) (EConstr.of_constr y)
-let convert_leq x y = convert_gen Reduction.CUMUL (EConstr.of_constr x) (EConstr.of_constr y)
+let convert x y = convert_gen Reduction.CONV x y
+let convert_leq x y = convert_gen Reduction.CUMUL x y
 
 let clear_dependency_msg env sigma id = function
   | Evarutil.OccurHypInSimpleClause None ->
@@ -528,41 +528,43 @@ let rec mk_holes : type r s. _ -> r Sigma.t -> (s, r) Sigma.le -> _ -> (_, s) Si
 fun env sigma p -> function
 | [] -> Sigma ([], sigma, p)
 | arg :: rem ->
-  let Sigma (arg, sigma, q) = Evarutil.new_evar env sigma (EConstr.of_constr arg) in
+  let Sigma (arg, sigma, q) = Evarutil.new_evar env sigma arg in
+  let arg = EConstr.of_constr arg in
   let Sigma (rem, sigma, r) = mk_holes env sigma (p +> q) rem in
   Sigma (arg :: rem, sigma, r)
 
-let rec check_mutind env sigma k cl = match kind_of_term (strip_outer_cast sigma (EConstr.of_constr cl)) with
+let rec check_mutind env sigma k cl = match EConstr.kind sigma (EConstr.of_constr (strip_outer_cast sigma cl)) with
 | Prod (na, c1, b) ->
   if Int.equal k 1 then
     try
-      let ((sp, _), u), _ = find_inductive env sigma (EConstr.of_constr c1) in
+      let ((sp, _), u), _ = find_inductive env sigma c1 in
       (sp, u)
     with Not_found -> error "Cannot do a fixpoint on a non inductive type."
   else
     let open Context.Rel.Declaration in
-    check_mutind (push_rel (LocalAssum (na, c1)) env) sigma (pred k) b
+    check_mutind (push_rel (local_assum (na, c1)) env) sigma (pred k) b
 | _ -> error "Not enough products."
 
 (* Refine as a fixpoint *)
 let mutual_fix f n rest j = Proofview.Goal.nf_enter { enter = begin fun gl ->
+  let open EConstr in
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
   let concl = Proofview.Goal.concl gl in
+  let concl = EConstr.of_constr concl in
   let (sp, u) = check_mutind env sigma n concl in
   let firsts, lasts = List.chop j rest in
   let all = firsts @ (f, n, concl) :: lasts in
   let rec mk_sign sign = function
   | [] -> sign
   | (f, n, ar) :: oth ->
-    let open Context.Named.Declaration in
     let (sp', u')  = check_mutind env sigma n ar in
     if not (eq_mind sp sp') then
       error "Fixpoints should be on the same mutual inductive declaration.";
     if mem_named_context_val f sign then
       user_err ~hdr:"Logic.prim_refiner"
         (str "Name " ++ pr_id f ++ str " already used in the environment");
-    mk_sign (push_named_context_val (LocalAssum (f, ar)) sign) oth
+    mk_sign (push_named_context_val (nlocal_assum (f, ar)) sign) oth
   in
   let nenv = reset_with_named_context (mk_sign (named_context_val env) all) env in
   Refine.refine { run = begin fun sigma ->
@@ -573,8 +575,7 @@ let mutual_fix f n rest j = Proofview.Goal.nf_enter { enter = begin fun gl ->
     let funnames = Array.of_list (List.map (fun i -> Name i) ids) in
     let typarray = Array.of_list (List.map pi3 all) in
     let bodies = Array.of_list evs in
-    let oterm = Term.mkFix ((indxs,0),(funnames,typarray,bodies)) in
-    let oterm = EConstr.of_constr oterm in
+    let oterm = mkFix ((indxs,0),(funnames,typarray,bodies)) in
     Sigma (oterm, sigma, p)
   end }
 end }
@@ -590,32 +591,33 @@ let fix ido n = match ido with
     mutual_fix id n [] 0
 
 let rec check_is_mutcoind env sigma cl =
-  let b = whd_all env sigma (EConstr.of_constr cl) in
-  match kind_of_term b with
+  let b = whd_all env sigma cl in
+  let b = EConstr.of_constr b in
+  match EConstr.kind sigma b with
   | Prod (na, c1, b) ->
-    let open Context.Rel.Declaration in
-    check_is_mutcoind (push_rel (LocalAssum (na,c1)) env) sigma b
+    check_is_mutcoind (push_rel (local_assum (na,c1)) env) sigma b
   | _ ->
     try
-      let _ = find_coinductive env sigma (EConstr.of_constr b) in ()
+      let _ = find_coinductive env sigma b in ()
     with Not_found ->
       error "All methods must construct elements in coinductive types."
 
 (* Refine as a cofixpoint *)
 let mutual_cofix f others j = Proofview.Goal.nf_enter { enter = begin fun gl ->
+  let open EConstr in
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
   let concl = Proofview.Goal.concl gl in
+  let concl = EConstr.of_constr concl in
   let firsts,lasts = List.chop j others in
   let all = firsts @ (f, concl) :: lasts in
   List.iter (fun (_, c) -> check_is_mutcoind env sigma c) all;
   let rec mk_sign sign = function
   | [] -> sign
   | (f, ar) :: oth ->
-    let open Context.Named.Declaration in
     if mem_named_context_val f sign then
       error "Name already used in the environment.";
-    mk_sign (push_named_context_val (LocalAssum (f, ar)) sign) oth
+    mk_sign (push_named_context_val (nlocal_assum (f, ar)) sign) oth
   in
   let nenv = reset_with_named_context (mk_sign (named_context_val env) all) env in
   Refine.refine { run = begin fun sigma ->
@@ -625,8 +627,7 @@ let mutual_cofix f others j = Proofview.Goal.nf_enter { enter = begin fun gl ->
     let funnames = Array.of_list (List.map (fun i -> Name i) ids) in
     let typarray = Array.of_list types in
     let bodies = Array.of_list evs in
-    let oterm = Term.mkCoFix (0, (funnames, typarray, bodies)) in
-    let oterm = EConstr.of_constr oterm in
+    let oterm = mkCoFix (0, (funnames, typarray, bodies)) in
     Sigma (oterm, sigma, p)
   end }
 end }
@@ -980,16 +981,18 @@ let build_intro_tac id dest tac = match dest with
 
 let rec intro_then_gen name_flag move_flag force_flag dep_flag tac =
   let open Context.Rel.Declaration in
+  let open EConstr in
+  let open Vars in
   Proofview.Goal.enter { enter = begin fun gl ->
     let sigma = Tacmach.New.project gl in
     let concl = Proofview.Goal.concl (Proofview.Goal.assume gl) in
-    let concl = nf_evar (Tacmach.New.project gl) concl in
-    match kind_of_term concl with
-    | Prod (name,t,u) when not dep_flag || not (EConstr.Vars.noccurn sigma 1 (EConstr.of_constr u)) ->
-        let name = find_name false (LocalAssum (name,t)) name_flag gl in
+    let concl = EConstr.of_constr concl in
+    match EConstr.kind sigma concl with
+    | Prod (name,t,u) when not dep_flag || not (noccurn sigma 1 u) ->
+        let name = find_name false (local_assum (name,t)) name_flag gl in
 	build_intro_tac name move_flag tac
-    | LetIn (name,b,t,u) when not dep_flag || not (EConstr.Vars.noccurn sigma 1 (EConstr.of_constr u)) ->
-        let name = find_name false (LocalDef (name,b,t)) name_flag gl in
+    | LetIn (name,b,t,u) when not dep_flag || not (noccurn sigma 1 u) ->
+        let name = find_name false (local_def (name,b,t)) name_flag gl in
 	build_intro_tac name move_flag tac
     | _ ->
 	begin if not force_flag then Proofview.tclZERO (RefinerError IntroNeedsProduct)
@@ -1266,16 +1269,20 @@ let force_destruction_arg with_evars env sigma c =
 let normalize_cut = false
 
 let cut c =
+  let open EConstr in
   Proofview.Goal.enter { enter = begin fun gl ->
     let env = Proofview.Goal.env gl in
     let sigma = Tacmach.New.project gl in
     let concl = Tacmach.New.pf_nf_concl gl in
+    let concl = EConstr.of_constr concl in
     let is_sort =
       try
         (** Backward compat: ensure that [c] is well-typed. *)
-        let typ = Typing.unsafe_type_of env sigma (EConstr.of_constr c) in
-        let typ = whd_all env sigma (EConstr.of_constr typ) in
-        match kind_of_term typ with
+        let typ = Typing.unsafe_type_of env sigma c in
+        let typ = EConstr.of_constr typ in
+        let typ = whd_all env sigma typ in
+        let typ = EConstr.of_constr typ in
+        match EConstr.kind sigma typ with
         | Sort _ -> true
         | _ -> false
       with e when Pretype_errors.precatchable_exception e -> false
@@ -1283,12 +1290,13 @@ let cut c =
     if is_sort then
       let id = next_name_away_with_default "H" Anonymous (Tacmach.New.pf_ids_of_hyps gl) in
       (** Backward compat: normalize [c]. *)
-      let c = if normalize_cut then local_strong whd_betaiota sigma (EConstr.of_constr c) else c in
+      let c = if normalize_cut then EConstr.of_constr (local_strong whd_betaiota sigma c) else c in
       Refine.refine ~unsafe:true { run = begin fun h ->
-        let Sigma (f, h, p) = Evarutil.new_evar ~principal:true env h (EConstr.of_constr (mkArrow c (Vars.lift 1 concl))) in
-        let Sigma (x, h, q) = Evarutil.new_evar env h (EConstr.of_constr c) in
-        let f = mkLetIn (Name id, x, c, mkApp (Vars.lift 1 f, [|mkRel 1|])) in
+        let Sigma (f, h, p) = Evarutil.new_evar ~principal:true env h (mkArrow c (Vars.lift 1 concl)) in
         let f = EConstr.of_constr f in
+        let Sigma (x, h, q) = Evarutil.new_evar env h c in
+        let x = EConstr.of_constr x in
+        let f = mkLetIn (Name id, x, c, mkApp (Vars.lift 1 f, [|mkRel 1|])) in
         Sigma (f, h, p +> q)
       end }
     else
@@ -2007,9 +2015,11 @@ let exact_check c =
   let sigma = Proofview.Goal.sigma gl in
   (** We do not need to normalize the goal because we just check convertibility *)
   let concl = Proofview.Goal.concl (Proofview.Goal.assume gl) in
+  let concl = EConstr.of_constr concl in
   let env = Proofview.Goal.env gl in
   let sigma = Sigma.to_evar_map sigma in
   let sigma, ct = Typing.type_of env sigma (EConstr.of_constr c) in
+  let ct = EConstr.of_constr ct in
   let tac =
       Tacticals.New.tclTHEN (convert_leq ct concl) (exact_no_check c)
   in
@@ -3025,6 +3035,7 @@ let specialize (c,lbind) ipat =
       | None ->
         (* Like generalize with extra support for "with" bindings *)
         (* even though the "with" bindings forces full application *)
+        let typ = EConstr.of_constr typ in
         Tacticals.New.tclTHENLAST (cut typ) (exact_no_check term)
       | Some (loc,ipat) ->
         (* Like pose proof with extra support for "with" bindings *)
@@ -4761,7 +4772,6 @@ let prove_symmetry hdcncl eq_kind =
     | MonomorphicLeibnizEq (c1,c2) -> mkApp(hdcncl,[|c2;c1|])
     | PolymorphicLeibnizEq (typ,c1,c2) -> mkApp(hdcncl,[|typ;c2;c1|])
     | HeterogenousEq (t1,c1,t2,c2) -> mkApp(hdcncl,[|t2;c2;t1;c1|]) in
-  let symc = EConstr.Unsafe.to_constr symc in
   Tacticals.New.tclTHENFIRST (cut symc)
     (Tacticals.New.tclTHENLIST
       [ intro;
@@ -4818,8 +4828,7 @@ let symmetry_in id =
           | MonomorphicLeibnizEq (c1,c2) -> mkApp (hdcncl, [| c2; c1 |])
           | PolymorphicLeibnizEq (typ,c1,c2) -> mkApp (hdcncl, [| typ; c2; c1 |])
           | HeterogenousEq (t1,c1,t2,c2) -> mkApp (hdcncl, [| t2; c2; t1; c1 |]) in
-        let symccl = EConstr.Unsafe.to_constr symccl in
-        Tacticals.New.tclTHENS (cut (it_mkProd_or_LetIn symccl sign))
+        Tacticals.New.tclTHENS (cut (EConstr.it_mkProd_or_LetIn symccl sign))
           [ intro_replacing id;
             Tacticals.New.tclTHENLIST [ intros; symmetry; apply (mkVar id); assumption ] ]
     end
@@ -4869,8 +4878,6 @@ let prove_transitivity hdcncl eq_kind t =
         (mkApp(hdcncl, [| typ1; c1; typt ;t |]),
          mkApp(hdcncl, [| typt; t; typ2; c2 |]))
   in
-  let eq1 = EConstr.Unsafe.to_constr eq1 in
-  let eq2 = EConstr.Unsafe.to_constr eq2 in
   Tacticals.New.tclTHENFIRST (cut eq2)
     (Tacticals.New.tclTHENFIRST (cut eq1)
        (Tacticals.New.tclTHENLIST

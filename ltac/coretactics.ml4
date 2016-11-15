@@ -39,7 +39,7 @@ TACTIC EXTEND etransitivity
 END
 
 TACTIC EXTEND cut
-  [ "cut" constr(c) ] -> [ Tactics.cut c ]
+  [ "cut" constr(c) ] -> [ Tactics.cut (EConstr.of_constr c) ]
 END
 
 TACTIC EXTEND exact_no_check

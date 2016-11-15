@@ -73,6 +73,7 @@ val mkConstructU : pconstructor -> t
 val mkCase : case_info * t * t * t array -> t
 val mkFix : (t, t) pfixpoint -> t
 val mkCoFix : (t, t) pcofixpoint -> t
+val mkArrow : t -> t -> t
 
 val applist : t * t list -> t
 

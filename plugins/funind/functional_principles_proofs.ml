@@ -1227,7 +1227,7 @@ let prove_princ_for_struct (evd:Evd.evar_map ref) interactive_proof fun_num fnam
 	| _, this_fix_info::others_infos ->
 	    let other_fix_infos =
 	      List.map
-		(fun fi -> fi.name,fi.idx + 1 ,fi.types)
+		(fun fi -> fi.name,fi.idx + 1 ,EConstr.of_constr fi.types)
 		(pre_info@others_infos)
 	    in
 	    if List.is_empty other_fix_infos

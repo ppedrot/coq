@@ -1354,7 +1354,7 @@ let inject_if_homogenous_dependent_pair ty =
       [Proofview.tclEFFECTS eff;
        intro;
        onLastHyp (fun hyp ->
-        tclTHENS (cut (mkApp (ceq,new_eq_args)))
+        tclTHENS (cut (EConstr.of_constr (mkApp (ceq,new_eq_args))))
           [clear [destVar hyp];
            Proofview.V82.tactic (Tacmach.refine
              (EConstr.of_constr (mkApp(inj2,[|ar1.(0);mkConst c;ar1.(1);ar1.(2);ar1.(3);ar2.(3);hyp|]))))
@@ -1404,7 +1404,7 @@ let inject_at_positions env sigma l2r (eq,_,(t,t1,t2)) eq_clause posns tac =
     Proofview.tclTHEN (Proofview.Unsafe.tclEVARS !evdref)
     (Tacticals.New.tclTHENFIRST
       (Proofview.tclIGNORE (Proofview.Monad.List.map
-         (fun (pf,ty) -> tclTHENS (cut ty)
+         (fun (pf,ty) -> tclTHENS (cut (EConstr.of_constr ty))
            [inject_if_homogenous_dependent_pair (EConstr.of_constr ty);
             Proofview.V82.tactic (Tacmach.refine (EConstr.of_constr pf))])
          (if l2r then List.rev injectors else injectors)))

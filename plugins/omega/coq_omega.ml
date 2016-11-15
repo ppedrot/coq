@@ -373,7 +373,7 @@ let mk_minus t1 t2 = mkApp (Lazy.force coq_Zminus, [| t1;t2 |])
 let mk_eq t1 t2 = mkApp (Universes.constr_of_global (build_coq_eq ()),
 			 [| Lazy.force coq_Z; t1; t2 |])
 let mk_le t1 t2 = mkApp (Lazy.force coq_Zle, [| t1; t2 |])
-let mk_gt t1 t2 = mkApp (Lazy.force coq_Zgt, [| t1; t2 |])
+let mk_gt t1 t2 = EConstr.of_constr (mkApp (Lazy.force coq_Zgt, [| t1; t2 |]))
 let mk_inv t = mkApp (Lazy.force coq_Zopp, [| t |])
 let mk_and t1 t2 =  mkApp (build_coq_and (), [| t1; t2 |])
 let mk_or t1 t2 =  mkApp (build_coq_or (), [| t1; t2 |])
@@ -1117,7 +1117,7 @@ let replay_history tactic_normalisation =
 	  let state_eg = mk_eq eq1 rhs in
 	  let tac = scalar_norm_add [P_APP 3] e2.body in
 	  Tacticals.New.tclTHENS
-	    (cut state_eg)
+	    (cut (EConstr.of_constr state_eg))
 	    [ Tacticals.New.tclTHENS
 	        (Tacticals.New.tclTHENLIST [
 		  (intros_using [aux]);
@@ -1186,7 +1186,7 @@ let replay_history tactic_normalisation =
 	  if e1.kind == DISE then
             let tac = scalar_norm [P_APP 3] e2.body in
             Tacticals.New.tclTHENS
-	      (cut state_eq)
+	      (cut (EConstr.of_constr state_eq))
 	      [Tacticals.New.tclTHENLIST [
 		(intros_using [aux1]);
 		(generalize_tac
@@ -1198,7 +1198,7 @@ let replay_history tactic_normalisation =
 	       Tacticals.New.tclTHEN (Proofview.V82.tactic (mk_then tac)) reflexivity ]
 	  else
             let tac = scalar_norm [P_APP 3] e2.body in
-            Tacticals.New.tclTHENS (cut state_eq)
+            Tacticals.New.tclTHENS (cut (EConstr.of_constr state_eq))
 	      [
 		Tacticals.New.tclTHENS
 		 (cut (mk_gt kk izero))
@@ -1228,7 +1228,7 @@ let replay_history tactic_normalisation =
             scalar_norm [P_APP 3] e1.body
 	  in
 	  Tacticals.New.tclTHENS
-	    (cut (mk_eq eq1 (mk_inv eq2)))
+	    (cut (EConstr.of_constr (mk_eq eq1 (mk_inv eq2))))
 	    [Tacticals.New.tclTHENLIST [
 	      (intros_using [aux]);
 	      (generalize_tac [mkApp (Lazy.force coq_OMEGA8,
@@ -1261,7 +1261,7 @@ let replay_history tactic_normalisation =
             shuffle_mult_right p_initial
               orig.body m ({c= negone;v= v}::def.body) in
 	  Tacticals.New.tclTHENS
-	    (cut theorem)
+	    (cut (EConstr.of_constr theorem))
 	    [Tacticals.New.tclTHENLIST [
 	      (intros_using [aux]);
 	      (elim_id aux);

@@ -38,13 +38,13 @@ val convert_hyp     : ?check:bool -> Context.Named.Declaration.t -> unit Proofvi
 val convert_concl_no_check : EConstr.types -> cast_kind -> unit Proofview.tactic
 val convert_hyp_no_check : Context.Named.Declaration.t -> unit Proofview.tactic
 val mutual_fix      :
-  Id.t -> int -> (Id.t * int * constr) list -> int -> unit Proofview.tactic
+  Id.t -> int -> (Id.t * int * EConstr.constr) list -> int -> unit Proofview.tactic
 val fix             : Id.t option -> int -> unit Proofview.tactic
-val mutual_cofix    : Id.t -> (Id.t * constr) list -> int -> unit Proofview.tactic
+val mutual_cofix    : Id.t -> (Id.t * EConstr.constr) list -> int -> unit Proofview.tactic
 val cofix           : Id.t option -> unit Proofview.tactic
 
-val convert         : constr -> constr -> unit Proofview.tactic
-val convert_leq     : constr -> constr -> unit Proofview.tactic
+val convert         : EConstr.constr -> EConstr.constr -> unit Proofview.tactic
+val convert_leq     : EConstr.constr -> EConstr.constr -> unit Proofview.tactic
 
 (** {6 Introduction tactics. } *)
 
@@ -375,7 +375,7 @@ val forward   : bool -> unit Proofview.tactic option option ->
 
 (** Implements the tactic cut, actually a modus ponens rule *)
 
-val cut        : types -> unit Proofview.tactic
+val cut        : EConstr.types -> unit Proofview.tactic
 
 (** {6 Tactics for adding local definitions. } *)
 

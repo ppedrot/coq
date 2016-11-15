@@ -1701,7 +1701,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
         let env = pf_env gl in
         let f sigma (id,n,c) =
           let (sigma,c_interp) = interp_type ist env sigma c in
-	  sigma , (interp_ident ist env sigma id,n,c_interp) in
+	  sigma , (interp_ident ist env sigma id,n,EConstr.of_constr c_interp) in
         let (sigma,l_interp) =
           Evd.MonadR.List.map_right (fun c sigma -> f sigma c) l (project gl)
         in
@@ -1716,7 +1716,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
         let env = pf_env gl in
         let f sigma (id,c) =
 	  let (sigma,c_interp) = interp_type ist env sigma c in
-	  sigma , (interp_ident ist env sigma id,c_interp) in
+	  sigma , (interp_ident ist env sigma id,EConstr.of_constr c_interp) in
         let (sigma,l_interp) =
           Evd.MonadR.List.map_right (fun c sigma -> f sigma c) l (project gl)
         in
