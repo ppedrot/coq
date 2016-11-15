@@ -1462,11 +1462,11 @@ let new_prove_with_tcc is_mes acc_inv hrec tcc_hyps eqs : tactic =
 	 backtrack_eqs_until_hrec hrec eqs;
 	 (* observe_tac ("new_prove_with_tcc ( applying "^(Id.to_string hrec)^" )" ) *)
 	 (tclTHENS  (* We must have exactly ONE subgoal !*)
-	    (Proofview.V82.of_tactic (apply (mkVar hrec)))
+	    (Proofview.V82.of_tactic (apply (EConstr.mkVar hrec)))
 	    [ tclTHENSEQ
 		[
 		  (Proofview.V82.of_tactic (keep (tcc_hyps@eqs)));
-		  (Proofview.V82.of_tactic (apply (Lazy.force acc_inv)));
+		  (Proofview.V82.of_tactic (apply (EConstr.of_constr (Lazy.force acc_inv))));
 		  (fun g ->
 		     if is_mes
 		     then
@@ -1482,7 +1482,7 @@ let new_prove_with_tcc is_mes acc_inv hrec tcc_hyps eqs : tactic =
 			    tclCOMPLETE(
 				    Eauto.eauto_with_bases
 				      (true,5)
-				      [{ Tacexpr.delayed = fun _ sigma -> Sigma.here (Lazy.force refl_equal) sigma}]
+				      [{ Tacexpr.delayed = fun _ sigma -> Sigma.here (EConstr.of_constr (Lazy.force refl_equal)) sigma}]
 				      [Hints.Hint_db.empty empty_transparent_state false]
 				  )
 			   )
@@ -1585,7 +1585,7 @@ let prove_principle_for_gen
 	       (
 		 (* observe_tac  *)
 (* 		   "apply wf_thm"  *)
-		 Proofview.V82.of_tactic (Tactics.Simple.apply (mkApp(mkVar wf_thm_id,[|mkVar rec_arg_id|])))
+		 Proofview.V82.of_tactic (Tactics.Simple.apply (EConstr.of_constr (mkApp(mkVar wf_thm_id,[|mkVar rec_arg_id|]))))
 	       )
 	    )
 	 )

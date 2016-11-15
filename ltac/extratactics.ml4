@@ -118,7 +118,7 @@ END
 
 let discrHyp id =
   Proofview.tclEVARMAP >>= fun sigma ->
-  discr_main { delayed = fun env sigma -> Sigma.here (Term.mkVar id, NoBindings) sigma }
+  discr_main { delayed = fun env sigma -> Sigma.here (EConstr.mkVar id, NoBindings) sigma }
 
 let injection_main with_evars c =
  elimOnConstrWithHoles (injClause None) with_evars c
@@ -150,7 +150,7 @@ END
 
 let injHyp id =
   Proofview.tclEVARMAP >>= fun sigma ->
-  injection_main false { delayed = fun env sigma -> Sigma.here (Term.mkVar id, NoBindings) sigma }
+  injection_main false { delayed = fun env sigma -> Sigma.here (EConstr.mkVar id, NoBindings) sigma }
 
 TACTIC EXTEND dependent_rewrite
 | [ "dependent" "rewrite" orient(b) constr(c) ] -> [ rewriteInConcl b c ]
@@ -476,6 +476,7 @@ let transitivity_left_table = Summary.ref [] ~name:"transitivity-steps-l"
 let step left x tac =
   let l =
     List.map (fun lem ->
+      let lem = EConstr.of_constr lem in
       Tacticals.New.tclTHENLAST
         (apply_with_bindings (lem, ImplicitBindings [x]))
         tac)
@@ -511,13 +512,13 @@ let add_transitivity_lemma left lem =
 (* Vernacular syntax *)
 
 TACTIC EXTEND stepl
-| ["stepl" constr(c) "by" tactic(tac) ] -> [ step true c (Tacinterp.tactic_of_value ist tac) ]
-| ["stepl" constr(c) ] -> [ step true c (Proofview.tclUNIT ()) ]
+| ["stepl" constr(c) "by" tactic(tac) ] -> [ step true (EConstr.of_constr c) (Tacinterp.tactic_of_value ist tac) ]
+| ["stepl" constr(c) ] -> [ step true (EConstr.of_constr c) (Proofview.tclUNIT ()) ]
 END
 
 TACTIC EXTEND stepr
-| ["stepr" constr(c) "by" tactic(tac) ] -> [ step false c (Tacinterp.tactic_of_value ist tac) ]
-| ["stepr" constr(c) ] -> [ step false c (Proofview.tclUNIT ()) ]
+| ["stepr" constr(c) "by" tactic(tac) ] -> [ step false (EConstr.of_constr c) (Tacinterp.tactic_of_value ist tac) ]
+| ["stepr" constr(c) ] -> [ step false (EConstr.of_constr c) (Proofview.tclUNIT ()) ]
 END
 
 VERNAC COMMAND EXTEND AddStepl CLASSIFIED AS SIDEFF

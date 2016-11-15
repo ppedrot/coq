@@ -177,11 +177,11 @@ let right_instance_tac inst continue seq=
 	   [Proofview.V82.of_tactic introf;
 	    (fun gls->
 	       Proofview.V82.of_tactic (split (ImplicitBindings
-			[mkVar (Tacmach.pf_nth_hyp_id gls 1)])) gls);
+			[EConstr.mkVar (Tacmach.pf_nth_hyp_id gls 1)])) gls);
 	    tclSOLVE [wrap 0 true continue (deepen seq)]];
 	 tclTRY (Proofview.V82.of_tactic assumption)]
     | Real ((0,t),_) ->
-	(tclTHEN (Proofview.V82.of_tactic (split (ImplicitBindings [t])))
+	(tclTHEN (Proofview.V82.of_tactic (split (ImplicitBindings [EConstr.of_constr t])))
 	   (tclSOLVE [wrap 0 true continue (deepen seq)]))
     | Real ((m,t),_) ->
 	tclFAIL 0 (Pp.str "not implemented ... yet")

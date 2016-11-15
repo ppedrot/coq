@@ -450,7 +450,7 @@ let prove_fun_correct evd functional_induction funs_constr graphs_constr schemes
 	       (fun gl ->
 		let term = mkApp (mkVar principle_id,Array.of_list bindings) in
 		let gl', _ty = pf_eapply (Typing.type_of ~refresh:true)  gl (EConstr.of_constr term) in
-		Proofview.V82.of_tactic (apply term) gl')
+		Proofview.V82.of_tactic (apply (EConstr.of_constr term)) gl')
 	   ))
 	  (fun i g -> observe_tac ("proving branche "^string_of_int i) (prove_branche i) g )
       ]

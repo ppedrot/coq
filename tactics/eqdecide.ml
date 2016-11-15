@@ -73,7 +73,7 @@ let mkBranches c1 c2 =
      intros]
 
 let discrHyp id =
-  let c = { delayed = fun env sigma -> Sigma.here (Term.mkVar id, NoBindings) sigma } in
+  let c = { delayed = fun env sigma -> Sigma.here (EConstr.mkVar id, NoBindings) sigma } in
   let tac c = Equality.discr_tac false (Some (None, ElimOnConstr c)) in
   Tacticals.New.tclDELAYEDWITHHOLES false c tac
 
@@ -121,7 +121,7 @@ let eqCase tac =
   tclTHEN intro (onLastHypId tac)
 
 let injHyp id =
-  let c = { delayed = fun env sigma -> Sigma.here (Term.mkVar id, NoBindings) sigma } in
+  let c = { delayed = fun env sigma -> Sigma.here (EConstr.mkVar id, NoBindings) sigma } in
   let tac c = Equality.injClause None false (Some (None, ElimOnConstr c)) in
   Tacticals.New.tclDELAYEDWITHHOLES false c tac
 
@@ -133,7 +133,7 @@ let diseqCase hyps eqonleft =
   (tclTHEN (rewrite_and_clear (List.rev hyps))
   (tclTHEN  (red_in_concl)
   (tclTHEN  (intro_using absurd)
-  (tclTHEN  (Simple.apply (mkVar diseq))
+  (tclTHEN  (Simple.apply (EConstr.mkVar diseq))
   (tclTHEN  (injHyp absurd)
             (full_trivial []))))))))
 

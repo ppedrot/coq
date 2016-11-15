@@ -162,7 +162,7 @@ let flatten_contravariant_conj _ ist =
     let args = List.map EConstr.Unsafe.to_constr args in
     let newtyp = List.fold_right mkArrow args c in
     let intros = tclMAP (fun _ -> intro) args in
-    let by = tclTHENLIST [intros; apply hyp; split; assumption] in
+    let by = tclTHENLIST [intros; apply (EConstr.of_constr hyp); split; assumption] in
     tclTHENLIST [assert_ ~by newtyp; clear (destVar hyp)]
   | _ -> fail
 
@@ -196,7 +196,7 @@ let flatten_contravariant_disj _ ist =
       let map i arg =
         let typ = mkArrow arg c in
         let ci = Tactics.constructor_tac false None (succ i) Misctypes.NoBindings in
-        let by = tclTHENLIST [intro; apply hyp; ci; assumption] in
+        let by = tclTHENLIST [intro; apply (EConstr.of_constr hyp); ci; assumption] in
         assert_ ~by typ
       in
       let tacs = List.mapi map args in
@@ -231,6 +231,7 @@ let apply_nnpp _ ist =
     (Proofview.tclUNIT ())
     begin fun () -> try
       let nnpp = Universes.constr_of_global (Nametab.global_of_path coq_nnpp_path) in
+      let nnpp = EConstr.of_constr nnpp in
       apply nnpp
     with Not_found -> tclFAIL 0 (Pp.mt ())
     end

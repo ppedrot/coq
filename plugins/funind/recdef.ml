@@ -286,7 +286,7 @@ let tclUSER tac is_mes l g =
 
 let tclUSER_if_not_mes concl_tac is_mes names_to_suppress =
   if is_mes
-  then tclCOMPLETE (fun gl -> Proofview.V82.of_tactic (Simple.apply (delayed_force well_founded_ltof)) gl)
+  then tclCOMPLETE (fun gl -> Proofview.V82.of_tactic (Simple.apply (EConstr.of_constr (delayed_force well_founded_ltof))) gl)
   else (* tclTHEN (Simple.apply (delayed_force acc_intro_generator_function) ) *) (tclUSER concl_tac is_mes names_to_suppress)
 
 
@@ -524,14 +524,14 @@ let rec prove_lt hyple g =
       let y =
 	List.hd (List.tl (snd (decompose_app (pf_unsafe_type_of g (EConstr.mkVar h))))) in
       observe_tclTHENLIST (str "prove_lt1")[
-	Proofview.V82.of_tactic (apply (mkApp(le_lt_trans (),[|varx;y;varz;mkVar h|])));
+	Proofview.V82.of_tactic (apply (EConstr.of_constr (mkApp(le_lt_trans (),[|varx;y;varz;mkVar h|]))));
 	observe_tac (str "prove_lt") (prove_lt hyple)
       ]
     with Not_found -> 
       (
 	(
 	  observe_tclTHENLIST (str "prove_lt2")[
-	    Proofview.V82.of_tactic (apply (delayed_force lt_S_n));
+	    Proofview.V82.of_tactic (apply (EConstr.of_constr (delayed_force lt_S_n)));
 	    (observe_tac (str "assumption: " ++ Printer.pr_goal g) (Proofview.V82.of_tactic assumption))
 	  ])
       )
@@ -549,7 +549,7 @@ let rec destruct_bounds_aux infos (bound,hyple,rechyps) lbounds g =
       let ids = h'::ids in
       let def = next_ident_away_in_goal def_id ids in
       observe_tclTHENLIST (str "destruct_bounds_aux1")[
-	Proofview.V82.of_tactic (split (ImplicitBindings [s_max]));
+	Proofview.V82.of_tactic (split (ImplicitBindings [EConstr.of_constr s_max]));
 	Proofview.V82.of_tactic (intro_then
 	  (fun id -> 
             Proofview.V82.tactic begin
@@ -622,7 +622,7 @@ let terminate_app f_and_args expr_info continuation_tac infos =
       observe_tclTHENLIST (str "terminate_app1")[
 	continuation_tac infos;
 	observe_tac (str "first split") 
-	  (Proofview.V82.of_tactic (split (ImplicitBindings [infos.info])));
+	  (Proofview.V82.of_tactic (split (ImplicitBindings [EConstr.of_constr infos.info])));
 	observe_tac (str "destruct_bounds (1)") (destruct_bounds infos)
       ]
     else continuation_tac infos
@@ -633,7 +633,7 @@ let terminate_others _ expr_info continuation_tac infos =
     observe_tclTHENLIST (str "terminate_others")[
 	    continuation_tac infos;
       observe_tac (str "first split") 
-	(Proofview.V82.of_tactic (split (ImplicitBindings [infos.info])));
+	(Proofview.V82.of_tactic (split (ImplicitBindings [EConstr.of_constr infos.info])));
       observe_tac (str "destruct_bounds") (destruct_bounds infos)
     ]
   else continuation_tac infos
@@ -742,7 +742,7 @@ let terminate_app_rec (f,args) expr_info continuation_tac _ =
 	then
 	  observe_tclTHENLIST (str "terminate_app_rec1")[ 
 	    observe_tac (str "first split")
-	      (Proofview.V82.of_tactic (split (ImplicitBindings [new_infos.info])));
+	      (Proofview.V82.of_tactic (split (ImplicitBindings [EConstr.of_constr new_infos.info])));
 	    observe_tac (str "destruct_bounds (3)")
 	      (destruct_bounds new_infos)
 	  ]
@@ -772,7 +772,7 @@ let terminate_app_rec (f,args) expr_info continuation_tac _ =
 		       then
 			 observe_tclTHENLIST (str "terminate_app_rec4")[ 
 			   observe_tac (str "first split") 
-			     (Proofview.V82.of_tactic (split (ImplicitBindings [new_infos.info])));
+			     (Proofview.V82.of_tactic (split (ImplicitBindings [EConstr.of_constr new_infos.info])));
 			   observe_tac (str "destruct_bounds (2)") 
 			     (destruct_bounds new_infos)
 			 ]
@@ -785,7 +785,7 @@ let terminate_app_rec (f,args) expr_info continuation_tac _ =
 	  ];
 	  observe_tac (str "proving decreasing") (
 	    tclTHENS (* proof of args < formal args *)
-	      (Proofview.V82.of_tactic (apply (Lazy.force expr_info.acc_inv)))
+	      (Proofview.V82.of_tactic (apply (EConstr.of_constr (Lazy.force expr_info.acc_inv))))
 	      [ 
 		observe_tac (str "assumption") (Proofview.V82.of_tactic assumption);
 		observe_tclTHENLIST (str "terminate_app_rec5")
@@ -833,7 +833,7 @@ let rec prove_le g =
   in 
   tclFIRST[
     Proofview.V82.of_tactic assumption;
-    Proofview.V82.of_tactic (apply (delayed_force le_n));
+    Proofview.V82.of_tactic (apply (EConstr.of_constr (delayed_force le_n)));
     begin
       try
 	let matching_fun = 
@@ -846,7 +846,7 @@ let rec prove_le g =
 	  List.hd (List.tl args)
 	in 
 	observe_tclTHENLIST (str "prove_le")[
-	  Proofview.V82.of_tactic (apply(mkApp(le_trans (),[|x;y;z;mkVar h|])));
+	  Proofview.V82.of_tactic (apply(EConstr.of_constr (mkApp(le_trans (),[|x;y;z;mkVar h|]))));
 	  observe_tac (str "prove_le (rec)") (prove_le)
 	] 
       with Not_found -> tclFAIL 0 (mt())
@@ -876,7 +876,7 @@ let rec make_rewrite_list expr_info max = function
       )
       [make_rewrite_list expr_info max l;
        observe_tclTHENLIST (str "make_rewrite_list")[ (* x < S max proof *)
-	 Proofview.V82.of_tactic (apply (delayed_force le_lt_n_Sm));
+	 Proofview.V82.of_tactic (apply (EConstr.of_constr (delayed_force le_lt_n_Sm)));
 	 observe_tac (str "prove_le(2)") prove_le
        ]
       ] )
@@ -916,7 +916,7 @@ let make_rewrite expr_info l hp max =
 	    ]))
        ;
 	 observe_tclTHENLIST (str "make_rewrite1")[ (* x < S (S max) proof *)
-	 Proofview.V82.of_tactic (apply (delayed_force le_lt_SS));
+	 Proofview.V82.of_tactic (apply (EConstr.of_constr (delayed_force le_lt_SS)));
 	 observe_tac (str "prove_le (3)") prove_le
 	 ]
        ])  
@@ -1107,7 +1107,7 @@ let termination_proof_header is_mes input_type ids args_id relation
 		 (* this gives the accessibility argument *)
 		 observe_tac
 		   (str "apply wf_thm")
-		   (Proofview.V82.of_tactic (Simple.apply (mkApp(mkVar wf_thm,[|mkVar rec_arg_id|])))
+		   (Proofview.V82.of_tactic (Simple.apply (EConstr.of_constr (mkApp(mkVar wf_thm,[|mkVar rec_arg_id|]))))
 		   )
 	       ]
 	     ;
@@ -1231,7 +1231,7 @@ let build_and_l l =
 	let c,tac,nb = f pl in
 	mk_and p1 c,
 	tclTHENS
-	  (Proofview.V82.of_tactic (apply (constr_of_global conj_constr)))
+	  (Proofview.V82.of_tactic (apply (EConstr.of_constr (constr_of_global conj_constr))))
 	  [tclIDTAC;
 	   tac
 	  ],nb+1
@@ -1332,11 +1332,11 @@ let open_new_goal build_proof sigma using_lemmas ref_ goal_name (gls_type,decomp
 		    tclCOMPLETE(
 		      tclFIRST[
 			tclTHEN
-			  (Proofview.V82.of_tactic (eapply_with_bindings (mkVar (List.nth !lid !h_num), NoBindings)))
+			  (Proofview.V82.of_tactic (eapply_with_bindings (EConstr.mkVar (List.nth !lid !h_num), NoBindings)))
 			  (Proofview.V82.of_tactic e_assumption);
 		      Eauto.eauto_with_bases
 			(true,5)
-			[{ Tacexpr.delayed = fun _ sigma -> Sigma.here (Lazy.force refl_equal) sigma}]
+			[{ Tacexpr.delayed = fun _ sigma -> Sigma.here (EConstr.of_constr (Lazy.force refl_equal)) sigma}]
 			[Hints.Hint_db.empty empty_transparent_state false]
 		      ]
 		    )
@@ -1366,7 +1366,7 @@ let open_new_goal build_proof sigma using_lemmas ref_ goal_name (gls_type,decomp
 	 	     (fun c ->
 	 		Proofview.V82.of_tactic (Tacticals.New.tclTHENLIST 
 	 		  [intros;
-	 		   Simple.apply (fst (interp_constr (Global.env()) Evd.empty c)) (*FIXME*);
+	 		   Simple.apply (EConstr.of_constr (fst (interp_constr (Global.env()) Evd.empty c))) (*FIXME*);
 	 		   Tacticals.New.tclCOMPLETE Auto.default_auto
 	 		  ])
 	 	     )

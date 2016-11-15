@@ -2169,7 +2169,7 @@ let setoid_reflexivity =
      tac_open (poly_proof PropGlobal.get_reflexive_proof
 			  TypeGlobal.get_reflexive_proof
 			  env evm car rel)
-	      (fun c -> tclCOMPLETE (apply c)))
+	      (fun c -> tclCOMPLETE (apply (EConstr.of_constr c))))
     (reflexivity_red true)
 
 let setoid_symmetry =
@@ -2178,7 +2178,7 @@ let setoid_symmetry =
       tac_open
 	(poly_proof PropGlobal.get_symmetric_proof TypeGlobal.get_symmetric_proof
 	   env evm car rel)
-	(fun c -> apply c))
+	(fun c -> apply (EConstr.of_constr c)))
     (symmetry_red true)
     
 let setoid_transitivity c =
@@ -2187,8 +2187,8 @@ let setoid_transitivity c =
       tac_open (poly_proof PropGlobal.get_transitive_proof TypeGlobal.get_transitive_proof
 	   env evm car rel)
 	(fun proof -> match c with
-	| None -> eapply proof
-	| Some c -> apply_with_bindings (proof,ImplicitBindings [ c ])))
+	| None -> eapply (EConstr.of_constr proof)
+	| Some c -> apply_with_bindings (EConstr.of_constr proof,ImplicitBindings [ EConstr.of_constr c ])))
     (transitivity_red true c)
     
 let setoid_symmetry_in id =
@@ -2208,7 +2208,7 @@ let setoid_symmetry_in id =
    Proofview.V82.of_tactic
     (tclTHENLAST
       (Tactics.assert_after_replacing id new_hyp)
-      (tclTHENLIST [ intros; setoid_symmetry; apply (mkVar id); Tactics.assumption ]))
+      (tclTHENLIST [ intros; setoid_symmetry; apply (EConstr.mkVar id); Tactics.assumption ]))
       gl)
 
 let _ = Hook.set Tactics.setoid_reflexivity setoid_reflexivity

@@ -853,7 +853,7 @@ let rec message_of_value v =
     Ftactic.return (int (out_gen (topwit wit_int) v))
   else if has_type v (topwit wit_intro_pattern) then
     let p = out_gen (topwit wit_intro_pattern) v in
-    let print env sigma c = pr_constr_env env sigma (fst (Tactics.run_delayed env Evd.empty c)) in
+    let print env sigma c = pr_constr_env env sigma (EConstr.Unsafe.to_constr (fst (Tactics.run_delayed env Evd.empty c))) in
     Ftactic.nf_enter { enter = begin fun gl ->
       Ftactic.return (Miscprint.pr_intro_pattern (fun c -> print (pf_env gl) (project gl) c) p)
     end }
@@ -917,6 +917,7 @@ and interp_intro_pattern_action ist env sigma = function
       let c = { delayed = fun env sigma ->
         let sigma = Sigma.to_evar_map sigma in
         let (sigma, c) = interp_open_constr ist env sigma c in
+        let c = EConstr.of_constr c in
         Sigma.Unsafe.of_pair (c, sigma)
       } in
       let sigma,ipat = interp_intro_pattern ist env sigma ipat in
@@ -1021,6 +1022,7 @@ let interp_open_constr_with_bindings_loc ist ((c,_),bl as cb) =
   let f = { delayed = fun env sigma ->
     let sigma = Sigma.to_evar_map sigma in
     let (sigma, c) = interp_open_constr_with_bindings ist env sigma cb in
+    let c = Miscops.map_with_bindings EConstr.of_constr c in
     Sigma.Unsafe.of_pair (c, sigma)
   } in
     (loc,f)
@@ -1031,6 +1033,7 @@ let interp_destruction_arg ist gl arg =
       keep,ElimOnConstr { delayed = fun env sigma ->
         let sigma = Sigma.to_evar_map sigma in
         let (sigma, c) = interp_constr_with_bindings ist env sigma c in
+        let c = Miscops.map_with_bindings EConstr.of_constr c in
         Sigma.Unsafe.of_pair (c, sigma)
       }
   | keep,ElimOnAnonHyp n as x -> x
@@ -1044,7 +1047,7 @@ let interp_destruction_arg ist gl arg =
         then keep,ElimOnIdent (loc,id')
         else
           (keep, ElimOnConstr { delayed = begin fun env sigma ->
-          try Sigma.here (constr_of_id env id', NoBindings) sigma
+          try Sigma.here (EConstr.of_constr (constr_of_id env id'), NoBindings) sigma
           with Not_found ->
             user_err ~loc  ~hdr:"interp_destruction_arg" (
             pr_id id ++ strbrk " binds to " ++ pr_id id' ++ strbrk " which is neither a declared nor a quantified hypothesis.")
@@ -1066,7 +1069,7 @@ let interp_destruction_arg ist gl arg =
           keep,ElimOnAnonHyp (out_gen (topwit wit_int) v)
         else match Value.to_constr v with
         | None -> error ()
-        | Some c -> keep,ElimOnConstr { delayed = fun env sigma -> Sigma ((c,NoBindings), sigma, Sigma.refl) }
+        | Some c -> keep,ElimOnConstr { delayed = fun env sigma -> Sigma ((EConstr.of_constr c,NoBindings), sigma, Sigma.refl) }
       with Not_found ->
 	(* We were in non strict (interactive) mode *)
 	if Tactics.is_quantified_hypothesis id gl then
@@ -1076,6 +1079,7 @@ let interp_destruction_arg ist gl arg =
           let f = { delayed = fun env sigma ->
             let sigma = Sigma.to_evar_map sigma in
             let (sigma,c) = interp_open_constr ist env sigma c in
+            let c = EConstr.of_constr c in
             Sigma.Unsafe.of_pair ((c,NoBindings), sigma)
           } in
           keep,ElimOnConstr f
@@ -2041,11 +2045,13 @@ end }
 
 let interp_bindings' ist bl = Ftactic.return { delayed = fun env sigma ->
   let (sigma, bl) = interp_bindings ist env (Sigma.to_evar_map sigma) bl in
+  let bl = Miscops.map_bindings EConstr.of_constr bl in
   Sigma.Unsafe.of_pair (bl, sigma)
   }
 
 let interp_constr_with_bindings' ist c = Ftactic.return { delayed = fun env sigma ->
   let (sigma, c) = interp_constr_with_bindings ist env (Sigma.to_evar_map sigma) c in
+  let c = Miscops.map_with_bindings EConstr.of_constr c in
   Sigma.Unsafe.of_pair (c, sigma)
   }
 

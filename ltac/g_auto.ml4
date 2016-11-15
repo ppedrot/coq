@@ -48,7 +48,11 @@ let eval_uconstrs ist cs =
     fail_evar = false;
     expand_evars = true
   } in
-  List.map (fun c -> Pretyping.type_uconstr ~flags ist c) cs
+  let map c = { delayed = fun env sigma ->
+    let Sigma.Sigma (c, sigma, p) = c.delayed env sigma in
+    Sigma.Sigma (EConstr.of_constr c, sigma, p)
+  } in
+  List.map (fun c -> map (Pretyping.type_uconstr ~flags ist c)) cs
 
 let pr_auto_using _ _ _ = Pptactic.pr_auto_using (fun _ -> mt ())
 

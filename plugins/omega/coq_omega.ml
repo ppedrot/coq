@@ -40,7 +40,7 @@ let elim_id id =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
     simplest_elim (Tacmach.New.pf_global id gl)
   end }
-let resolve_id id gl = Proofview.V82.of_tactic (apply (pf_global gl id)) gl
+let resolve_id id gl = Proofview.V82.of_tactic (apply (EConstr.of_constr (pf_global gl id))) gl
 
 let timing timer_name f arg = f arg
 
@@ -1274,7 +1274,7 @@ let replay_history tactic_normalisation =
 	      (clear [aux]);
 	      (intros_using [id]);
 	      (loop l) ];
-            Tacticals.New.tclTHEN (exists_tac eq1) reflexivity ]
+            Tacticals.New.tclTHEN (exists_tac (EConstr.of_constr eq1)) reflexivity ]
       | SPLIT_INEQ(e,(e1,act1),(e2,act2)) :: l ->
 	  let id1 = new_identifier ()
 	  and id2 = new_identifier () in

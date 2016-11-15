@@ -251,7 +251,7 @@ module Btauto = struct
           let changed_gl = Term.mkApp (c, [|typ; fl; fr|]) in
           Tacticals.New.tclTHENLIST [
             Tactics.change_concl changed_gl;
-            Tactics.apply (Lazy.force soundness);
+            Tactics.apply (EConstr.of_constr (Lazy.force soundness));
             Tactics.normalise_vm_in_concl;
             try_unification env
           ]

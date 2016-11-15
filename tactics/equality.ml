@@ -646,6 +646,7 @@ let replace_using_leibniz clause c1 c2 l2r unsafe try_prove_eq_opt =
     Tacticals.New.pf_constr_of_global sym (fun sym ->
     Tacticals.New.pf_constr_of_global e (fun e ->
     let eq = applist (e, [t1;c1;c2]) in
+    let sym = EConstr.of_constr sym in
     tclTHENLAST
       (replace_core clause l2r eq)
       (tclFIRST
@@ -1024,8 +1025,6 @@ let discrEq (lbeq,_,(t,t1,t2) as u) eq_clause =
 
 let onEquality with_evars tac (c,lbindc) =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
-  let c = EConstr.of_constr c in
-  let lbindc = Miscops.map_bindings EConstr.of_constr lbindc in
   let type_of = pf_unsafe_type_of gl in
   let reduce_to_quantified_ind = pf_apply Tacred.reduce_to_quantified_ind gl in
   let t = type_of c in
@@ -1049,14 +1048,14 @@ let onNegatedEquality with_evars tac =
     | Prod (_,t,u) when is_empty_type sigma (EConstr.of_constr u) ->
         tclTHEN introf
           (onLastHypId (fun id ->
-            onEquality with_evars tac (mkVar id,NoBindings)))
+            onEquality with_evars tac (EConstr.mkVar id,NoBindings)))
     | _ ->
         tclZEROMSG (str "Not a negated primitive equality.")
   end }
 
 let discrSimpleClause with_evars = function
   | None -> onNegatedEquality with_evars discrEq
-  | Some id -> onEquality with_evars discrEq (mkVar id,NoBindings)
+  | Some id -> onEquality with_evars discrEq (EConstr.mkVar id,NoBindings)
 
 let discr with_evars = onEquality with_evars discrEq
 
@@ -1070,7 +1069,7 @@ let discrEverywhere with_evars =
       (tclTHEN
 	(tclREPEAT introf)
 	(tryAllHyps
-          (fun id -> tclCOMPLETE (discr with_evars (mkVar id,NoBindings)))))
+          (fun id -> tclCOMPLETE (discr with_evars (EConstr.mkVar id,NoBindings)))))
      else (* <= 8.2 compat *)
        tryAllHypsAndConcl (discrSimpleClause with_evars))
 (*    (fun gls ->

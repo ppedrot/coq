@@ -34,7 +34,7 @@ let absurd c =
     let tac =
     Tacticals.New.tclTHENLIST [
       elim_type (build_coq_False ());
-      Simple.apply (mk_absurd_proof t)
+      Simple.apply (EConstr.of_constr (mk_absurd_proof t))
     ] in
     Sigma.Unsafe.of_pair (tac, sigma)
   end }
@@ -109,6 +109,7 @@ let is_negation_of env sigma typ t =
     | _ -> false
 
 let contradiction_term (c,lbind as cl) =
+  let (c, lbind as cl) = Miscops.map_with_bindings EConstr.Unsafe.to_constr cl in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
     let sigma = Tacmach.New.project gl in
     let env = Proofview.Goal.env gl in
