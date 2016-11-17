@@ -1086,9 +1086,9 @@ let termination_proof_header is_mes input_type ids args_id relation
 	      (str "first assert")
 	      (Proofview.V82.of_tactic (assert_before
 		 (Name wf_rec_arg)
-		 (mkApp (delayed_force acc_rel,
+		 (EConstr.of_constr (mkApp (delayed_force acc_rel,
 			 [|input_type;relation;mkVar rec_arg_id|])
-		 )
+		 ))
 	      ))
 	   )
 	   [
@@ -1098,7 +1098,7 @@ let termination_proof_header is_mes input_type ids args_id relation
 		  (str "second assert")
 		  (Proofview.V82.of_tactic (assert_before
 		     (Name wf_thm)
-		     (mkApp (delayed_force well_founded,[|input_type;relation|]))
+		     (EConstr.of_constr (mkApp (delayed_force well_founded,[|input_type;relation|])))
 		  ))
 	       )
 	       [

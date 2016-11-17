@@ -890,9 +890,9 @@ let compute_dec_tact ind lnamesparrec nparrec =
         intros_using fresh_first_intros;
         intros_using [freshn;freshm];
 	(*we do this so we don't have to prove the same goal twice *)
-        assert_by (Name freshH) (
+        assert_by (Name freshH) (EConstr.of_constr (
           mkApp(sumbool(),[|eqtrue eqbnm; eqfalse eqbnm|])
-	)
+	))
 	  (Tacticals.New.tclTHEN (destruct_on (EConstr.of_constr eqbnm)) Auto.default_auto);
 
         Proofview.Goal.nf_enter { enter = begin fun gl ->
@@ -915,7 +915,7 @@ let compute_dec_tact ind lnamesparrec nparrec =
               intro;
               Equality.subst_all ();
               assert_by (Name freshH3)
-		(mkApp(eq,[|bb;mkApp(eqI,[|mkVar freshm;mkVar freshm|]);tt|]))
+		(EConstr.of_constr (mkApp(eq,[|bb;mkApp(eqI,[|mkVar freshm;mkVar freshm|]);tt|])))
 		(Tacticals.New.tclTHENLIST [
 		  apply (EConstr.of_constr (mkApp(lbI,Array.map (fun x->mkVar x) xargs)));
                   Auto.default_auto

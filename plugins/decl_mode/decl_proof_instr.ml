@@ -130,7 +130,7 @@ let clean_tmp gls =
     clean_all (tmp_ids gls) gls
 
 let assert_postpone id t =
-  assert_before (Name id) t
+  assert_before (Name id) (EConstr.of_constr t)
 
 (* start a proof *)
 
@@ -488,6 +488,7 @@ let thus_tac c ctyp submetas gls =
     with Not_found ->
       error "I could not relate this statement to the thesis." in
   if List.is_empty list then
+    let proof = EConstr.of_constr proof in
     Proofview.V82.of_tactic (exact_check proof) gls
   else
     let refiner = concl_refiner list proof gls in
@@ -585,14 +586,14 @@ let instr_rew _thus rew_side cut gls0 =
 	    tclTHENS (Proofview.V82.of_tactic (assert_postpone c_id new_eq))
 	      [tclTHEN tcl_erase_info
 		 (tclTHENS (Proofview.V82.of_tactic (transitivity lhs))
-		    [just_tac;Proofview.V82.of_tactic (exact_check (mkVar last_id))]);
+		    [just_tac;Proofview.V82.of_tactic (exact_check (EConstr.mkVar last_id))]);
 	       thus_tac new_eq] gls0
       | Rhs ->
 	  let new_eq = mkApp(Lazy.force _eq,[|typ;lhs;cut.cut_stat.st_it|]) in
 	    tclTHENS (Proofview.V82.of_tactic (assert_postpone c_id new_eq))
 	      [tclTHEN tcl_erase_info
 		 (tclTHENS (Proofview.V82.of_tactic (transitivity rhs))
-		    [Proofview.V82.of_tactic (exact_check (mkVar last_id));just_tac]);
+		    [Proofview.V82.of_tactic (exact_check (EConstr.mkVar last_id));just_tac]);
 	       thus_tac new_eq] gls0
 
 
@@ -780,7 +781,8 @@ let rec consider_match may_intro introduced available expected gls =
 	  gls
 
 let consider_tac c hyps gls =
-  match kind_of_term (strip_outer_cast (project gls) (EConstr.of_constr c)) with
+  let c = EConstr.of_constr c in
+  match kind_of_term (strip_outer_cast (project gls) c) with
       Var id ->
 	consider_match false [] [id] hyps gls
     | _ ->

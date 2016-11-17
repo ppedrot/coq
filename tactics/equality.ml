@@ -648,6 +648,7 @@ let replace_using_leibniz clause c1 c2 l2r unsafe try_prove_eq_opt =
     Tacticals.New.pf_constr_of_global e (fun e ->
     let eq = applist (e, [t1;c1;c2]) in
     let sym = EConstr.of_constr sym in
+    let eq = EConstr.of_constr eq in
     tclTHENLAST
       (replace_core clause l2r eq)
       (tclFIRST
@@ -1007,6 +1008,7 @@ let discr_positions env sigma (lbeq,eqn,(t,t1,t2)) eq_clause cpath dirn =
     discrimination_pf env sigma e (t,t1,t2) discriminator lbeq in
   let pf_ty = mkArrow eqn absurd_term in
   let absurd_clause = apply_on_clause (pf,pf_ty) eq_clause in
+  let absurd_term = EConstr.of_constr absurd_term in
   let pf = Clenvtac.clenv_value_cast_meta absurd_clause in
   Proofview.Unsafe.tclEVARS sigma <*>
   Proofview.tclEFFECTS eff <*>
@@ -1597,10 +1599,11 @@ let subst_tuple_term env sigma dep_pair1 dep_pair2 b =
 (* on for further iterated sigma-tuples                                   *)
 
 let cutSubstInConcl l2r eqn =
+  let eqn = EConstr.of_constr eqn in
   Proofview.Goal.nf_s_enter { s_enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Proofview.Goal.sigma gl in
-  let (lbeq,u,(t,e1,e2)) = find_eq_data_decompose gl (EConstr.of_constr eqn) in
+  let (lbeq,u,(t,e1,e2)) = find_eq_data_decompose gl eqn in
   let typ = pf_concl gl in
   let (e1,e2) = if l2r then (e1,e2) else (e2,e1) in
   let Sigma ((typ, expected), sigma, p) = subst_tuple_term env sigma e1 e2 typ in
@@ -1616,10 +1619,11 @@ let cutSubstInConcl l2r eqn =
   end }
 
 let cutSubstInHyp l2r eqn id =
+  let eqn = EConstr.of_constr eqn in
   Proofview.Goal.nf_s_enter { s_enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Proofview.Goal.sigma gl in
-  let (lbeq,u,(t,e1,e2)) = find_eq_data_decompose gl (EConstr.of_constr eqn) in
+  let (lbeq,u,(t,e1,e2)) = find_eq_data_decompose gl eqn in
   let typ = pf_get_hyp_typ id gl in
   let (e1,e2) = if l2r then (e1,e2) else (e2,e1) in
   let Sigma ((typ, expected), sigma, p) = subst_tuple_term env sigma e1 e2 typ in
@@ -1654,8 +1658,9 @@ let cutRewriteInHyp l2r eqn id = cutRewriteClause l2r eqn (Some id)
 let cutRewriteInConcl l2r eqn = cutRewriteClause l2r eqn None
 
 let substClause l2r c cls =
+  let c = EConstr.of_constr c in
   Proofview.Goal.enter { enter = begin fun gl ->
-  let eq = pf_apply get_type_of gl (EConstr.of_constr c) in
+  let eq = pf_apply get_type_of gl c in
   tclTHENS (cutSubstClause l2r eq cls)
     [Proofview.tclUNIT (); exact_no_check c]
   end }

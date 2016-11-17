@@ -422,7 +422,7 @@ let exact = exact_check;;
 
 let tac_use h =
   let get = eget in
-  let tac = exact h.hname in
+  let tac = exact (EConstr.of_constr h.hname) in
   match h.htype with
     "Rlt" -> tac
   |"Rle" -> tac

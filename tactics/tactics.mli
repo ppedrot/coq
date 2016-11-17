@@ -120,10 +120,10 @@ val intros_patterns : evars_flag -> intro_patterns -> unit Proofview.tactic
 (** {6 Exact tactics. } *)
 
 val assumption       : unit Proofview.tactic
-val exact_no_check   : constr -> unit Proofview.tactic
-val vm_cast_no_check : constr -> unit Proofview.tactic
-val native_cast_no_check : constr -> unit Proofview.tactic
-val exact_check      : constr -> unit Proofview.tactic
+val exact_no_check   : EConstr.constr -> unit Proofview.tactic
+val vm_cast_no_check : EConstr.constr -> unit Proofview.tactic
+val native_cast_no_check : EConstr.constr -> unit Proofview.tactic
+val exact_check      : EConstr.constr -> unit Proofview.tactic
 val exact_proof      : Constrexpr.constr_expr -> unit Proofview.tactic
 
 (** {6 Reduction tactics. } *)
@@ -349,29 +349,29 @@ val intros_transitivity         : constr option -> unit Proofview.tactic
 
 (** {6 Cut tactics. } *)
 
-val assert_before_replacing: Id.t -> types -> unit Proofview.tactic
-val assert_after_replacing : Id.t -> types -> unit Proofview.tactic
-val assert_before : Name.t -> types -> unit Proofview.tactic
-val assert_after  : Name.t -> types -> unit Proofview.tactic
+val assert_before_replacing: Id.t -> EConstr.types -> unit Proofview.tactic
+val assert_after_replacing : Id.t -> EConstr.types -> unit Proofview.tactic
+val assert_before : Name.t -> EConstr.types -> unit Proofview.tactic
+val assert_after  : Name.t -> EConstr.types -> unit Proofview.tactic
 
 val assert_as     : (* true = before *) bool ->
   (* optionally tell if a specialization of some hyp: *) identifier option ->
-  intro_pattern option -> constr -> unit Proofview.tactic
+  intro_pattern option -> EConstr.constr -> unit Proofview.tactic
 
 (** Implements the tactics assert, enough and pose proof; note that "by"
     applies on the first goal for both assert and enough *)
 
-val assert_by  : Name.t -> types -> unit Proofview.tactic ->
+val assert_by  : Name.t -> EConstr.types -> unit Proofview.tactic ->
   unit Proofview.tactic
-val enough_by  : Name.t -> types -> unit Proofview.tactic ->
+val enough_by  : Name.t -> EConstr.types -> unit Proofview.tactic ->
   unit Proofview.tactic
-val pose_proof : Name.t -> constr ->
+val pose_proof : Name.t -> EConstr.constr ->
   unit Proofview.tactic
 
 (** Common entry point for user-level "assert", "enough" and "pose proof" *)
 
 val forward   : bool -> unit Proofview.tactic option option ->
-  intro_pattern option -> constr -> unit Proofview.tactic
+  intro_pattern option -> EConstr.constr -> unit Proofview.tactic
 
 (** Implements the tactic cut, actually a modus ponens rule *)
 

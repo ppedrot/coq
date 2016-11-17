@@ -27,7 +27,7 @@ TACTIC EXTEND reflexivity
 END
 
 TACTIC EXTEND exact
-  [ "exact" casted_constr(c) ] -> [ Tactics.exact_no_check c ]
+  [ "exact" casted_constr(c) ] -> [ Tactics.exact_no_check (EConstr.of_constr c) ]
 END
 
 TACTIC EXTEND assumption
@@ -43,15 +43,15 @@ TACTIC EXTEND cut
 END
 
 TACTIC EXTEND exact_no_check
-  [ "exact_no_check" constr(c) ] -> [ Tactics.exact_no_check c ]
+  [ "exact_no_check" constr(c) ] -> [ Tactics.exact_no_check (EConstr.of_constr c) ]
 END
 
 TACTIC EXTEND vm_cast_no_check
-  [ "vm_cast_no_check" constr(c) ] -> [ Tactics.vm_cast_no_check c ]
+  [ "vm_cast_no_check" constr(c) ] -> [ Tactics.vm_cast_no_check (EConstr.of_constr c) ]
 END
 
 TACTIC EXTEND native_cast_no_check
-  [ "native_cast_no_check" constr(c) ] -> [ Tactics.native_cast_no_check c ]
+  [ "native_cast_no_check" constr(c) ] -> [ Tactics.native_cast_no_check (EConstr.of_constr c) ]
 END
 
 TACTIC EXTEND casetype

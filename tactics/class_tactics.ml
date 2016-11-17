@@ -226,7 +226,8 @@ let e_give_exact flags poly (c,clenv) gl =
         c, {gl with sigma = evd}
     else c, gl
   in
-  let t1 = pf_unsafe_type_of gl (EConstr.of_constr c) in
+  let c = EConstr.of_constr c in
+  let t1 = pf_unsafe_type_of gl c in
   let t1 = EConstr.of_constr t1 in
   Proofview.V82.of_tactic (Clenvtac.unify ~flags t1 <*> exact_no_check c) gl
 

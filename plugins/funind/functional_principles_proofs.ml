@@ -175,6 +175,7 @@ let is_incompatible_eq t =
   res
 
 let change_hyp_with_using msg hyp_id t tac : tactic =
+  let t = EConstr.of_constr t in
   fun g ->
     let prov_id = pf_get_new_id hyp_id g in
     tclTHENS
@@ -451,6 +452,7 @@ let clean_hyp_with_heq ptes_infos eq_hyps hyp_id env sigma =
 			      )
 		     in
 		     let to_refine = EConstr.of_constr to_refine in
+		     let t_x = EConstr.of_constr t_x in
 (* 		     observe_tac "rec hyp " *)
 		       (tclTHENS
 		       (Proofview.V82.of_tactic (assert_before (Name rec_pte_id) t_x))
@@ -644,7 +646,8 @@ let instanciate_hyps_with_args (do_prove:Id.t list -> tactic) hyps args_id =
 	fun g ->
 	  let prov_hid = pf_get_new_id hid g in
 	  let c = mkApp(mkVar hid,args) in
-	  let evm, _ = pf_apply Typing.type_of g (EConstr.of_constr c) in
+	  let c = EConstr.of_constr c in
+	  let evm, _ = pf_apply Typing.type_of g c in
 	  tclTHENLIST[
             Refiner.tclEVARS evm;
 	    Proofview.V82.of_tactic (pose_proof (Name prov_hid) c);
@@ -1580,7 +1583,7 @@ let prove_principle_for_gen
 	 (tclCOMPLETE
 	    (tclTHEN
 	       (Proofview.V82.of_tactic (assert_by (Name wf_thm_id)
-		  (mkApp (delayed_force well_founded,[|input_type;relation|]))
+		  (EConstr.of_constr (mkApp (delayed_force well_founded,[|input_type;relation|])))
 		  (Proofview.V82.tactic (fun g -> (* observe_tac "prove wf" *) (tclCOMPLETE (wf_tac is_mes)) g))))
 	       (
 		 (* observe_tac  *)
@@ -1644,7 +1647,7 @@ let prove_principle_for_gen
 	);
       (* observe_tac "" *) Proofview.V82.of_tactic (assert_by
 	 (Name acc_rec_arg_id)
- 	 (mkApp (delayed_force acc_rel,[|input_type;relation;mkVar rec_arg_id|]))
+ 	 (EConstr.of_constr (mkApp (delayed_force acc_rel,[|input_type;relation;mkVar rec_arg_id|])))
 	 (Proofview.V82.tactic prove_rec_arg_acc)
       );
 (*       observe_tac "reverting" *) (revert (List.rev (acc_rec_arg_id::args_ids)));

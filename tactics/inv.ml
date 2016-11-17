@@ -456,6 +456,7 @@ let raw_inversion inv_kind id status names =
         Reduction.beta_appvect elim_predicate (Array.of_list realargs),
         case_nodep_then_using
     in
+    let cut_concl = EConstr.of_constr cut_concl in
     let refined id =
       let prf = mkApp (mkVar id, args) in
       let prf = EConstr.of_constr prf in

@@ -2205,6 +2205,7 @@ let setoid_symmetry_in id =
   let he,c1,c2 =  mkApp (equiv, Array.of_list others),c1,c2 in
   let new_hyp' =  mkApp (he, [| c2 ; c1 |]) in
   let new_hyp = it_mkProd_or_LetIn new_hyp'  binders in
+  let new_hyp = EConstr.of_constr new_hyp in
    Proofview.V82.of_tactic
     (tclTHENLAST
       (Tactics.assert_after_replacing id new_hyp)

@@ -1742,7 +1742,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
         Tacticals.New.tclWITHHOLES false
         (name_atomic ~env
           (TacAssert(b,Option.map (Option.map ignore) t,ipat,c))
-          (Tactics.forward b tac ipat' c)) sigma
+          (Tactics.forward b tac ipat' (EConstr.of_constr c))) sigma
       end }
   | TacGeneralize cl ->
       Proofview.Goal.enter { enter = begin fun gl ->

@@ -487,8 +487,7 @@ let find_name mayrepl decl naming gl = match naming with
 let assert_before_then_gen b naming t tac =
   let open Context.Rel.Declaration in
   Proofview.Goal.enter { enter = begin fun gl ->
-    let id = find_name b (LocalAssum (Anonymous,t)) naming gl in
-    let t = EConstr.of_constr t in
+    let id = find_name b (local_assum (Anonymous,t)) naming gl in
     Tacticals.New.tclTHENLAST
       (Proofview.V82.tactic
          (fun gl ->
@@ -507,8 +506,7 @@ let assert_before_replacing id = assert_before_gen true (NamingMustBe (dloc,id))
 let assert_after_then_gen b naming t tac =
   let open Context.Rel.Declaration in
   Proofview.Goal.enter { enter = begin fun gl ->
-    let id = find_name b (LocalAssum (Anonymous,t)) naming gl in
-    let t = EConstr.of_constr t in
+    let id = find_name b (local_assum (Anonymous,t)) naming gl in
     Tacticals.New.tclTHENFIRST
       (Proofview.V82.tactic
          (fun gl ->
@@ -1306,6 +1304,7 @@ let cut c =
   end }
 
 let error_uninstantiated_metas t clenv =
+  let t = EConstr.Unsafe.to_constr t in
   let na = meta_name clenv.evd (List.hd (Metaset.elements (metavars_of t))) in
   let id = match na with Name id -> id | _ -> anomaly (Pp.str "unnamed dependent meta")
   in user_err  (str "Cannot find an instance for " ++ pr_id id ++ str".")
@@ -1318,7 +1317,7 @@ let check_unresolved_evars_of_metas sigma clenv =
     (match kind_of_term c.rebus with
     | Evar (evk,_) when Evd.is_undefined clenv.evd evk
                      && not (Evd.mem sigma evk) ->
-      error_uninstantiated_metas (mkMeta mv) clenv
+      error_uninstantiated_metas (EConstr.mkMeta mv) clenv
     | _ -> ())
   | _ -> ())
   (meta_list clenv.evd)
@@ -1343,9 +1342,8 @@ let clenv_refine_in ?(sidecond_first=false) with_evars ?(with_classes=true)
     else clenv
   in
   let new_hyp_typ = clenv_type clenv in
-  let new_hyp_typ = EConstr.Unsafe.to_constr new_hyp_typ in
   if not with_evars then check_unresolved_evars_of_metas sigma0 clenv;
-  if not with_evars && occur_meta clenv.evd (EConstr.of_constr new_hyp_typ) then
+  if not with_evars && occur_meta clenv.evd new_hyp_typ then
     error_uninstantiated_metas new_hyp_typ clenv;
   let new_hyp_prf = clenv_value clenv in
   let exact_tac = Proofview.V82.tactic (Tacmach.refine_no_check new_hyp_prf) in
@@ -1719,6 +1717,7 @@ let descend_in_conjunctions avoid tac (err, info) c =
 	    | None -> Tacticals.New.tclFAIL 0 (mt())
 	    | Some (p,pt) ->
               let p = EConstr.of_constr p in
+              let pt = EConstr.of_constr pt in
 	      Tacticals.New.tclTHENS
 		(assert_before_gen false (NamingAvoid avoid) pt)
 		[Proofview.V82.tactic (refine p);
@@ -2008,7 +2007,6 @@ let cut_and_apply c =
 (* let refine_no_check = Profile.profile2 refine_no_checkkey refine_no_check *)
 
 let exact_no_check c =
-  let c = EConstr.of_constr c in
   Refine.refine ~unsafe:true { run = fun h -> Sigma.here c h }
 
 let exact_check c =
@@ -2019,7 +2017,7 @@ let exact_check c =
   let concl = EConstr.of_constr concl in
   let env = Proofview.Goal.env gl in
   let sigma = Sigma.to_evar_map sigma in
-  let sigma, ct = Typing.type_of env sigma (EConstr.of_constr c) in
+  let sigma, ct = Typing.type_of env sigma c in
   let ct = EConstr.of_constr ct in
   let tac =
       Tacticals.New.tclTHEN (convert_leq ct concl) (exact_no_check c)
@@ -2030,7 +2028,8 @@ let exact_check c =
 let cast_no_check cast c =
   Proofview.Goal.enter { enter = begin fun gl ->
     let concl = Proofview.Goal.concl (Proofview.Goal.assume gl) in
-    exact_no_check (Term.mkCast (c, cast, concl))
+    let concl = EConstr.of_constr concl in
+    exact_no_check (EConstr.mkCast (c, cast, concl))
   end }
 
 let vm_cast_no_check c = cast_no_check Term.VMcast c
@@ -2067,7 +2066,7 @@ let assumption =
     in
     if is_same_type then
       (Proofview.Unsafe.tclEVARS sigma) <*>
-	exact_no_check (mkVar (NamedDecl.get_id decl))
+	exact_no_check (EConstr.mkVar (NamedDecl.get_id decl))
     else arec gl only_eq rest
   in
   let assumption_tac = { enter = begin fun gl ->
@@ -2625,9 +2624,10 @@ let ipat_of_name = function
   | Anonymous -> None
   | Name id -> Some (dloc, IntroNaming (IntroIdentifier id))
 
-let head_ident c =
-   let c = fst (decompose_app ((strip_lam_assum c))) in
-   if isVar c then Some (destVar c) else None
+let head_ident sigma c =
+  let open EConstr in
+   let c = fst (decompose_app sigma (snd (decompose_lam_assum sigma c))) in
+   if isVar sigma c then Some (destVar sigma c) else None
 
 let assert_as first hd ipat t =
   let naming,tac = prepare_intros false IntroAnonymous MoveLast ipat in
@@ -2822,8 +2822,10 @@ let forward b usetac ipat c =
   match usetac with
   | None ->
       Proofview.Goal.enter { enter = begin fun gl ->
-      let t = Tacmach.New.pf_unsafe_type_of gl (EConstr.of_constr c) in
-      let hd = head_ident c in
+      let t = Tacmach.New.pf_unsafe_type_of gl c in
+      let t = EConstr.of_constr t in
+      let sigma = Tacmach.New.project gl in
+      let hd = head_ident sigma c in
       Tacticals.New.tclTHENFIRST (assert_as true hd ipat t) (exact_no_check c)
       end }
   | Some tac ->
@@ -2995,13 +2997,14 @@ let quantify lconstr =
 (* Modifying/Adding an hypothesis  *)
 
 let specialize (c,lbind) ipat =
+  let open EConstr in
+  let nf_evar sigma c = EConstr.of_constr (nf_evar sigma (EConstr.Unsafe.to_constr c)) in
   Proofview.Goal.enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Sigma.to_evar_map (Proofview.Goal.sigma gl) in
   let sigma, term =
     if lbind == NoBindings then
       let sigma = Typeclasses.resolve_typeclasses env sigma in
-      let c = EConstr.Unsafe.to_constr c in
       sigma, nf_evar sigma c
     else
       let clause = make_clenv_binding env sigma (c,EConstr.of_constr (Retyping.get_type_of env sigma c)) lbind in
@@ -3010,17 +3013,18 @@ let specialize (c,lbind) ipat =
       let (thd,tstack) = whd_nored_stack clause.evd (clenv_value clause) in
       let rec chk = function
       | [] -> []
-      | t::l -> if occur_meta clause.evd t then [] else EConstr.Unsafe.to_constr t :: chk l
+      | t::l -> if occur_meta clause.evd t then [] else t :: chk l
       in
       let tstack = chk tstack in
-      let term = applist(EConstr.Unsafe.to_constr thd,List.map (nf_evar clause.evd) tstack) in
-      if occur_meta clause.evd (EConstr.of_constr term) then
+      let term = applist(thd,List.map (nf_evar clause.evd) tstack) in
+      if occur_meta clause.evd term then
 	user_err  (str "Cannot infer an instance for " ++
 
-          pr_name (meta_name clause.evd (List.hd (collect_metas clause.evd (EConstr.of_constr term)))) ++
+          pr_name (meta_name clause.evd (List.hd (collect_metas clause.evd term))) ++
 	  str ".");
       clause.evd, term in
-  let typ = Retyping.get_type_of env sigma (EConstr.of_constr term) in
+  let typ = Retyping.get_type_of env sigma term in
+  let typ = EConstr.of_constr typ in
   let tac =
     match EConstr.kind sigma (fst(EConstr.decompose_app sigma (snd(EConstr.decompose_lam_assum sigma c)))) with
     | Var id when Id.List.mem id (Tacmach.New.pf_ids_of_hyps gl) ->
@@ -3036,7 +3040,6 @@ let specialize (c,lbind) ipat =
       | None ->
         (* Like generalize with extra support for "with" bindings *)
         (* even though the "with" bindings forces full application *)
-        let typ = EConstr.of_constr typ in
         Tacticals.New.tclTHENLAST (cut typ) (exact_no_check term)
       | Some (loc,ipat) ->
         (* Like pose proof with extra support for "with" bindings *)
@@ -3871,6 +3874,7 @@ let specialize_eqs id gl =
   let acc' = it_mkLambda_or_LetIn acc ctx'' in
   let ty' = Tacred.whd_simpl env !evars (EConstr.of_constr ty')
   and acc' = Tacred.whd_simpl env !evars (EConstr.of_constr acc') in
+  let acc' = EConstr.of_constr acc' in
   let ty' = Evarutil.nf_evar !evars ty' in
   let ty' = EConstr.of_constr ty' in
     if worked then
@@ -5050,7 +5054,7 @@ let abstract_subproof id gk tac =
     Entries.(snd (Future.force const.const_entry_body)) in
   let solve =
     Proofview.tclEFFECTS effs <*>
-    exact_no_check (applist (lem, args))
+    exact_no_check (EConstr.of_constr (applist (lem, args)))
   in
   let tac = if not safe then Proofview.mark_as_unsafe <*> solve else solve in
   Sigma.Unsafe.of_pair (tac, evd)
