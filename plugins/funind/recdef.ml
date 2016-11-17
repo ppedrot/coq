@@ -554,10 +554,10 @@ let rec destruct_bounds_aux infos (bound,hyple,rechyps) lbounds g =
 	  (fun id -> 
             Proofview.V82.tactic begin
 	    observe_tac (str "destruct_bounds_aux") 
-	      (tclTHENS (Proofview.V82.of_tactic (simplest_case (mkVar id)))
+	      (tclTHENS (Proofview.V82.of_tactic (simplest_case (EConstr.mkVar id)))
 		 [
 		   observe_tclTHENLIST (str "")[Proofview.V82.of_tactic (intro_using h_id);
-			       Proofview.V82.of_tactic (simplest_elim(mkApp(delayed_force lt_n_O,[|s_max|])));
+			       Proofview.V82.of_tactic (simplest_elim(EConstr.of_constr (mkApp(delayed_force lt_n_O,[|s_max|]))));
 			       Proofview.V82.of_tactic default_full_auto];
 		   observe_tclTHENLIST (str "destruct_bounds_aux2")[
 		     observe_tac (str "clearing k ") (Proofview.V82.of_tactic (clear [id]));
@@ -588,7 +588,7 @@ let rec destruct_bounds_aux infos (bound,hyple,rechyps) lbounds g =
 	  ] g
       | (_,v_bound)::l -> 
       observe_tclTHENLIST (str "destruct_bounds_aux3")[
-	Proofview.V82.of_tactic (simplest_elim (mkVar v_bound));
+	Proofview.V82.of_tactic (simplest_elim (EConstr.mkVar v_bound));
 	Proofview.V82.of_tactic (clear [v_bound]);
 	tclDO 2 (Proofview.V82.of_tactic intro);
 	onNthHypId 1 
@@ -597,7 +597,7 @@ let rec destruct_bounds_aux infos (bound,hyple,rechyps) lbounds g =
 	       (fun p ->  
 		 observe_tclTHENLIST (str "destruct_bounds_aux4")[
 		   Proofview.V82.of_tactic (simplest_elim 
-		     (mkApp(delayed_force max_constr, [| bound; mkVar p|])));
+		     (EConstr.of_constr (mkApp(delayed_force max_constr, [| bound; mkVar p|]))));
 		   tclDO 3 (Proofview.V82.of_tactic intro);
 		   onNLastHypsId 3 (fun lids -> 
 		     match lids with
@@ -696,7 +696,7 @@ let mkDestructEq :
           redfun.Reductionops.e_redfun (pf_env g2) sigma (EConstr.of_constr (pf_concl g2))
         } in
 	Proofview.V82.of_tactic (change_in_concl None changefun) g2);
-      Proofview.V82.of_tactic (simplest_case expr)]), to_revert
+      Proofview.V82.of_tactic (simplest_case (EConstr.of_constr expr))]), to_revert
 
 
 let terminate_case next_step (ci,a,t,l) expr_info continuation_tac infos g =
@@ -751,7 +751,7 @@ let terminate_app_rec (f,args) expr_info continuation_tac _ =
       ]    
     with Not_found -> 
       observe_tac (str "terminate_app_rec not found") (tclTHENS
-	(Proofview.V82.of_tactic (simplest_elim (mkApp(mkVar expr_info.ih,Array.of_list args))))
+	(Proofview.V82.of_tactic (simplest_elim (EConstr.of_constr (mkApp(mkVar expr_info.ih,Array.of_list args)))))
 	[		
 	  observe_tclTHENLIST (str "terminate_app_rec2")[
 	    Proofview.V82.of_tactic (intro_using rec_res_id);
@@ -928,7 +928,7 @@ let rec compute_max rew_tac max l =
     | (_,p,_)::l -> 
       observe_tclTHENLIST (str "compute_max")[
 	Proofview.V82.of_tactic (simplest_elim 
-	  (mkApp(delayed_force max_constr, [| max; mkVar p|])));
+	  (EConstr.of_constr (mkApp(delayed_force max_constr, [| max; mkVar p|]))));
 	tclDO 3 (Proofview.V82.of_tactic intro);
 	onNLastHypsId 3 (fun lids -> 
 	  match lids with
@@ -947,7 +947,7 @@ let rec destruct_hex expr_info acc l =
       end
     | (v,hex)::l -> 
       observe_tclTHENLIST (str "destruct_hex")[
-	Proofview.V82.of_tactic (simplest_case (mkVar hex));
+	Proofview.V82.of_tactic (simplest_case (EConstr.mkVar hex));
 	Proofview.V82.of_tactic (clear [hex]);
 	tclDO 2 (Proofview.V82.of_tactic intro);
 	onNthHypId 1 (fun hp -> 
@@ -995,13 +995,13 @@ let equation_app_rec (f,args) expr_info continuation_tac info =
       if expr_info.is_final && expr_info.is_main_branch 
       then 
 	observe_tclTHENLIST (str "equation_app_rec")
-	  [ Proofview.V82.of_tactic (simplest_case (mkApp (expr_info.f_terminate,Array.of_list args)));
+	  [ Proofview.V82.of_tactic (simplest_case (EConstr.of_constr (mkApp (expr_info.f_terminate,Array.of_list args))));
 	    continuation_tac {expr_info with args_assoc = (args,delayed_force coq_O)::expr_info.args_assoc};
 	    observe_tac (str "app_rec intros_values_eq") (intros_values_eq expr_info [])
 	  ]
       else 
 	observe_tclTHENLIST (str "equation_app_rec1")[
-  	  Proofview.V82.of_tactic (simplest_case (mkApp (expr_info.f_terminate,Array.of_list args)));
+  	  Proofview.V82.of_tactic (simplest_case (EConstr.of_constr (mkApp (expr_info.f_terminate,Array.of_list args))));
 	  observe_tac (str "app_rec not_found") (continuation_tac {expr_info with args_assoc = (args,delayed_force coq_O)::expr_info.args_assoc})
 	]
   end
@@ -1428,8 +1428,8 @@ let start_equation (f:global_reference) (term_f:global_reference)
     h_intros x;
     Proofview.V82.of_tactic (unfold_in_concl [(Locus.AllOccurrences, evaluable_of_global_reference f)]);
     observe_tac (str "simplest_case")
-      (Proofview.V82.of_tactic (simplest_case (mkApp (terminate_constr,
-                             Array.of_list (List.map mkVar x)))));
+      (Proofview.V82.of_tactic (simplest_case (EConstr.of_constr (mkApp (terminate_constr,
+                             Array.of_list (List.map mkVar x))))));
     observe_tac (str "prove_eq") (cont_tactic x)]) g;;
 
 let (com_eqn : int -> Id.t ->

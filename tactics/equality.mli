@@ -60,7 +60,7 @@ val general_rewrite_clause :
   orientation -> evars_flag -> ?tac:(unit Proofview.tactic * conditions) -> constr with_bindings -> clause -> unit Proofview.tactic
 
 val general_multi_rewrite :
-  evars_flag -> (bool * multi * clear_flag * constr with_bindings delayed_open) list ->
+  evars_flag -> (bool * multi * clear_flag * EConstr.constr with_bindings delayed_open) list ->
     clause -> (unit Proofview.tactic * conditions) option -> unit Proofview.tactic
 
 val replace_in_clause_maybe_by : constr -> constr -> clause -> unit Proofview.tactic option -> unit Proofview.tactic

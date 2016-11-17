@@ -715,7 +715,7 @@ let build_proof
 		      thin dyn_infos.rec_hyps;
 		      Proofview.V82.of_tactic (pattern_option [Locus.AllOccurrencesBut [1],t] None);
 		      (fun g -> observe_tac "toto" (
-			 tclTHENSEQ [Proofview.V82.of_tactic (Simple.case t);
+			 tclTHENSEQ [Proofview.V82.of_tactic (Simple.case (EConstr.of_constr t));
 				     (fun g' ->
 					let g'_nb_prod = nb_prod (project g') (EConstr.of_constr (pf_concl g')) in
 					let nb_instanciate_partial = g'_nb_prod - g_nb_prod in
@@ -991,7 +991,7 @@ let generate_equation_lemma evd fnames f fun_num nb_params nb_args rec_args_num 
 	   let rec_id = pf_nth_hyp_id g 1 in
 	   tclTHENSEQ
 	     [observe_tac "generalize_non_dep in generate_equation_lemma" (generalize_non_dep rec_id);
-	      observe_tac "h_case" (Proofview.V82.of_tactic (simplest_case (mkVar rec_id)));
+	      observe_tac "h_case" (Proofview.V82.of_tactic (simplest_case (EConstr.mkVar rec_id)));
 	      (Proofview.V82.of_tactic intros_reflexivity)] g
 	)
       ]

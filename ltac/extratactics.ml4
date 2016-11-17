@@ -746,7 +746,7 @@ let  mkCaseEq a  : unit Proofview.tactic =
             let Sigma (c, _, _) = (Tacred.pattern_occs [Locus.OnlyOccurrences [1], EConstr.of_constr a]).Reductionops.e_redfun env (Sigma.Unsafe.of_evar_map Evd.empty) (EConstr.of_constr concl) in
 	    change_concl c
           end };
-	  simplest_case a]
+	  simplest_case (EConstr.of_constr a)]
   end }
 
 

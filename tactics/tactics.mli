@@ -172,7 +172,7 @@ val clear         : Id.t list -> unit Proofview.tactic
 val clear_body    : Id.t list -> unit Proofview.tactic
 val unfold_body   : Id.t -> unit Proofview.tactic
 val keep          : Id.t list -> unit Proofview.tactic
-val apply_clear_request : clear_flag -> bool -> constr -> unit Proofview.tactic
+val apply_clear_request : clear_flag -> bool -> EConstr.constr -> unit Proofview.tactic
 
 val specialize    : EConstr.constr with_bindings -> intro_pattern option -> unit Proofview.tactic
 
@@ -269,16 +269,16 @@ type eliminator = {
 }
 
 val general_elim  : evars_flag -> clear_flag ->
-  constr with_bindings -> eliminator -> unit Proofview.tactic
+  EConstr.constr with_bindings -> eliminator -> unit Proofview.tactic
 
 val general_elim_clause : evars_flag -> unify_flags -> identifier option ->
   clausenv -> eliminator -> unit Proofview.tactic
 
-val default_elim  : evars_flag -> clear_flag -> constr with_bindings ->
+val default_elim  : evars_flag -> clear_flag -> EConstr.constr with_bindings ->
   unit Proofview.tactic
-val simplest_elim : constr -> unit Proofview.tactic
+val simplest_elim : EConstr.constr -> unit Proofview.tactic
 val elim :
-  evars_flag -> clear_flag -> constr with_bindings -> constr with_bindings option -> unit Proofview.tactic
+  evars_flag -> clear_flag -> EConstr.constr with_bindings -> constr with_bindings option -> unit Proofview.tactic
 
 val simple_induct : quantified_hypothesis -> unit Proofview.tactic
 
@@ -287,8 +287,8 @@ val induction : evars_flag -> clear_flag -> EConstr.constr -> or_and_intro_patte
 
 (** {6 Case analysis tactics. } *)
 
-val general_case_analysis : evars_flag -> clear_flag -> constr with_bindings ->  unit Proofview.tactic
-val simplest_case         : constr -> unit Proofview.tactic
+val general_case_analysis : evars_flag -> clear_flag -> EConstr.constr with_bindings ->  unit Proofview.tactic
+val simplest_case         : EConstr.constr -> unit Proofview.tactic
 
 val simple_destruct       : quantified_hypothesis -> unit Proofview.tactic
 val destruct : evars_flag -> clear_flag -> EConstr.constr -> or_and_intro_pattern option ->
@@ -424,8 +424,8 @@ module Simple : sig
   val intro           : Id.t -> unit Proofview.tactic
   val apply  : EConstr.constr -> unit Proofview.tactic
   val eapply : EConstr.constr -> unit Proofview.tactic
-  val elim   : constr -> unit Proofview.tactic
-  val case   : constr -> unit Proofview.tactic
+  val elim   : EConstr.constr -> unit Proofview.tactic
+  val case   : EConstr.constr -> unit Proofview.tactic
   val apply_in : identifier -> EConstr.constr -> unit Proofview.tactic
 
 end

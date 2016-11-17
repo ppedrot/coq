@@ -95,7 +95,7 @@ let left_and_tac ind backtrack id continue seq gls=
  let n=(construct_nhyps ind gls).(0) in
    tclIFTHENELSE
      (tclTHENLIST
-      [Proofview.V82.of_tactic (Tacticals.New.pf_constr_of_global id simplest_elim);
+      [Proofview.V82.of_tactic (Tacticals.New.pf_constr_of_global id (EConstr.of_constr %> simplest_elim));
        clear_global id;
        tclDO n (Proofview.V82.of_tactic intro)])
      (wrap n false continue seq)
@@ -109,12 +109,12 @@ let left_or_tac ind backtrack id continue seq gls=
        tclDO n (Proofview.V82.of_tactic intro);
        wrap n false continue seq] in
     tclIFTHENSVELSE
-      (Proofview.V82.of_tactic (Tacticals.New.pf_constr_of_global id simplest_elim))
+      (Proofview.V82.of_tactic (Tacticals.New.pf_constr_of_global id (EConstr.of_constr %> simplest_elim)))
       (Array.map f v)
       backtrack gls
 
 let left_false_tac id=
-  Proofview.V82.of_tactic (Tacticals.New.pf_constr_of_global id simplest_elim)
+  Proofview.V82.of_tactic (Tacticals.New.pf_constr_of_global id (EConstr.of_constr %> simplest_elim))
 
 (* left arrow connective rules *)
 
@@ -177,7 +177,7 @@ let forall_tac backtrack continue seq=
 let left_exists_tac ind backtrack id continue seq gls=
   let n=(construct_nhyps ind gls).(0) in
     tclIFTHENELSE
-      (Proofview.V82.of_tactic (Tacticals.New.pf_constr_of_global id simplest_elim))
+      (Proofview.V82.of_tactic (Tacticals.New.pf_constr_of_global id (EConstr.of_constr %> simplest_elim)))
       (tclTHENLIST [clear_global id;
                     tclDO n (Proofview.V82.of_tactic intro);
                     (wrap (n-1) false continue seq)])

@@ -38,7 +38,7 @@ open OmegaSolver
 
 let elim_id id =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
-    simplest_elim (Tacmach.New.pf_global id gl)
+    simplest_elim (EConstr.of_constr (Tacmach.New.pf_global id gl))
   end }
 let resolve_id id gl = Proofview.V82.of_tactic (apply (EConstr.of_constr (pf_global gl id))) gl
 
@@ -1284,7 +1284,7 @@ let replay_history tactic_normalisation =
 	  let tac2 = scalar_norm_add [P_APP 2;P_TYPE] e.body in
 	  let eq = val_of(decompile e) in
 	  Tacticals.New.tclTHENS
-	    (simplest_elim (applist (Lazy.force coq_OMEGA19, [eq; mkVar id])))
+	    (simplest_elim (EConstr.of_constr (applist (Lazy.force coq_OMEGA19, [eq; mkVar id]))))
 	    [Tacticals.New.tclTHENLIST [ Proofview.V82.tactic (mk_then tac1); (intros_using [id1]); (loop act1) ];
              Tacticals.New.tclTHENLIST [ Proofview.V82.tactic (mk_then tac2); (intros_using [id2]); (loop act2) ]]
       | SUM(e3,(k1,e1),(k2,e2)) :: l ->
@@ -1434,7 +1434,7 @@ let coq_omega =
            let i = new_id () in
            tag_hypothesis id i;
            (Tacticals.New.tclTHENLIST [
-	     (simplest_elim (applist (Lazy.force coq_intro_Z, [t])));
+	     (simplest_elim (EConstr.of_constr (applist (Lazy.force coq_intro_Z, [t]))));
 	     (intros_using [v; id]);
 	     (elim_id id);
 	     (clear [id]);
@@ -1445,7 +1445,7 @@ let coq_omega =
             constant = zero; id = i} :: sys
 	 else
            (Tacticals.New.tclTHENLIST [
-	     (simplest_elim (applist (Lazy.force coq_new_var, [t])));
+	     (simplest_elim (EConstr.of_constr (applist (Lazy.force coq_new_var, [t]))));
 	     (intros_using [v;th]);
 	     tac ]),
            sys)
@@ -1495,7 +1495,7 @@ let nat_inject =
           let id = new_identifier () in
           Tacticals.New.tclTHENS
             (Tacticals.New.tclTHEN
-	       (simplest_elim (applist (Lazy.force coq_le_gt_dec, [t2;t1])))
+	       (simplest_elim (EConstr.of_constr (applist (Lazy.force coq_le_gt_dec, [t2;t1]))))
 	       (intros_using [id]))
 	    [
 	      Tacticals.New.tclTHENLIST [
@@ -1794,15 +1794,15 @@ let destructure_hyps =
 		    | Kapp(Nat,_) ->
                         Tacticals.New.tclTHENLIST [
 			  (simplest_elim
-			     (mkApp
-                                (Lazy.force coq_not_eq, [|t1;t2;mkVar i|])));
+			     (EConstr.of_constr (mkApp
+                                (Lazy.force coq_not_eq, [|t1;t2;mkVar i|]))));
 			  (onClearedName i (fun _ -> loop lit))
                         ]
 		    | Kapp(Z,_) ->
                         Tacticals.New.tclTHENLIST [
 			  (simplest_elim
-			     (mkApp
-				(Lazy.force coq_not_Zeq, [|t1;t2;mkVar i|])));
+			     (EConstr.of_constr (mkApp
+				(Lazy.force coq_not_Zeq, [|t1;t2;mkVar i|]))));
 			  (onClearedName i (fun _ -> loop lit))
                         ]
 		    | _ -> loop lit

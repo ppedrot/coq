@@ -333,6 +333,7 @@ let refute_tac c t1 t2 p =
   let tt1=constr_of_term t1 and tt2=constr_of_term t2 in
   let hid = Tacmach.New.of_old (pf_get_new_id (Id.of_string "Heq")) gl in
   let false_t=mkApp (c,[|mkVar hid|]) in
+  let false_t = EConstr.of_constr false_t in
   let k intype =
     let neweq= new_app_global _eq [|intype;tt1;tt2|] in
     Tacticals.New.tclTHENS (neweq (assert_before (Name hid)))
@@ -363,6 +364,7 @@ let convert_to_hyp_tac c1 t1 c2 t2 p =
   let tt2=constr_of_term t2 in
   let h = Tacmach.New.of_old (pf_get_new_id (Id.of_string "H")) gl in
   let false_t=mkApp (c2,[|mkVar h|]) in
+  let false_t = EConstr.of_constr false_t in
     Tacticals.New.tclTHENS (assert_before (Name h) tt2)
       [convert_to_goal_tac c1 t1 t2 p;
        simplest_elim false_t]

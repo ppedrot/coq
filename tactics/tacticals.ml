@@ -73,7 +73,7 @@ let nthDecl m gl =
   with Failure _ -> error "No such assumption."
 
 let nthHypId m gl = nthDecl m gl |> NamedDecl.get_id
-let nthHyp m gl   = mkVar (nthHypId m gl)
+let nthHyp m gl   = EConstr.mkVar (nthHypId m gl)
 
 let lastDecl gl   = nthDecl 1 gl
 let lastHypId gl  = nthHypId 1 gl
@@ -564,7 +564,7 @@ module New = struct
     let gl = Proofview.Goal.assume gl in
     nthDecl m gl |> NamedDecl.get_id
   let nthHyp m gl = 
-    mkVar (nthHypId m gl)
+    EConstr.mkVar (nthHypId m gl)
 
   let onNthHypId m tac =
     Proofview.Goal.enter { enter = begin fun gl -> tac (nthHypId m gl) end }

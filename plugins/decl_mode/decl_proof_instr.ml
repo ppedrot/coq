@@ -772,7 +772,7 @@ let rec consider_match may_intro introduced available expected gls =
 		 try conjunction_arity id gls with
 		     Not_found -> error "Matching hypothesis not found." in
 		 tclTHENLIST
-		   [Proofview.V82.of_tactic (simplest_case (mkVar id));
+		   [Proofview.V82.of_tactic (simplest_case (EConstr.mkVar id));
 		    intron_then nhyps []
 		      (fun l -> consider_match may_intro introduced
 			 (List.rev_append l rest_ids) expected)] gls)
@@ -1367,10 +1367,10 @@ let end_tac et2 gls =
       begin
 	match et,ek with
 	    _,EK_unknown ->
-	      tclSOLVE [Proofview.V82.of_tactic (simplest_elim pi.per_casee)]
+	      tclSOLVE [Proofview.V82.of_tactic (simplest_elim (EConstr.of_constr pi.per_casee))]
 	  | ET_Case_analysis,EK_nodep ->
 	      tclTHEN
-		(Proofview.V82.of_tactic (simplest_case pi.per_casee))
+		(Proofview.V82.of_tactic (simplest_case (EConstr.of_constr pi.per_casee)))
 		(default_justification (List.map mkVar clauses))
 	  | ET_Induction,EK_nodep ->
 	      tclTHENLIST

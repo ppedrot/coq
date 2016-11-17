@@ -562,6 +562,7 @@ let general_multi_rewrite with_evars l cl tac =
       let sigma = Tacmach.New.project gl in
       let env = Proofview.Goal.env gl in
       let (c, sigma) = run_delayed env sigma f in
+      let c = Miscops.map_with_bindings EConstr.Unsafe.to_constr c in
       tclWITHHOLES with_evars
         (general_rewrite_clause l2r with_evars ?tac c cl) sigma
     end }
@@ -949,7 +950,7 @@ let gen_absurdity id =
   let hyp_typ = EConstr.of_constr hyp_typ in
   if is_empty_type sigma hyp_typ
   then
-    simplest_elim (mkVar id)
+    simplest_elim (EConstr.mkVar id)
   else
     tclZEROMSG (str "Not the negation of an equality.")
   end }
@@ -1353,6 +1354,7 @@ let inject_if_homogenous_dependent_pair ty =
       [Proofview.tclEFFECTS eff;
        intro;
        onLastHyp (fun hyp ->
+       let hyp = EConstr.Unsafe.to_constr hyp in
         tclTHENS (cut (EConstr.of_constr (mkApp (ceq,new_eq_args))))
           [clear [destVar hyp];
            Proofview.V82.tactic (Tacmach.refine
@@ -1451,6 +1453,7 @@ let injEq ?(old=false) with_evars clear_flag ipats =
         let destopt = match kind_of_term c with
         | Var id -> get_previous_hyp_position id gl
         | _ -> MoveLast in
+        let c = EConstr.of_constr c in
         let clear_tac =
           tclTRY (apply_clear_request clear_flag dft_clear_flag c) in
         (* Try should be removal if dependency were treated *)
@@ -1496,6 +1499,7 @@ let dEqThen with_evars ntac = function
 
 let dEq with_evars =
   dEqThen with_evars (fun clear_flag c x ->
+    let c = EConstr.of_constr c in
     (apply_clear_request clear_flag (use_clear_hyp_by_default ()) c))
 
 let intro_decomp_eq tac data (c, t) =

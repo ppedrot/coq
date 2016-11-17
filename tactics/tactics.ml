@@ -341,14 +341,16 @@ let clear ids = clear_gen error_clear_dependency ids
 let clear_for_replacing ids = clear_gen error_replacing_dependency ids
 
 let apply_clear_request clear_flag dft c =
+  let open EConstr in
+  Proofview.tclEVARMAP >>= fun sigma ->
   let check_isvar c =
-    if not (isVar c) then
+    if not (isVar sigma c) then
       error "keep/clear modifiers apply only to hypothesis names." in
   let doclear = match clear_flag with
-    | None -> dft && isVar c
+    | None -> dft && isVar sigma c
     | Some true -> check_isvar c; true
     | Some false -> false in
-  if doclear then clear [destVar c]
+  if doclear then clear [destVar sigma c]
   else Tacticals.New.tclIDTAC
 
 (* Moving hypotheses *)
@@ -1217,7 +1219,7 @@ let onOpenInductionArg env sigma tac = function
              Proofview.Goal.enter { enter = begin fun gl ->
              let sigma = Tacmach.New.project gl in
              let pending = (sigma,sigma) in
-             tac clear_flag (pending,(EConstr.of_constr c,NoBindings))
+             tac clear_flag (pending,(c,NoBindings))
              end }))
   | clear_flag,ElimOnIdent (_,id) ->
       (* A quantified hypothesis *)
@@ -1235,7 +1237,7 @@ let onInductionArg tac = function
   | clear_flag,ElimOnAnonHyp n ->
       Tacticals.New.tclTHEN
         (intros_until_n n)
-        (Tacticals.New.onLastHyp (fun c -> tac clear_flag (EConstr.of_constr c,NoBindings)))
+        (Tacticals.New.onLastHyp (fun c -> tac clear_flag (c,NoBindings)))
   | clear_flag,ElimOnIdent (_,id) ->
       (* A quantified hypothesis *)
       Tacticals.New.tclTHEN
@@ -1479,12 +1481,11 @@ let general_elim with_evars clear_flag (c, lbindc) elim =
   Proofview.Goal.enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
-  let ct = Retyping.get_type_of env sigma (EConstr.of_constr c) in
+  let ct = Retyping.get_type_of env sigma c in
   let ct = EConstr.of_constr ct in
   let t = try snd (reduce_to_quantified_ind env sigma ct) with UserError _ -> ct in
   let elimtac = elimination_clause_scheme with_evars in
-  let lbindc = Miscops.map_bindings EConstr.of_constr lbindc in
-  let indclause  = make_clenv_binding env sigma (EConstr.of_constr c, t) lbindc in
+  let indclause  = make_clenv_binding env sigma (c, t) lbindc in
   let sigma = meta_merge sigma (clear_metas indclause.evd) in
   Proofview.Unsafe.tclEVARS sigma <*>
   Tacticals.New.tclTHEN
@@ -1499,12 +1500,12 @@ let general_case_analysis_in_context with_evars clear_flag (c,lbindc) =
   let sigma = Proofview.Goal.sigma gl in
   let env = Proofview.Goal.env gl in
   let concl = Proofview.Goal.concl gl in
-  let t = Retyping.get_type_of env (Sigma.to_evar_map sigma) (EConstr.of_constr c) in
+  let t = Retyping.get_type_of env (Sigma.to_evar_map sigma) c in
   let t = EConstr.of_constr t in
   let (mind,_) = reduce_to_quantified_ind env (Sigma.to_evar_map sigma) t in
   let sort = Tacticals.New.elimination_sort_of_goal gl in
   let Sigma (elim, sigma, p) =
-    if occur_term (Sigma.to_evar_map sigma) (EConstr.of_constr c) (EConstr.of_constr concl) then
+    if occur_term (Sigma.to_evar_map sigma) c (EConstr.of_constr concl) then
       build_case_analysis_scheme env sigma mind true sort
     else
       build_case_analysis_scheme_default env sigma mind sort in
@@ -1517,7 +1518,8 @@ let general_case_analysis_in_context with_evars clear_flag (c,lbindc) =
   end }
 
 let general_case_analysis with_evars clear_flag (c,lbindc as cx) =
-  match kind_of_term c with
+  Proofview.tclEVARMAP >>= fun sigma ->
+  match EConstr.kind sigma c with
     | Var id when lbindc == NoBindings ->
 	Tacticals.New.tclTHEN (try_intros_until_id_check id)
 	  (general_case_analysis_in_context with_evars clear_flag cx)
@@ -1540,7 +1542,6 @@ let find_ind_eliminator ind s gl =
     evd, c
 
 let find_eliminator c gl =
-  let c = EConstr.of_constr c in
   let ((ind,u),t) = Tacmach.New.pf_reduce_to_quantified_ind gl (EConstr.of_constr (Tacmach.New.pf_unsafe_type_of gl c)) in
   if is_nonrec ind then raise IsNonrec;
   let evd, c = find_ind_eliminator ind (Tacticals.New.elimination_sort_of_goal gl) gl in
@@ -1571,7 +1572,8 @@ let elim_in_context with_evars clear_flag c = function
   | None -> default_elim with_evars clear_flag c
 
 let elim with_evars clear_flag (c,lbindc as cx) elim =
-  match kind_of_term c with
+  Proofview.tclEVARMAP >>= fun sigma ->
+  match EConstr.kind sigma c with
     | Var id when lbindc == NoBindings ->
 	Tacticals.New.tclTHEN (try_intros_until_id_check id)
 	  (elim_in_context with_evars clear_flag cx elim)
@@ -1831,7 +1833,7 @@ let general_apply with_delta with_destruct with_evars clear_flag (loc,(c,lbind))
     Tacticals.New.tclTHENLIST [
       try_main_apply with_destruct c;
       solve_remaining_apply_goals;
-      apply_clear_request clear_flag (use_clear_hyp_by_default ()) c
+      apply_clear_request clear_flag (use_clear_hyp_by_default ()) (EConstr.of_constr c)
     ]
   end }
 
@@ -1933,7 +1935,7 @@ let apply_in_once sidecond_first with_delta with_destruct with_evars naming
       clenv_refine_in ~sidecond_first with_evars targetid id sigma clause
         (fun id ->
           Tacticals.New.tclTHENLIST [
-            apply_clear_request clear_flag false c;
+            apply_clear_request clear_flag false (EConstr.of_constr c);
             clear idstoclear;
             tac id
           ])
@@ -2378,8 +2380,8 @@ let intro_decomp_eq loc l thin tac id =
 
 let intro_or_and_pattern loc with_evars bracketed ll thin tac id =
   Proofview.Goal.enter { enter = begin fun gl ->
-  let c = mkVar id in
-  let t = Tacmach.New.pf_unsafe_type_of gl (EConstr.of_constr c) in
+  let c = EConstr.mkVar id in
+  let t = Tacmach.New.pf_unsafe_type_of gl c in
   let t = EConstr.of_constr t in
   let (ind,t) = Tacmach.New.pf_reduce_to_quantified_ind gl t in
   let branchsigns = compute_constructor_signatures false ind in

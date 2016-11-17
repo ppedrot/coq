@@ -1682,7 +1682,8 @@ and interp_atomic ist tac : unit Proofview.tactic =
         let sigma, cb = interp_constr_with_bindings ist env sigma cb in
         let sigma, cbo = Option.fold_map (interp_constr_with_bindings ist env) sigma cbo in
         let named_tac =
-          let tac = Tactics.elim ev keep cb cbo in
+          let cb' = Miscops.map_with_bindings EConstr.of_constr cb in
+          let tac = Tactics.elim ev keep cb' cbo in
           name_atomic ~env (TacElim (ev,(keep,cb),cbo)) tac
         in
         Tacticals.New.tclWITHHOLES ev named_tac sigma
@@ -1693,7 +1694,8 @@ and interp_atomic ist tac : unit Proofview.tactic =
         let env = Proofview.Goal.env gl in
         let sigma, cb = interp_constr_with_bindings ist env sigma cb in
         let named_tac =
-          let tac = Tactics.general_case_analysis ev keep cb in
+          let cb' = Miscops.map_with_bindings EConstr.of_constr cb in
+          let tac = Tactics.general_case_analysis ev keep cb' in
           name_atomic ~env (TacCase(ev,(keep,cb))) tac
         in
         Tacticals.New.tclWITHHOLES ev named_tac sigma
@@ -1888,6 +1890,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
           let f = { delayed = fun env sigma ->
             let sigma = Sigma.to_evar_map sigma in
             let (sigma, c) = interp_open_constr_with_bindings ist env sigma c in
+            let c = Miscops.map_with_bindings EConstr.of_constr c in
             Sigma.Unsafe.of_pair (c, sigma)
           } in
 	  (b,m,keep,f)) l in

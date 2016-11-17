@@ -25,6 +25,7 @@ open Misctypes
 open Tactypes
 open Hipattern
 open Pretyping
+open Proofview.Notations
 open Tacmach.New
 open Coqlib
 
@@ -50,7 +51,10 @@ open Coqlib
    Eduardo Gimenez (30/3/98).
 *)
 
-let clear_last = (onLastHyp (fun c -> (clear [destVar c])))
+let clear_last =
+  let open EConstr in
+  Proofview.tclEVARMAP >>= fun sigma ->
+  (onLastHyp (fun c -> (clear [destVar sigma c])))
 
 let choose_eq eqonleft =
   if eqonleft then
@@ -66,7 +70,7 @@ let choose_noteq eqonleft =
 let mkBranches c1 c2 =
   tclTHENLIST
     [generalize [c2];
-     Simple.elim c1;
+     Simple.elim (EConstr.of_constr c1);
      intros;
      onLastHyp Simple.case;
      clear_last;
