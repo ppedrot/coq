@@ -1461,7 +1461,7 @@ let rec make_goal_of_formula dexpr form =
         xset (Term.mkNamedLetIn
                (Names.Id.of_string name)
                expr typ acc) l in
-    xset concl l
+    EConstr.of_constr (xset concl l)
 
 end (**
       * MODULE END: M 

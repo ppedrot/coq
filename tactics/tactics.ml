@@ -822,9 +822,11 @@ let e_change_in_hyp redfun (id,where) =
     Sigma (convert_hyp c, sigma, p)
   end }
 
-type change_arg = Pattern.patvar_map -> constr Sigma.run
+type change_arg = Pattern.patvar_map -> EConstr.constr Sigma.run
 
 let make_change_arg c pats =
+  let open EConstr.Vars in
+  let pats = Id.Map.map EConstr.of_constr pats in
   { run = fun sigma -> Sigma.here (replace_vars (Id.Map.bindings pats) c) sigma }
 
 let check_types env sigma mayneedglobalcheck deep newc origc =
@@ -854,7 +856,6 @@ let check_types env sigma mayneedglobalcheck deep newc origc =
 let change_and_check cv_pb mayneedglobalcheck deep t = { e_redfun = begin fun env sigma c ->
   let Sigma (t', sigma, p) = t.run sigma in
   let sigma = Sigma.to_evar_map sigma in
-  let t' = EConstr.of_constr t' in
   let sigma = check_types env sigma mayneedglobalcheck deep t' c in
   let sigma, b = infer_conv ~pb:cv_pb env sigma t' c in
   if not b then user_err ~hdr:"convert-check-hyp" (str "Not convertible.");
@@ -1386,36 +1387,38 @@ let index_of_ind_arg t =
 
 let enforce_prop_bound_names rename tac =
   let open Context.Rel.Declaration in
+  let open EConstr in
   match rename with
   | Some (isrec,nn) when Namegen.use_h_based_elimination_names () ->
       (* Rename dependent arguments in Prop with name "H" *)
       (* so as to avoid having hypothesis such as "t:True", "n:~A" when calling *)
       (* elim or induction with schemes built by Indrec.build_induction_scheme *)
       let rec aux env sigma i t =
-        if i = 0 then t else match kind_of_term t with
+        if i = 0 then t else match EConstr.kind sigma t with
         | Prod (Name _ as na,t,t') ->
             let very_standard = true in
             let na =
-              if Retyping.get_sort_family_of env sigma (EConstr.of_constr t) = InProp then
+              if Retyping.get_sort_family_of env sigma t = InProp then
                 (* "very_standard" says that we should have "H" names only, but
                    this would break compatibility even more... *)
-                let s = match Namegen.head_name t with
+                let s = match Namegen.head_name (EConstr.Unsafe.to_constr t) with
                   | Some id when not very_standard -> string_of_id id
                   | _ -> "" in
                 Name (add_suffix Namegen.default_prop_ident s)
               else
                 na in
-            mkProd (na,t,aux (push_rel (LocalAssum (na,t)) env) sigma (i-1) t')
+            mkProd (na,t,aux (push_rel (local_assum (na,t)) env) sigma (i-1) t')
         | Prod (Anonymous,t,t') ->
-            mkProd (Anonymous,t,aux (push_rel (LocalAssum (Anonymous,t)) env) sigma (i-1) t')
+            mkProd (Anonymous,t,aux (push_rel (local_assum (Anonymous,t)) env) sigma (i-1) t')
         | LetIn (na,c,t,t') ->
-            mkLetIn (na,c,t,aux (push_rel (LocalDef (na,c,t)) env) sigma (i-1) t')
-        | _ -> print_int i; Feedback.msg_notice (print_constr t); assert false in
+            mkLetIn (na,c,t,aux (push_rel (local_def (na,c,t)) env) sigma (i-1) t')
+        | _ -> assert false in
       let rename_branch i =
         Proofview.Goal.nf_enter { enter = begin fun gl ->
           let env = Proofview.Goal.env gl in
           let sigma = Tacmach.New.project gl in
           let t = Proofview.Goal.concl gl in
+          let t = EConstr.of_constr t in
           change_concl (aux env sigma i t)
         end } in
       (if isrec then Tacticals.New.tclTHENFIRSTn else Tacticals.New.tclTHENLASTn)
@@ -3282,6 +3285,7 @@ let atomize_param_of_ind_then (indref,nparams,_) hyp0 tac =
   let rec atomize_one i args args' avoid =
     if Int.equal i nparams then
       let t = applist (hd, params@args) in
+      let t = EConstr.of_constr t in
       Tacticals.New.tclTHEN
         (change_in_hyp None (make_change_arg t) (hyp0,InHypTypeOnly))
         (tac avoid)

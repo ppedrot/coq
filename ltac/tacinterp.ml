@@ -1851,6 +1851,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
             then interp_type ist (pf_env gl) sigma c
             else interp_constr ist (pf_env gl) sigma c
           in
+          let c = EConstr.of_constr c in
           Sigma.Unsafe.of_pair (c, sigma)
         end } in
         Tactics.change None c_interp (interp_clause ist (pf_env gl) (project gl) cl)
@@ -1874,6 +1875,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
             try
               let sigma = Sigma.to_evar_map sigma in
               let (sigma, c) = interp_constr ist env sigma c in
+              let c = EConstr.of_constr c in
               Sigma.Unsafe.of_pair (c, sigma)
             with e when to_catch e (* Hack *) ->
               user_err  (strbrk "Failed to get enough information from the left-hand side to type the right-hand side.")

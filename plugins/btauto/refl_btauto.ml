@@ -249,6 +249,7 @@ module Btauto = struct
           let fl = reify env fl in
           let fr = reify env fr in
           let changed_gl = Term.mkApp (c, [|typ; fl; fr|]) in
+          let changed_gl = EConstr.of_constr changed_gl in
           Tacticals.New.tclTHENLIST [
             Tactics.change_concl changed_gl;
             Tactics.apply (EConstr.of_constr (Lazy.force soundness));

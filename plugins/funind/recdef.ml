@@ -693,7 +693,8 @@ let mkDestructEq :
       (fun g2 ->
         let changefun patvars = { run = fun sigma ->
           let redfun = pattern_occs [Locus.AllOccurrencesBut [1], EConstr.of_constr expr] in
-          redfun.Reductionops.e_redfun (pf_env g2) sigma (EConstr.of_constr (pf_concl g2))
+          let Sigma (c, sigma, p) = redfun.Reductionops.e_redfun (pf_env g2) sigma (EConstr.of_constr (pf_concl g2)) in
+          Sigma (EConstr.of_constr c, sigma, p)
         } in
 	Proofview.V82.of_tactic (change_in_concl None changefun) g2);
       Proofview.V82.of_tactic (simplest_case (EConstr.of_constr expr))]), to_revert

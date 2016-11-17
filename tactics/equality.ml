@@ -1607,6 +1607,8 @@ let cutSubstInConcl l2r eqn =
   let typ = pf_concl gl in
   let (e1,e2) = if l2r then (e1,e2) else (e2,e1) in
   let Sigma ((typ, expected), sigma, p) = subst_tuple_term env sigma e1 e2 typ in
+  let typ = EConstr.of_constr typ in
+  let expected = EConstr.of_constr expected in
   let tac =
   tclTHENFIRST
     (tclTHENLIST [
@@ -1627,6 +1629,8 @@ let cutSubstInHyp l2r eqn id =
   let typ = pf_get_hyp_typ id gl in
   let (e1,e2) = if l2r then (e1,e2) else (e2,e1) in
   let Sigma ((typ, expected), sigma, p) = subst_tuple_term env sigma e1 e2 typ in
+  let typ = EConstr.of_constr typ in
+  let expected = EConstr.of_constr expected in
   let tac =
     tclTHENFIRST
     (tclTHENLIST [

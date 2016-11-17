@@ -1258,6 +1258,7 @@ let resolution env full_reified_goal systems_list =
   let reified =
     app coq_interp_sequent
        [| reified_concl;env_props_reified;env_terms_reified;reified_goal|] in
+  let reified = EConstr.of_constr reified in
   let normalize_equation e =
     let rec loop = function
 	[] -> app (if e.e_negated then coq_p_invert else coq_p_step)

@@ -130,14 +130,14 @@ val exact_proof      : Constrexpr.constr_expr -> unit Proofview.tactic
 
 type tactic_reduction = env -> evar_map -> EConstr.t -> constr
 
-type change_arg = patvar_map -> constr Sigma.run
+type change_arg = patvar_map -> EConstr.constr Sigma.run
 
-val make_change_arg   : constr -> change_arg
+val make_change_arg   : EConstr.constr -> change_arg
 val reduct_in_hyp     : ?check:bool -> tactic_reduction -> hyp_location -> unit Proofview.tactic
 val reduct_option     : ?check:bool -> tactic_reduction * cast_kind -> goal_location -> unit Proofview.tactic
 val reduct_in_concl   : tactic_reduction * cast_kind -> unit Proofview.tactic
 val change_in_concl   : (occurrences * constr_pattern) option -> change_arg -> unit Proofview.tactic
-val change_concl      : constr -> unit Proofview.tactic
+val change_concl      : EConstr.constr -> unit Proofview.tactic
 val change_in_hyp     : (occurrences * constr_pattern) option -> change_arg ->
                         hyp_location -> unit Proofview.tactic
 val red_in_concl      : unit Proofview.tactic

@@ -595,8 +595,8 @@ let rec fourier () =
            in
            tac:=(Tacticals.New.tclTHENS (cut (EConstr.of_constr ineq))
                      [Tacticals.New.tclTHEN (change_concl
-			       (mkAppL [| cget coq_not; ineq|]
-				       ))
+			       (EConstr.of_constr (mkAppL [| cget coq_not; ineq|]
+				       )))
 		      (Tacticals.New.tclTHEN (apply (if sres then get coq_Rnot_lt_lt
 					       else get coq_Rnot_le_le))
 			    (Tacticals.New.tclTHENS (Equality.replace

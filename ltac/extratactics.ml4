@@ -662,7 +662,7 @@ let hResolve id c occ t =
   let sigma = Evd.merge_universe_context sigma ctx in
   let t_constr_type = Retyping.get_type_of env sigma (EConstr.of_constr t_constr) in
   let tac =
-    (change_concl (mkLetIn (Anonymous,t_constr,t_constr_type,concl)))
+    (change_concl (EConstr.of_constr (mkLetIn (Anonymous,t_constr,t_constr_type,concl))))
   in
   Sigma.Unsafe.of_pair (tac, sigma)
   end }
@@ -696,7 +696,7 @@ let hget_evar n =
   if n <= 0 then error "Incorrect existential variable index.";
   let ev = List.nth evl (n-1) in
   let ev_type = existential_type sigma ev in
-  change_concl (mkLetIn (Anonymous,mkEvar ev,ev_type,concl))
+  change_concl (EConstr.of_constr (mkLetIn (Anonymous,mkEvar ev,ev_type,concl)))
   end }
 
 TACTIC EXTEND hget_evar
@@ -744,6 +744,7 @@ let  mkCaseEq a  : unit Proofview.tactic =
             let env = Proofview.Goal.env gl in
             (** FIXME: this looks really wrong. Does anybody really use this tactic? *)
             let Sigma (c, _, _) = (Tacred.pattern_occs [Locus.OnlyOccurrences [1], EConstr.of_constr a]).Reductionops.e_redfun env (Sigma.Unsafe.of_evar_map Evd.empty) (EConstr.of_constr concl) in
+            let c = EConstr.of_constr c in
 	    change_concl c
           end };
 	  simplest_case (EConstr.of_constr a)]
