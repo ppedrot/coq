@@ -2188,7 +2188,7 @@ let setoid_transitivity c =
 	   env evm car rel)
 	(fun proof -> match c with
 	| None -> eapply (EConstr.of_constr proof)
-	| Some c -> apply_with_bindings (EConstr.of_constr proof,ImplicitBindings [ EConstr.of_constr c ])))
+	| Some c -> apply_with_bindings (EConstr.of_constr proof,ImplicitBindings [ c ])))
     (transitivity_red true c)
     
 let setoid_symmetry_in id =

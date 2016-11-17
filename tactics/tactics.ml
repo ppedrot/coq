@@ -4871,7 +4871,6 @@ let (forward_setoid_transitivity, setoid_transitivity) = Hook.make ()
 (* This is probably not very useful any longer *)
 let prove_transitivity hdcncl eq_kind t =
   Proofview.Goal.enter { enter = begin fun gl ->
-  let t = EConstr.of_constr t in
   let open EConstr in
   let (eq1,eq2) = match eq_kind with
   | MonomorphicLeibnizEq (c1,c2) ->
@@ -4910,7 +4909,7 @@ let transitivity_red allowred t =
         (convert_concl_no_check concl DEFAULTcast)
         (match t with
 	  | None -> Tacticals.New.pf_constr_of_global eq_data.trans (EConstr.of_constr %> eapply)
-	  | Some t -> Tacticals.New.pf_constr_of_global eq_data.trans (fun trans -> apply_list [EConstr.of_constr trans;EConstr.of_constr t]))
+	  | Some t -> Tacticals.New.pf_constr_of_global eq_data.trans (fun trans -> apply_list [EConstr.of_constr trans;t]))
    | None,eq,eq_kind ->
       match t with
       | None -> Tacticals.New.tclZEROMSG (str"etransitivity not supported for this relation.")

@@ -341,11 +341,11 @@ val symmetry                    : unit Proofview.tactic
 val setoid_symmetry_in : (Id.t -> unit Proofview.tactic) Hook.t
 val intros_symmetry             : clause -> unit Proofview.tactic
 
-val setoid_transitivity : (constr option -> unit Proofview.tactic) Hook.t
-val transitivity_red            : bool -> constr option -> unit Proofview.tactic
-val transitivity                : constr -> unit Proofview.tactic
+val setoid_transitivity : (EConstr.constr option -> unit Proofview.tactic) Hook.t
+val transitivity_red            : bool -> EConstr.constr option -> unit Proofview.tactic
+val transitivity                : EConstr.constr -> unit Proofview.tactic
 val etransitivity               : unit Proofview.tactic
-val intros_transitivity         : constr option -> unit Proofview.tactic
+val intros_transitivity         : EConstr.constr option -> unit Proofview.tactic
 
 (** {6 Cut tactics. } *)
 

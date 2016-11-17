@@ -67,7 +67,7 @@ TACTIC EXTEND lapply
 END
 
 TACTIC EXTEND transitivity
-  [ "transitivity" constr(c) ] -> [ Tactics.intros_transitivity (Some c) ]
+  [ "transitivity" constr(c) ] -> [ Tactics.intros_transitivity (Some (EConstr.of_constr c)) ]
 END
 
 (** Left *)

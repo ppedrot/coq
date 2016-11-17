@@ -585,14 +585,14 @@ let instr_rew _thus rew_side cut gls0 =
 	  let new_eq = mkApp(Lazy.force _eq,[|typ;cut.cut_stat.st_it;rhs|]) in
 	    tclTHENS (Proofview.V82.of_tactic (assert_postpone c_id new_eq))
 	      [tclTHEN tcl_erase_info
-		 (tclTHENS (Proofview.V82.of_tactic (transitivity lhs))
+		 (tclTHENS (Proofview.V82.of_tactic (transitivity (EConstr.of_constr lhs)))
 		    [just_tac;Proofview.V82.of_tactic (exact_check (EConstr.mkVar last_id))]);
 	       thus_tac new_eq] gls0
       | Rhs ->
 	  let new_eq = mkApp(Lazy.force _eq,[|typ;lhs;cut.cut_stat.st_it|]) in
 	    tclTHENS (Proofview.V82.of_tactic (assert_postpone c_id new_eq))
 	      [tclTHEN tcl_erase_info
-		 (tclTHENS (Proofview.V82.of_tactic (transitivity rhs))
+		 (tclTHENS (Proofview.V82.of_tactic (transitivity (EConstr.of_constr rhs)))
 		    [Proofview.V82.of_tactic (exact_check (EConstr.mkVar last_id));just_tac]);
 	       thus_tac new_eq] gls0
 
