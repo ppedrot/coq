@@ -113,7 +113,15 @@ let make_inv_predicate env evd indf realargs id status concl =
           if closed0 ti then
 	    (xi,ti,ai)
           else
+            let xi = EConstr.of_constr xi in
+            let ti = EConstr.of_constr ti in
+            let ai = EConstr.of_constr ai in
 	    let sigma, res = make_iterated_tuple env' !evd ai (xi,ti) in
+	    let (xi, ti, ai) = res in
+            let xi = EConstr.Unsafe.to_constr xi in
+            let ti = EConstr.Unsafe.to_constr ti in
+            let ai = EConstr.Unsafe.to_constr ai in
+            let res = (xi, ti, ai) in
 	      evd := sigma; res
 	in
         let eq_term = eqdata.Coqlib.eq in
