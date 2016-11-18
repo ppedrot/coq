@@ -198,7 +198,7 @@ val apply_with_delayed_bindings_gen :
 val apply_with_bindings   : EConstr.constr with_bindings -> unit Proofview.tactic
 val eapply_with_bindings  : EConstr.constr with_bindings -> unit Proofview.tactic
 
-val cut_and_apply         : constr -> unit Proofview.tactic
+val cut_and_apply         : EConstr.constr -> unit Proofview.tactic
 
 val apply_in :
   advanced_flag -> evars_flag -> Id.t -> 

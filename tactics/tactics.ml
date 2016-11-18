@@ -1982,18 +1982,21 @@ let apply_in_delayed_once sidecond_first with_delta with_destruct with_evars nam
 *)
 
 let cut_and_apply c =
+  let open EConstr in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
     let sigma = Tacmach.New.project gl in
-    match kind_of_term (Tacmach.New.pf_hnf_constr gl (EConstr.of_constr (Tacmach.New.pf_unsafe_type_of gl (EConstr.of_constr c)))) with
-      | Prod (_,c1,c2) when EConstr.Vars.noccurn sigma 1 (EConstr.of_constr c2) ->
+    match EConstr.kind sigma (EConstr.of_constr (Tacmach.New.pf_hnf_constr gl (EConstr.of_constr (Tacmach.New.pf_unsafe_type_of gl c)))) with
+      | Prod (_,c1,c2) when Vars.noccurn sigma 1 c2 ->
         let concl = Proofview.Goal.concl gl in
+        let concl = EConstr.of_constr concl in
         let env = Tacmach.New.pf_env gl in
         Refine.refine { run = begin fun sigma ->
           let typ = mkProd (Anonymous, c2, concl) in
-          let Sigma (f, sigma, p) = Evarutil.new_evar env sigma (EConstr.of_constr typ) in
-          let Sigma (x, sigma, q) = Evarutil.new_evar env sigma (EConstr.of_constr c1) in
+          let Sigma (f, sigma, p) = Evarutil.new_evar env sigma typ in
+          let Sigma (x, sigma, q) = Evarutil.new_evar env sigma c1 in
+          let f = EConstr.of_constr f in
+          let x = EConstr.of_constr x in
           let ans = mkApp (f, [|mkApp (c, [|x|])|]) in
-          let ans = EConstr.of_constr ans in
           Sigma (ans, sigma, p +> q)
         end }
       | _ -> error "lapply needs a non-dependent product."
@@ -2092,7 +2095,7 @@ exception DependsOnBody of Id.t option
 let check_is_type env sigma ty =
   let evdref = ref sigma in
   try
-    let _ = Typing.e_sort_of env evdref (EConstr.of_constr ty) in
+    let _ = Typing.e_sort_of env evdref ty in
     !evdref
   with e when CErrors.noncritical e ->
     raise (DependsOnBody None)
@@ -2117,6 +2120,7 @@ let clear_body ids =
   Proofview.Goal.enter { enter = begin fun gl ->
     let env = Proofview.Goal.env gl in
     let concl = Proofview.Goal.concl (Proofview.Goal.assume gl) in
+    let concl = EConstr.of_constr concl in
     let sigma = Tacmach.New.project gl in
     let ctx = named_context env in
     let map = function
@@ -2146,7 +2150,7 @@ let clear_body ids =
         in
         let (env, sigma, _) = List.fold_left check (base_env, sigma, false) (List.rev ctx) in
         let sigma =
-          if List.exists (fun id -> occur_var env sigma id (EConstr.of_constr concl)) ids then
+          if List.exists (fun id -> occur_var env sigma id concl) ids then
             check_is_type env sigma concl
           else sigma
         in
@@ -2160,7 +2164,7 @@ let clear_body ids =
     in
     check <*>
     Refine.refine ~unsafe:true { run = begin fun sigma ->
-      let Sigma (c, sigma, p) = Evarutil.new_evar env sigma ~principal:true (EConstr.of_constr concl) in
+      let Sigma (c, sigma, p) = Evarutil.new_evar env sigma ~principal:true concl in
       Sigma (EConstr.of_constr c, sigma, p)
     end }
   end }

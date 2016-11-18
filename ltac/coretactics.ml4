@@ -63,7 +63,7 @@ TACTIC EXTEND elimtype
 END
 
 TACTIC EXTEND lapply
-  [ "lapply" constr(c) ] -> [ Tactics.cut_and_apply c ]
+  [ "lapply" constr(c) ] -> [ Tactics.cut_and_apply (EConstr.of_constr c) ]
 END
 
 TACTIC EXTEND transitivity
