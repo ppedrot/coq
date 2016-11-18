@@ -467,6 +467,11 @@ let eq_constr_nounivs sigma c1 c2 =
   in
   eq_constr (unsafe_to_constr c1) (unsafe_to_constr c2)
 
+let compare_constr sigma cmp c1 c2 =
+  let kind c = kind_upto sigma c in
+  let cmp c1 c2 = cmp (of_constr c1) (of_constr c2) in
+  compare_gen kind (fun _ -> Univ.Instance.equal) Sorts.equal cmp (unsafe_to_constr c1) (unsafe_to_constr c2)
+
 (** TODO: factorize with universes.ml *)
 let test_constr_universes sigma leq m n =
   let open Universes in

@@ -1363,14 +1363,14 @@ let clenv_refine_in ?(sidecond_first=false) with_evars ?(with_classes=true)
 (*       Elimination tactics                *)
 (********************************************)
 
-let last_arg c = match kind_of_term c with
+let last_arg sigma c = match EConstr.kind sigma c with
   | App (f,cl) ->
       Array.last cl
   | _ -> anomaly (Pp.str "last_arg")
 
-let nth_arg i c =
-  if Int.equal i (-1) then last_arg c else
-  match kind_of_term c with
+let nth_arg sigma i c =
+  if Int.equal i (-1) then last_arg sigma c else
+  match EConstr.kind sigma c with
   | App (f,cl) -> cl.(i)
   | _ -> anomaly (Pp.str "nth_arg")
 
@@ -1444,7 +1444,7 @@ let elimination_clause_scheme with_evars ?(with_classes=true) ?(flags=elim_flags
   let elim = contract_letin_in_lam_header sigma elim in
   let elimclause = make_clenv_binding env sigma (elim, elimty) bindings in
   let indmv =
-    (match kind_of_term (nth_arg i (EConstr.Unsafe.to_constr elimclause.templval.rebus)) with
+    (match EConstr.kind sigma (nth_arg sigma i elimclause.templval.rebus) with
        | Meta mv -> mv
        | _  -> user_err ~hdr:"elimination_clause"
              (str "The type of elimination clause is not well-formed."))
@@ -1542,13 +1542,13 @@ let is_nonrec mind = (Global.lookup_mind (fst mind)).mind_finite == Decl_kinds.B
 let find_ind_eliminator ind s gl =
   let gr = lookup_eliminator ind s in
   let evd, c = Tacmach.New.pf_apply Evd.fresh_global gl gr in
+  let c = EConstr.of_constr c in
     evd, c
 
 let find_eliminator c gl =
   let ((ind,u),t) = Tacmach.New.pf_reduce_to_quantified_ind gl (EConstr.of_constr (Tacmach.New.pf_unsafe_type_of gl c)) in
   if is_nonrec ind then raise IsNonrec;
   let evd, c = find_ind_eliminator ind (Tacticals.New.elimination_sort_of_goal gl) gl in
-  let c = EConstr.of_constr c in
     evd, {elimindex = None; elimbody = (c,NoBindings);
           elimrename = Some (true, constructors_nrealdecls ind)}
 
@@ -1608,12 +1608,13 @@ let clenv_fchain_in id ?(flags=elim_flags ()) mv elimclause hypclause =
 
 let elimination_in_clause_scheme with_evars ?(flags=elim_flags ()) 
     id rename i (elim, elimty, bindings) indclause =
+  let open EConstr in
   Proofview.Goal.enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
   let elim = contract_letin_in_lam_header sigma elim in
   let elimclause = make_clenv_binding env sigma (elim, elimty) bindings in
-  let indmv = destMeta (nth_arg i (EConstr.Unsafe.to_constr elimclause.templval.rebus)) in
+  let indmv = destMeta sigma (nth_arg sigma i elimclause.templval.rebus) in
   let hypmv =
     try match List.remove Int.equal indmv (clenv_independent elimclause) with
       | [a] -> a
@@ -1621,7 +1622,7 @@ let elimination_in_clause_scheme with_evars ?(flags=elim_flags ())
     with Failure _ -> user_err ~hdr:"elimination_clause"
           (str "The type of elimination clause is not well-formed.") in
   let elimclause'  = clenv_fchain ~flags indmv elimclause indclause in
-  let hyp = EConstr.mkVar id in
+  let hyp = mkVar id in
   let hyp_typ = Retyping.get_type_of env sigma hyp in
   let hyp_typ = EConstr.of_constr hyp_typ in
   let hypclause = mk_clenv_from_env env sigma (Some 0) (hyp, hyp_typ) in
@@ -3579,31 +3580,31 @@ let error_ind_scheme s =
   let s = if not (String.is_empty s) then s^" " else s in
   user_err ~hdr:"Tactics" (str "Cannot recognize " ++ str s ++ str "an induction scheme.")
 
-let glob = Universes.constr_of_global
+let glob c = EConstr.of_constr (Universes.constr_of_global c)
 
 let coq_eq = lazy (glob (Coqlib.build_coq_eq ()))
 let coq_eq_refl = lazy (glob (Coqlib.build_coq_eq_refl ()))
 
-let coq_heq = lazy (Coqlib.coq_constant "mkHEq" ["Logic";"JMeq"] "JMeq")
-let coq_heq_refl = lazy (Coqlib.coq_constant "mkHEq" ["Logic";"JMeq"] "JMeq_refl")
+let coq_heq = lazy (EConstr.of_constr (Coqlib.coq_constant "mkHEq" ["Logic";"JMeq"] "JMeq"))
+let coq_heq_refl = lazy (EConstr.of_constr (Coqlib.coq_constant "mkHEq" ["Logic";"JMeq"] "JMeq_refl"))
 
 
 let mkEq t x y =
   let open EConstr in
-  mkApp (EConstr.of_constr (Lazy.force coq_eq), [| t; x; y |])
+  mkApp (Lazy.force coq_eq, [| t; x; y |])
 
 let mkRefl t x =
   let open EConstr in
-  mkApp (EConstr.of_constr (Lazy.force coq_eq_refl), [| t; x |])
+  mkApp (Lazy.force coq_eq_refl, [| t; x |])
 
 let mkHEq t x u y =
   let open EConstr in
-  mkApp (EConstr.of_constr (Lazy.force coq_heq),
+  mkApp (Lazy.force coq_heq,
 	[| t; x; u; y |])
 
 let mkHRefl t x =
   let open EConstr in
-  mkApp (EConstr.of_constr (Lazy.force coq_heq_refl),
+  mkApp (Lazy.force coq_heq_refl,
 	[| t; x |])
 
 let lift_togethern n l =
@@ -3862,31 +3863,38 @@ let abstract_generalize ?(generalize_vars=true) ?(force_dep=false) id =
 		      Tacticals.New.tclTRY (generalize_dep ~with_let:true (mkVar id))) vars])
   end }
 
-let rec compare_upto_variables x y =
-  if (isVar x || isRel x) && (isVar y || isRel y) then true
-  else compare_constr compare_upto_variables x y
+let compare_upto_variables sigma x y =
+  let open EConstr in
+  let rec compare x y =
+    if (isVar sigma x || isRel sigma x) && (isVar sigma y || isRel sigma y) then true
+    else compare_constr sigma compare x y
+  in
+  compare x y
 
 let specialize_eqs id gl =
+  let open EConstr in
+  let open Vars in
   let open Context.Rel.Declaration in
   let env = Tacmach.pf_env gl in
   let ty = Tacmach.pf_get_hyp_typ gl id in
+  let ty = EConstr.of_constr ty in
   let evars = ref (project gl) in
   let unif env evars c1 c2 =
-    compare_upto_variables c1 c2 && Evarconv.e_conv env evars (EConstr.of_constr c1) (EConstr.of_constr c2)
+    compare_upto_variables !evars c1 c2 && Evarconv.e_conv env evars c1 c2
   in
   let rec aux in_eqs ctx acc ty =
-    match kind_of_term ty with
+    match EConstr.kind !evars ty with
     | Prod (na, t, b) ->
-	(match kind_of_term t with
-	| App (eq, [| eqty; x; y |]) when Term.eq_constr (Lazy.force coq_eq) eq ->
-	    let c = if noccur_between 1 (List.length ctx) x then y else x in
+	(match EConstr.kind !evars t with
+	| App (eq, [| eqty; x; y |]) when EConstr.eq_constr !evars (Lazy.force coq_eq) eq ->
+	    let c = if noccur_between !evars 1 (List.length ctx) x then y else x in
 	    let pt = mkApp (Lazy.force coq_eq, [| eqty; c; c |]) in
 	    let p = mkApp (Lazy.force coq_eq_refl, [| eqty; c |]) in
 	      if unif (push_rel_context ctx env) evars pt t then
 		aux true ctx (mkApp (acc, [| p |])) (subst1 p b)
 	      else acc, in_eqs, ctx, ty
-	| App (heq, [| eqty; x; eqty'; y |]) when Term.eq_constr heq (Lazy.force coq_heq) ->
-	    let eqt, c = if noccur_between 1 (List.length ctx) x then eqty', y else eqty, x in
+	| App (heq, [| eqty; x; eqty'; y |]) when EConstr.eq_constr !evars heq (Lazy.force coq_heq) ->
+	    let eqt, c = if noccur_between !evars 1 (List.length ctx) x then eqty', y else eqty, x in
 	    let pt = mkApp (Lazy.force coq_heq, [| eqt; c; eqt; c |]) in
 	    let p = mkApp (Lazy.force coq_heq_refl, [| eqt; c |]) in
 	      if unif (push_rel_context ctx env) evars pt t then
@@ -3895,20 +3903,21 @@ let specialize_eqs id gl =
 	| _ ->
 	    if in_eqs then acc, in_eqs, ctx, ty
 	    else
-	      let e = e_new_evar (push_rel_context ctx env) evars (EConstr.of_constr t) in
-		aux false (LocalDef (na,e,t) :: ctx) (mkApp (lift 1 acc, [| mkRel 1 |])) b)
+	      let e = e_new_evar (push_rel_context ctx env) evars t in
+	      let e = EConstr.of_constr e in
+		aux false (local_def (na,e,t) :: ctx) (mkApp (lift 1 acc, [| mkRel 1 |])) b)
     | t -> acc, in_eqs, ctx, ty
   in
   let acc, worked, ctx, ty = aux false [] (mkVar id) ty in
   let ctx' = nf_rel_context_evar !evars ctx in
   let ctx'' = List.map (function
-    | LocalDef (n,k,t) when isEvar k -> LocalAssum (n,t)
+    | LocalDef (n,k,t) when isEvar !evars (EConstr.of_constr k) -> LocalAssum (n,t)
     | decl -> decl) ctx'
   in
   let ty' = it_mkProd_or_LetIn ty ctx'' in
   let acc' = it_mkLambda_or_LetIn acc ctx'' in
-  let ty' = Tacred.whd_simpl env !evars (EConstr.of_constr ty')
-  and acc' = Tacred.whd_simpl env !evars (EConstr.of_constr acc') in
+  let ty' = Tacred.whd_simpl env !evars ty'
+  and acc' = Tacred.whd_simpl env !evars acc' in
   let acc' = EConstr.of_constr acc' in
   let ty' = Evarutil.nf_evar !evars ty' in
   let ty' = EConstr.of_constr ty' in
@@ -4011,7 +4020,7 @@ let compute_elim_sig sigma ?elimc elimt =
     elimc = elimc; elimt = elimt; concl = conclusion;
     predicates = preds; npredicates = List.length preds;
     branches = branches; nbranches = List.length branches;
-    farg_in_concl = isApp sigma ccl && isApp sigma (Termops.last_arg sigma ccl);
+    farg_in_concl = isApp sigma ccl && isApp sigma (last_arg sigma ccl);
     params = params; nparams = nparams;
     (* all other fields are unsure at this point. Including these:*)
     args = args_indargs; nargs = List.length args_indargs; } in
@@ -4152,12 +4161,13 @@ let guess_elim isrec dep s hyp0 gl =
       if use_dependent_propositions_elimination () && dep
       then
         let Sigma (ind, sigma, _) = build_case_analysis_scheme env sigma mind true s in
+        let ind = EConstr.of_constr ind in
         (Sigma.to_evar_map sigma, ind)
       else
         let Sigma (ind, sigma, _) = build_case_analysis_scheme_default env sigma mind s in
+        let ind = EConstr.of_constr ind in
         (Sigma.to_evar_map sigma, ind)
   in
-  let elimc = EConstr.of_constr elimc in
   let elimt = Tacmach.New.pf_unsafe_type_of gl elimc in
   let elimt = EConstr.of_constr elimt in
     evd, ((elimc, NoBindings), elimt), mkIndU mind
@@ -4744,9 +4754,8 @@ let simple_destruct = function
 
 let elim_scheme_type elim t =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
-  let elim = EConstr.of_constr elim in
   let clause = Tacmach.New.of_old (fun gl -> mk_clenv_type_of gl elim) gl in
-  match kind_of_term (last_arg (EConstr.Unsafe.to_constr clause.templval.rebus)) with
+  match EConstr.kind clause.evd (last_arg clause.evd clause.templval.rebus) with
     | Meta mv ->
         let clause' =
 	  (* t is inductive, then CUMUL or CONV is irrelevant *)
@@ -4770,6 +4779,7 @@ let case_type t =
   let (ind,t) = reduce_to_atomic_ind env (Sigma.to_evar_map sigma) t in
   let s = Tacticals.New.elimination_sort_of_goal gl in
   let Sigma (elimc, evd, p) = build_case_analysis_scheme_default env sigma ind s in
+  let elimc = EConstr.of_constr elimc in
   Sigma (elim_scheme_type elimc t, evd, p)
   end }
 
@@ -4872,11 +4882,12 @@ let (forward_setoid_symmetry_in, setoid_symmetry_in) = Hook.make ()
 
 
 let symmetry_in id =
+  let open EConstr in
   Proofview.Goal.enter { enter = begin fun gl ->
   let sigma = Tacmach.New.project gl in
-  let ctype = Tacmach.New.pf_unsafe_type_of gl (EConstr.mkVar id) in
-  let sign,t = decompose_prod_assum ctype in
-  let t = EConstr.of_constr t in
+  let ctype = Tacmach.New.pf_unsafe_type_of gl (mkVar id) in
+  let ctype = EConstr.of_constr ctype in
+  let sign,t = decompose_prod_assum sigma ctype in
   Proofview.tclORELSE
     begin
       let open EConstr in
