@@ -595,7 +595,6 @@ let define_evar_from_virtual_equation define_fun env evd src t_in_env ty_t_in_si
   let Sigma (evar_in_env, evd, _) = new_evar_instance sign evd (EConstr.of_constr ty_t_in_sign) ~filter ~src inst_in_env in
   let evd = Sigma.to_evar_map evd in
   let t_in_env = EConstr.of_constr (whd_evar evd (EConstr.Unsafe.to_constr t_in_env)) in
-  let evar_in_env = EConstr.of_constr evar_in_env in
   let (evk, _) = destEvar evd evar_in_env in
   let evd = define_fun env evd None (EConstr.destEvar evd evar_in_env) t_in_env in
   let ctxt = named_context_of_val sign in
@@ -671,8 +670,8 @@ let materialize_evar define_fun env evd k (evk1,args1) ty_in_env =
   let Sigma (ev2_in_sign, evd, _) =
     new_evar_instance sign2 evd ev2ty_in_sign ~filter:filter2 ~src inst2_in_sign in
   let evd = Sigma.to_evar_map evd in
-  let ev2_in_env = (fst (destEvar evd (EConstr.of_constr ev2_in_sign)), Array.of_list inst2_in_env) in
-  (evd, EConstr.of_constr ev2_in_sign, ev2_in_env)
+  let ev2_in_env = (fst (destEvar evd ev2_in_sign), Array.of_list inst2_in_env) in
+  (evd, ev2_in_sign, ev2_in_env)
 
 let restrict_upon_filter evd evk p args =
   let oldfullfilter = evar_filter (Evd.find_undefined evd evk) in

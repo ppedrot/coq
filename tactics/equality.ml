@@ -1197,17 +1197,15 @@ let sig_clausal_form env sigma sort_of_ty siglen ty dflt =
 	| (_sigS,[a;p]) -> (EConstr.Unsafe.to_constr a, EConstr.Unsafe.to_constr p)
  	| _ -> anomaly ~label:"sig_clausal_form" (Pp.str "should be a sigma type") in
       let ev = Evarutil.e_new_evar env evdref (EConstr.of_constr a) in
-      let rty = beta_applist sigma (EConstr.of_constr p_i_minus_1,[EConstr.of_constr ev]) in
+      let rty = beta_applist sigma (EConstr.of_constr p_i_minus_1,[ev]) in
       let tuple_tail = sigrec_clausal_form (siglen-1) rty in
-      match
-        Evd.existential_opt_value !evdref
-          (destEvar ev)
-      with
+      let evopt = match EConstr.kind !evdref ev with Evar _ -> None | _ -> Some ev in
+      match evopt with
 	| Some w ->
-            let w_type = unsafe_type_of env sigma (EConstr.of_constr w) in
+            let w_type = unsafe_type_of env !evdref w in
             if Evarconv.e_cumul env evdref (EConstr.of_constr w_type) (EConstr.of_constr a) then
 	      let exist_term = Evarutil.evd_comb1 (Evd.fresh_global env) evdref sigdata.intro in
-              applist(exist_term,[a;p_i_minus_1;w;tuple_tail])
+              applist(exist_term,[a;p_i_minus_1;EConstr.Unsafe.to_constr w;tuple_tail])
             else
               error "Cannot solve a unification problem."
 	| None ->

@@ -890,7 +890,7 @@ and conv_record trs env evd (ctx,(h,h2),c,bs,(params,params1),(us,us2),(sk1,sk2)
 	    let i = Sigma.Unsafe.of_evar_map i in
             let Sigma (ev, i', _) = Evarutil.new_evar env i ~src:dloc (substl ks b) in
             let i' = Sigma.to_evar_map i' in
-	    (i', EConstr.of_constr ev :: ks, m - 1,test))
+	    (i', ev :: ks, m - 1,test))
 	(evd,[],List.length bs,fun i -> Success i) bs
     in
     let app = mkApp (c, Array.rev_of_list ks) in
@@ -1071,8 +1071,8 @@ let second_order_matching ts env_rhs evd (evk,args) argoccs rhs =
         let Sigma (ev, evd, _) = new_evar_instance sign evd evty ~filter instance in
         let evd = Sigma.to_evar_map evd in
         evdref := evd;
-        evsref := (fst (destEvar !evdref (EConstr.of_constr ev)),evty)::!evsref;
-        EConstr.of_constr ev in
+        evsref := (fst (destEvar !evdref ev),evty)::!evsref;
+        ev in
       set_holes evdref (apply_on_subterm env_rhs evdref set_var c rhs) subst
   | [] -> rhs in
 

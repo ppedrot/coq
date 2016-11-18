@@ -97,8 +97,8 @@ let new_cstr_evar (evd,cstrs) env t =
   let evd = Sigma.Unsafe.of_evar_map evd in
   let Sigma (t, evd', _) = Evarutil.new_evar ~store:s env evd (EConstr.of_constr t) in
   let evd' = Sigma.to_evar_map evd' in
-  let ev, _ = destEvar t in
-    (evd', Evar.Set.add ev cstrs), t
+  let ev, _ = EConstr.destEvar evd' t in
+    (evd', Evar.Set.add ev cstrs), EConstr.Unsafe.to_constr t
 
 (** Building or looking up instances. *)
 let e_new_cstr_evar env evars t =
@@ -363,6 +363,7 @@ end) = struct
 	   let env' = Environ.push_rel_context rels env in
 	   let sigma = Sigma.Unsafe.of_evar_map sigma in
 	   let Sigma ((evar, _), evars, _) = Evarutil.new_type_evar env' sigma Evd.univ_flexible in
+	   let evar = EConstr.Unsafe.to_constr evar in
 	   let evars = Sigma.to_evar_map evars in
 	   let evars, inst = 
 	     app_poly env (evars,Evar.Set.empty)
@@ -1553,14 +1554,15 @@ let assert_replacing id newt tac =
     in
     let env' = Environ.reset_with_named_context (val_of_named_context nc) env in
     Refine.refine ~unsafe:false { run = begin fun sigma ->
+      let open EConstr in
       let Sigma (ev, sigma, p) = Evarutil.new_evar env' sigma (EConstr.of_constr concl) in
       let Sigma (ev', sigma, q) = Evarutil.new_evar env sigma (EConstr.of_constr newt) in
       let map d =
         let n = NamedDecl.get_id d in
-        if Id.equal n id then ev' else mkVar n
+        if Id.equal n id then ev' else EConstr.mkVar n
       in
-      let (e, _) = destEvar ev in
-      Sigma (EConstr.of_constr (mkEvar (e, Array.map_of_list map nc)), sigma, p +> q)
+      let (e, _) = EConstr.destEvar (Sigma.to_evar_map sigma) ev in
+      Sigma (mkEvar (e, Array.map_of_list map nc), sigma, p +> q)
     end }
   end } in
   Proofview.tclTHEN prf (Proofview.tclFOCUS 2 2 tac)
@@ -1596,12 +1598,13 @@ let cl_rewrite_clause_newtac ?abs ?origsigma ~progress strat clause =
             convert_hyp_no_check (LocalAssum (id, newt)) <*>
             beta_hyp id
 	| None, Some p ->
+            let p = EConstr.of_constr p in
             Proofview.Unsafe.tclEVARS undef <*>
             Proofview.Goal.enter { enter = begin fun gl ->
             let env = Proofview.Goal.env gl in
             let make = { run = begin fun sigma ->
               let Sigma (ev, sigma, q) = Evarutil.new_evar env sigma (EConstr.of_constr newt) in
-              Sigma (EConstr.of_constr (mkApp (p, [| ev |])), sigma, q)
+              Sigma (EConstr.mkApp (p, [| ev |]), sigma, q)
             end } in
             Refine.refine ~unsafe:false make <*> Proofview.Unsafe.tclNEWGOALS gls
             end }
