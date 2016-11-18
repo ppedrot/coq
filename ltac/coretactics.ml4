@@ -297,7 +297,7 @@ END
 (* Generalize dependent *)
 
 TACTIC EXTEND generalize_dependent
-  [ "generalize" "dependent" constr(c) ] -> [ Tactics.generalize_dep c ]
+  [ "generalize" "dependent" constr(c) ] -> [ Tactics.generalize_dep (EConstr.of_constr c) ]
 END
 
 (* Table of "pervasives" macros tactics (e.g. auto, simpl, etc.) *)

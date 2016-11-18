@@ -2404,6 +2404,7 @@ let intro_or_and_pattern loc with_evars bracketed ll thin tac id =
   end }
 
 let rewrite_hyp_then assert_style with_evars thin l2r id tac =
+  let open EConstr in
   let rew_on l2r =
     Hook.get forward_general_rewrite_clause l2r with_evars (EConstr.mkVar id,NoBindings) in
   let subst_on l2r x rhs =
@@ -2420,22 +2421,19 @@ let rewrite_hyp_then assert_style with_evars thin l2r id tac =
     let t = EConstr.of_constr t in
     let eqtac, thin = match match_with_equality_type sigma t with
     | Some (hdcncl,[_;lhs;rhs]) ->
-        let lhs = EConstr.Unsafe.to_constr lhs in
-        let rhs = EConstr.Unsafe.to_constr rhs in
-        if l2r && isVar lhs && not (occur_var env sigma (destVar lhs) (EConstr.of_constr rhs)) then
-          let id' = destVar lhs in
+        if l2r && isVar sigma lhs && not (occur_var env sigma (destVar sigma lhs) rhs) then
+          let id' = destVar sigma lhs in
           subst_on l2r id' rhs, early_clear id' thin
-        else if not l2r && isVar rhs && not (occur_var env sigma (destVar rhs) (EConstr.of_constr lhs)) then
-          let id' = destVar rhs in
+        else if not l2r && isVar sigma rhs && not (occur_var env sigma (destVar sigma rhs) lhs) then
+          let id' = destVar sigma rhs in
           subst_on l2r id' lhs, early_clear id' thin
         else
           Tacticals.New.tclTHEN (rew_on l2r onConcl) (clear [id]),
           thin
     | Some (hdcncl,[c]) ->
-        let c = EConstr.Unsafe.to_constr c in
         let l2r = not l2r in (* equality of the form eq_true *)
-        if isVar c then
-          let id' = destVar c in
+        if isVar sigma c then
+          let id' = destVar sigma c in
           Tacticals.New.tclTHEN (rew_on l2r allHypsAndConcl) 
 	    (clear_var_and_eq id'),
           early_clear id' thin
@@ -2899,13 +2897,14 @@ let generalize_goal gl i ((occs,c,b),na as o) (cl,sigma) =
   generalize_goal_gen env sigma ids i o t cl
 
 let old_generalize_dep ?(with_let=false) c gl =
+  let open EConstr in
   let env = pf_env gl in
   let sign = pf_hyps gl in
   let sigma = project gl in
   let init_ids = ids_of_named_context (Global.named_context()) in
   let seek (d:Context.Named.Declaration.t) (toquant:Context.Named.t) =
     if List.exists (fun d' -> occur_var_in_decl env sigma (NamedDecl.get_id d') d) toquant
-      || dependent_in_decl sigma (EConstr.of_constr c) d then
+      || dependent_in_decl sigma c d then
       d::toquant
     else
       toquant in
@@ -2914,7 +2913,7 @@ let old_generalize_dep ?(with_let=false) c gl =
   let qhyps = List.map NamedDecl.get_id to_quantify_rev in
   let tothin = List.filter (fun id -> not (Id.List.mem id init_ids)) qhyps in
   let tothin' =
-    match kind_of_term c with
+    match EConstr.kind sigma c with
       | Var id when mem_named_context_val id (val_of_named_context sign) && not (Id.List.mem id init_ids)
 	  -> id::tothin
       | _ -> tothin
@@ -2922,12 +2921,11 @@ let old_generalize_dep ?(with_let=false) c gl =
   let cl' = it_mkNamedProd_or_LetIn (Tacmach.pf_concl gl) to_quantify in
   let body =
     if with_let then
-      match kind_of_term c with
+      match EConstr.kind sigma c with
       | Var id -> id |> Tacmach.pf_get_hyp gl |> NamedDecl.get_value
       | _ -> None
     else None
   in
-  let c = EConstr.of_constr c in
   let cl'',evd = generalize_goal gl 0 ((AllOccurrences,c,body),Anonymous)
     (cl',project gl) in
   (** Check that the generalization is indeed well-typed *)
@@ -3592,20 +3590,25 @@ let coq_heq_refl = lazy (Coqlib.coq_constant "mkHEq" ["Logic";"JMeq"] "JMeq_refl
 
 
 let mkEq t x y =
-  mkApp (Lazy.force coq_eq, [| t; x; y |])
+  let open EConstr in
+  mkApp (EConstr.of_constr (Lazy.force coq_eq), [| t; x; y |])
 
 let mkRefl t x =
-  mkApp (Lazy.force coq_eq_refl, [| t; x |])
+  let open EConstr in
+  mkApp (EConstr.of_constr (Lazy.force coq_eq_refl), [| t; x |])
 
 let mkHEq t x u y =
-  mkApp (Lazy.force coq_heq,
+  let open EConstr in
+  mkApp (EConstr.of_constr (Lazy.force coq_heq),
 	[| t; x; u; y |])
 
 let mkHRefl t x =
-  mkApp (Lazy.force coq_heq_refl,
+  let open EConstr in
+  mkApp (EConstr.of_constr (Lazy.force coq_heq_refl),
 	[| t; x |])
 
 let lift_togethern n l =
+  let open EConstr.Vars in
   let l', _ =
     List.fold_right
       (fun x (acc, n) ->
@@ -3613,26 +3616,27 @@ let lift_togethern n l =
       l ([], n)
   in l'
 
-let lift_list l = List.map (lift 1) l
+let lift_list l = List.map (EConstr.Vars.lift 1) l
 
-let ids_of_constr ?(all=false) vars c =
+let ids_of_constr sigma ?(all=false) vars c =
   let rec aux vars c =
-    match kind_of_term c with
+    match EConstr.kind sigma c with
     | Var id -> Id.Set.add id vars
     | App (f, args) ->
-	(match kind_of_term f with
+	(match EConstr.kind sigma f with
 	| Construct ((ind,_),_)
 	| Ind (ind,_) ->
             let (mib,mip) = Global.lookup_inductive ind in
 	      Array.fold_left_from
 		(if all then 0 else mib.Declarations.mind_nparams)
 		aux vars args
-	| _ -> Term.fold_constr aux vars c)
-    | _ -> Term.fold_constr aux vars c
+	| _ -> EConstr.fold sigma aux vars c)
+    | _ -> EConstr.fold sigma aux vars c
   in aux vars c
 
-let decompose_indapp f args =
-  match kind_of_term f with
+let decompose_indapp sigma f args =
+  let open EConstr in
+  match EConstr.kind sigma f with
   | Construct ((ind,_),_)
   | Ind (ind,_) ->
       let (mib,mip) = Global.lookup_inductive ind in
@@ -3643,12 +3647,14 @@ let decompose_indapp f args =
 
 let mk_term_eq env sigma ty t ty' t' =
   let sigma = Sigma.to_evar_map sigma in
-  if Reductionops.is_conv env sigma (EConstr.of_constr ty) (EConstr.of_constr ty') then
+  if Reductionops.is_conv env sigma ty ty' then
     mkEq ty t t', mkRefl ty' t'
   else
     mkHEq ty t ty' t', mkHRefl ty' t'
 
 let make_abstract_generalize env id typ concl dep ctx body c eqs args refls =
+  let open EConstr in
+  let open Vars in
   let open Context.Rel.Declaration in
   Refine.refine { run = begin fun sigma ->
   let eqslen = List.length eqs in
@@ -3661,17 +3667,18 @@ let make_abstract_generalize env id typ concl dep ctx body c eqs args refls =
   in
     (* Abstract by equalities *)
   let eqs = lift_togethern 1 eqs in (* lift together and past genarg *)
-  let abseqs = it_mkProd_or_LetIn (lift eqslen abshypeq) (List.map (fun x -> LocalAssum (Anonymous, x)) eqs) in
+  let abseqs = it_mkProd_or_LetIn (lift eqslen abshypeq) (List.map (fun x -> local_assum (Anonymous, x)) eqs) in
   let decl = match body with
-    | None -> LocalAssum (Name id, c)
-    | Some body -> LocalDef (Name id, body, c)
+    | None -> local_assum (Name id, c)
+    | Some body -> local_def (Name id, body, c)
   in
     (* Abstract by the "generalized" hypothesis. *)
   let genarg = mkProd_or_LetIn decl abseqs in
     (* Abstract by the extension of the context *)
   let genctyp = it_mkProd_or_LetIn genarg ctx in
     (* The goal will become this product. *)
-  let Sigma (genc, sigma, p) = Evarutil.new_evar env sigma ~principal:true (EConstr.of_constr genctyp) in
+  let Sigma (genc, sigma, p) = Evarutil.new_evar env sigma ~principal:true genctyp in
+  let genc = EConstr.of_constr genc in
     (* Apply the old arguments giving the proper instantiation of the hyp *)
   let instc = mkApp (genc, Array.of_list args) in
     (* Then apply to the original instantiated hyp. *)
@@ -3679,7 +3686,7 @@ let make_abstract_generalize env id typ concl dep ctx body c eqs args refls =
     (* Apply the reflexivity proofs on the indices. *)
   let appeqs = mkApp (instc, Array.of_list refls) in
     (* Finally, apply the reflexivity proof for the original hyp, to get a term of type gl again. *)
-  Sigma (EConstr.of_constr (mkApp (appeqs, abshypt)), sigma, p)
+  Sigma (mkApp (appeqs, abshypt), sigma, p)
   end }
 
 let hyps_of_vars env sigma sign nogen hyps =
@@ -3702,11 +3709,11 @@ let hyps_of_vars env sigma sign nogen hyps =
 
 exception Seen
 
-let linear vars args =
+let linear sigma vars args =
   let seen = ref vars in
     try
       Array.iter (fun i ->
-	let rels = ids_of_constr ~all:true Id.Set.empty i in
+	let rels = ids_of_constr sigma ~all:true Id.Set.empty i in
 	let seen' =
 	  Id.Set.fold (fun id acc ->
 	    if Id.Set.mem id acc then raise Seen
@@ -3721,11 +3728,14 @@ let is_defined_variable env id =
   env |> lookup_named id |> is_local_def
 
 let abstract_args gl generalize_vars dep id defined f args =
+  let open EConstr in
+  let open Vars in
   let open Context.Rel.Declaration in
   let sigma = ref (Tacmach.project gl) in
   let env = Tacmach.pf_env gl in
   let concl = Tacmach.pf_concl gl in
-  let dep = dep || local_occur_var !sigma id (EConstr.of_constr concl) in
+  let concl = EConstr.of_constr concl in
+  let dep = dep || local_occur_var !sigma id concl in
   let avoid = ref [] in
   let get_id name =
     let id = fresh_id !avoid (match name with Name n -> n | Anonymous -> Id.of_string "gen_x") gl in
@@ -3739,23 +3749,27 @@ let abstract_args gl generalize_vars dep id defined f args =
     *)
   let aux (prod, ctx, ctxenv, c, args, eqs, refls, nongenvars, vars, env) arg =
     let name, ty, arity =
-      let rel, c = Reductionops.splay_prod_n env !sigma 1 (EConstr.of_constr prod) in
+      let rel, c = Reductionops.splay_prod_n env !sigma 1 prod in
+      let c = EConstr.of_constr c in
       let decl = List.hd rel in
       RelDecl.get_name decl, RelDecl.get_type decl, c
     in
-    let argty = Tacmach.pf_unsafe_type_of gl (EConstr.of_constr arg) in
-    let sigma', ty = Evarsolve.refresh_universes (Some true) env !sigma (EConstr.of_constr ty) in
+    let ty = EConstr.of_constr ty in
+    let argty = Tacmach.pf_unsafe_type_of gl arg in
+    let argty = EConstr.of_constr argty in
+    let sigma', ty = Evarsolve.refresh_universes (Some true) env !sigma ty in
     let () = sigma := sigma' in
+    let ty = EConstr.of_constr ty in
     let lenctx = List.length ctx in
     let liftargty = lift lenctx argty in
-    let leq = constr_cmp Reduction.CUMUL liftargty ty in
-      match kind_of_term arg with
+    let leq = constr_cmp Reduction.CUMUL (EConstr.Unsafe.to_constr liftargty) (EConstr.Unsafe.to_constr ty) in
+      match EConstr.kind !sigma arg with
       | Var id when not (is_defined_variable env id) && leq && not (Id.Set.mem id nongenvars) ->
       	  (subst1 arg arity, ctx, ctxenv, mkApp (c, [|arg|]), args, eqs, refls,
       	  Id.Set.add id nongenvars, Id.Set.remove id vars, env)
       | _ ->
 	  let name = get_id name in
-	  let decl = LocalAssum (Name name, ty) in
+	  let decl = local_assum (Name name, ty) in
 	  let ctx = decl :: ctx in
 	  let c' = mkApp (lift 1 c, [|mkRel 1|]) in
 	  let args = arg :: args in
@@ -3768,23 +3782,24 @@ let abstract_args gl generalize_vars dep id defined f args =
 	  in
 	  let eqs = eq :: lift_list eqs in
 	  let refls = refl :: refls in
-	  let argvars = ids_of_constr vars arg in
+	  let argvars = ids_of_constr !sigma vars arg in
 	    (arity, ctx, push_rel decl ctxenv, c', args, eqs, refls,
 	    nongenvars, Id.Set.union argvars vars, env)
   in
-  let f', args' = decompose_indapp f args in
+  let f', args' = decompose_indapp !sigma f args in
   let dogen, f', args' =
-    let parvars = ids_of_constr ~all:true Id.Set.empty f' in
-      if not (linear parvars args') then true, f, args
+    let parvars = ids_of_constr !sigma ~all:true Id.Set.empty f' in
+      if not (linear !sigma parvars args') then true, f, args
       else
-	match Array.findi (fun i x -> not (isVar x) || is_defined_variable env (destVar x)) args' with
+	match Array.findi (fun i x -> not (isVar !sigma x) || is_defined_variable env (destVar !sigma x)) args' with
 	| None -> false, f', args'
 	| Some nonvar ->
 	    let before, after = Array.chop nonvar args' in
 	      true, mkApp (f', before), after
   in
     if dogen then
-      let tyf' = Tacmach.pf_unsafe_type_of gl (EConstr.of_constr f') in
+      let tyf' = Tacmach.pf_unsafe_type_of gl f' in
+      let tyf' = EConstr.of_constr tyf' in
       let arity, ctx, ctxenv, c', args, eqs, refls, nogen, vars, env =
 	Array.fold_left aux (tyf',[],env,f',[],[],[],Id.Set.empty,Id.Set.empty,env) args'
       in
@@ -3796,10 +3811,11 @@ let abstract_args gl generalize_vars dep id defined f args =
 	else []
       in
       let body, c' =
-	if defined then Some c', Retyping.get_type_of ctxenv !sigma (EConstr.of_constr c')
+	if defined then Some c', EConstr.of_constr (Retyping.get_type_of ctxenv !sigma c')
 	else None, c'
       in
       let typ = Tacmach.pf_get_hyp_typ gl id in
+      let typ = EConstr.of_constr typ in
       let tac = make_abstract_generalize (pf_env gl) id typ concl dep ctx body c' eqs args refls in
       let tac = Proofview.Unsafe.tclEVARS !sigma <*> tac in
 	Some (tac, dep, succ (List.length ctx), vars)
@@ -3807,15 +3823,18 @@ let abstract_args gl generalize_vars dep id defined f args =
 
 let abstract_generalize ?(generalize_vars=true) ?(force_dep=false) id =
   let open Context.Named.Declaration in
+  let open EConstr in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
   Coqlib.check_required_library Coqlib.jmeq_module_name;
+  let sigma = Tacmach.New.project gl in
   let (f, args, def, id, oldid) =
     let oldid = Tacmach.New.pf_get_new_id id gl in
       match Tacmach.New.pf_get_hyp id gl with
-      | LocalAssum (_,t) -> let f, args = decompose_app t in
+      | LocalAssum (_,t) -> let f, args = decompose_app sigma (EConstr.of_constr t) in
 	        (f, args, false, id, oldid)
       | LocalDef (_,t,_) ->
-	  let f, args = decompose_app t in
+          let t = EConstr.of_constr t in
+	  let f, args = decompose_app sigma t in
 	  (f, args, true, id, oldid)
   in
   if List.is_empty args then Proofview.tclUNIT ()

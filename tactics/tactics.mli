@@ -394,7 +394,7 @@ val generalize_gen  : (EConstr.constr Locus.with_occurrences * Name.t) list -> u
 
 val new_generalize_gen  : ((occurrences * EConstr.constr) * Name.t) list -> unit Proofview.tactic
 
-val generalize_dep  : ?with_let:bool (** Don't lose let bindings *) -> constr  -> unit Proofview.tactic
+val generalize_dep  : ?with_let:bool (** Don't lose let bindings *) -> EConstr.constr  -> unit Proofview.tactic
 
 (** {6 Other tactics. } *)
 
@@ -409,7 +409,7 @@ val general_rewrite_clause :
   (bool -> evars_flag -> EConstr.constr with_bindings -> clause -> unit Proofview.tactic) Hook.t
 
 val subst_one :
-  (bool -> Id.t -> Id.t * constr * bool -> unit Proofview.tactic) Hook.t
+  (bool -> Id.t -> Id.t * EConstr.constr * bool -> unit Proofview.tactic) Hook.t
 
 val declare_intro_decomp_eq :
   ((int -> unit Proofview.tactic) -> Coqlib.coq_eq_data * EConstr.types *
