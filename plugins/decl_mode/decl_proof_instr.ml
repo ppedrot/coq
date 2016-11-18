@@ -268,6 +268,7 @@ let add_justification_hyps keep items gls =
       | _ ->
 	  let id=pf_get_new_id local_hyp_prefix gls in
 	    keep:=Id.Set.add id !keep;
+	    let c = EConstr.of_constr c in
 	    tclTHEN (Proofview.V82.of_tactic (letin_tac None (Names.Name id) c None Locusops.nowhere))
               (Proofview.V82.of_tactic (clear_body [id])) gls in
     tclMAP add_aux items gls
@@ -819,6 +820,7 @@ let rec build_function sigma args body =
 
 let define_tac id args body gls =
   let t = build_function (project gls) args body in
+  let t = EConstr.of_constr t in
     Proofview.V82.of_tactic (letin_tac None (Name id) t None Locusops.nowhere) gls
 
 (* tactics for reconsider *)

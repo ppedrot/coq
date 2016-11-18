@@ -86,6 +86,7 @@ let let_evar name typ =
     | Names.Name id -> id
     in
     let Sigma (evar, sigma, p) = Evarutil.new_evar env sigma ~src ~naming:(Misctypes.IntroFresh id) (EConstr.of_constr typ) in
+    let evar = EConstr.of_constr evar in
     let tac =
       (Tactics.letin_tac None (Names.Name id) evar None Locusops.nowhere)
     in

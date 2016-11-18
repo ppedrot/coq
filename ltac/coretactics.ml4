@@ -55,11 +55,11 @@ TACTIC EXTEND native_cast_no_check
 END
 
 TACTIC EXTEND casetype
-  [ "casetype" constr(c) ] -> [ Tactics.case_type c ]
+  [ "casetype" constr(c) ] -> [ Tactics.case_type (EConstr.of_constr c) ]
 END
 
 TACTIC EXTEND elimtype
-  [ "elimtype" constr(c) ] -> [ Tactics.elim_type c ]
+  [ "elimtype" constr(c) ] -> [ Tactics.elim_type (EConstr.of_constr c) ]
 END
 
 TACTIC EXTEND lapply

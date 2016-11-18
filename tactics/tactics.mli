@@ -9,6 +9,7 @@
 open Loc
 open Names
 open Term
+open EConstr
 open Environ
 open Proof_type
 open Evd
@@ -33,18 +34,18 @@ val is_quantified_hypothesis : Id.t -> ([`NF],'b) Proofview.Goal.t -> bool
 (** {6 Primitive tactics. } *)
 
 val introduction    : ?check:bool -> Id.t -> unit Proofview.tactic
-val convert_concl   : ?check:bool -> EConstr.types -> cast_kind -> unit Proofview.tactic
+val convert_concl   : ?check:bool -> types -> cast_kind -> unit Proofview.tactic
 val convert_hyp     : ?check:bool -> Context.Named.Declaration.t -> unit Proofview.tactic
-val convert_concl_no_check : EConstr.types -> cast_kind -> unit Proofview.tactic
+val convert_concl_no_check : types -> cast_kind -> unit Proofview.tactic
 val convert_hyp_no_check : Context.Named.Declaration.t -> unit Proofview.tactic
 val mutual_fix      :
-  Id.t -> int -> (Id.t * int * EConstr.constr) list -> int -> unit Proofview.tactic
+  Id.t -> int -> (Id.t * int * constr) list -> int -> unit Proofview.tactic
 val fix             : Id.t option -> int -> unit Proofview.tactic
-val mutual_cofix    : Id.t -> (Id.t * EConstr.constr) list -> int -> unit Proofview.tactic
+val mutual_cofix    : Id.t -> (Id.t * constr) list -> int -> unit Proofview.tactic
 val cofix           : Id.t option -> unit Proofview.tactic
 
-val convert         : EConstr.constr -> EConstr.constr -> unit Proofview.tactic
-val convert_leq     : EConstr.constr -> EConstr.constr -> unit Proofview.tactic
+val convert         : constr -> constr -> unit Proofview.tactic
+val convert_leq     : constr -> constr -> unit Proofview.tactic
 
 (** {6 Introduction tactics. } *)
 
@@ -93,12 +94,12 @@ val try_intros_until :
    or a term with bindings *)
 
 val onInductionArg :
-  (clear_flag -> EConstr.constr with_bindings -> unit Proofview.tactic) ->
-    EConstr.constr with_bindings destruction_arg -> unit Proofview.tactic
+  (clear_flag -> constr with_bindings -> unit Proofview.tactic) ->
+    constr with_bindings destruction_arg -> unit Proofview.tactic
 
 val force_destruction_arg : evars_flag -> env -> evar_map ->
     delayed_open_constr_with_bindings destruction_arg ->
-    evar_map * EConstr.constr with_bindings destruction_arg
+    evar_map * constr with_bindings destruction_arg
 
 (** Tell if a used hypothesis should be cleared by default or not *)
 
@@ -120,24 +121,24 @@ val intros_patterns : evars_flag -> intro_patterns -> unit Proofview.tactic
 (** {6 Exact tactics. } *)
 
 val assumption       : unit Proofview.tactic
-val exact_no_check   : EConstr.constr -> unit Proofview.tactic
-val vm_cast_no_check : EConstr.constr -> unit Proofview.tactic
-val native_cast_no_check : EConstr.constr -> unit Proofview.tactic
-val exact_check      : EConstr.constr -> unit Proofview.tactic
+val exact_no_check   : constr -> unit Proofview.tactic
+val vm_cast_no_check : constr -> unit Proofview.tactic
+val native_cast_no_check : constr -> unit Proofview.tactic
+val exact_check      : constr -> unit Proofview.tactic
 val exact_proof      : Constrexpr.constr_expr -> unit Proofview.tactic
 
 (** {6 Reduction tactics. } *)
 
-type tactic_reduction = env -> evar_map -> EConstr.t -> constr
+type tactic_reduction = env -> evar_map -> constr -> Constr.constr
 
-type change_arg = patvar_map -> EConstr.constr Sigma.run
+type change_arg = patvar_map -> constr Sigma.run
 
-val make_change_arg   : EConstr.constr -> change_arg
+val make_change_arg   : constr -> change_arg
 val reduct_in_hyp     : ?check:bool -> tactic_reduction -> hyp_location -> unit Proofview.tactic
 val reduct_option     : ?check:bool -> tactic_reduction * cast_kind -> goal_location -> unit Proofview.tactic
 val reduct_in_concl   : tactic_reduction * cast_kind -> unit Proofview.tactic
 val change_in_concl   : (occurrences * constr_pattern) option -> change_arg -> unit Proofview.tactic
-val change_concl      : EConstr.constr -> unit Proofview.tactic
+val change_concl      : constr -> unit Proofview.tactic
 val change_in_hyp     : (occurrences * constr_pattern) option -> change_arg ->
                         hyp_location -> unit Proofview.tactic
 val red_in_concl      : unit Proofview.tactic
@@ -162,7 +163,7 @@ val unfold_option     :
 val change            :
   constr_pattern option -> change_arg -> clause -> unit Proofview.tactic
 val pattern_option    :
-  (occurrences * EConstr.constr) list -> goal_location -> unit Proofview.tactic
+  (occurrences * constr) list -> goal_location -> unit Proofview.tactic
 val reduce            : red_expr -> clause -> unit Proofview.tactic
 val unfold_constr     : global_reference -> unit Proofview.tactic
 
@@ -172,9 +173,9 @@ val clear         : Id.t list -> unit Proofview.tactic
 val clear_body    : Id.t list -> unit Proofview.tactic
 val unfold_body   : Id.t -> unit Proofview.tactic
 val keep          : Id.t list -> unit Proofview.tactic
-val apply_clear_request : clear_flag -> bool -> EConstr.constr -> unit Proofview.tactic
+val apply_clear_request : clear_flag -> bool -> constr -> unit Proofview.tactic
 
-val specialize    : EConstr.constr with_bindings -> intro_pattern option -> unit Proofview.tactic
+val specialize    : constr with_bindings -> intro_pattern option -> unit Proofview.tactic
 
 val move_hyp      : Id.t -> Id.t move_location -> unit Proofview.tactic
 val rename_hyp    : (Id.t * Id.t) list -> unit Proofview.tactic
@@ -183,26 +184,26 @@ val revert        : Id.t list -> unit Proofview.tactic
 
 (** {6 Resolution tactics. } *)
 
-val apply_type : EConstr.constr -> EConstr.constr list -> unit Proofview.tactic
+val apply_type : constr -> constr list -> unit Proofview.tactic
 val bring_hyps : Context.Named.t -> unit Proofview.tactic
 
-val apply                 : EConstr.constr -> unit Proofview.tactic
-val eapply                : EConstr.constr -> unit Proofview.tactic
+val apply                 : constr -> unit Proofview.tactic
+val eapply                : constr -> unit Proofview.tactic
 
 val apply_with_bindings_gen :
-  advanced_flag -> evars_flag -> (clear_flag * EConstr.constr with_bindings located) list -> unit Proofview.tactic
+  advanced_flag -> evars_flag -> (clear_flag * constr with_bindings located) list -> unit Proofview.tactic
 
 val apply_with_delayed_bindings_gen :
   advanced_flag -> evars_flag -> (clear_flag * delayed_open_constr_with_bindings located) list -> unit Proofview.tactic
 
-val apply_with_bindings   : EConstr.constr with_bindings -> unit Proofview.tactic
-val eapply_with_bindings  : EConstr.constr with_bindings -> unit Proofview.tactic
+val apply_with_bindings   : constr with_bindings -> unit Proofview.tactic
+val eapply_with_bindings  : constr with_bindings -> unit Proofview.tactic
 
-val cut_and_apply         : EConstr.constr -> unit Proofview.tactic
+val cut_and_apply         : constr -> unit Proofview.tactic
 
 val apply_in :
   advanced_flag -> evars_flag -> Id.t -> 
-    (clear_flag * EConstr.constr with_bindings located) list ->
+    (clear_flag * constr with_bindings located) list ->
     intro_pattern option -> unit Proofview.tactic
 
 val apply_delayed_in :
@@ -240,8 +241,8 @@ val run_delayed : Environ.env -> evar_map -> 'a delayed_open -> 'a * evar_map
 (** [rel_contexts] and [rel_declaration] actually contain triples, and
    lists are actually in reverse order to fit [compose_prod]. *)
 type elim_scheme = {
-  elimc: EConstr.constr with_bindings option;
-  elimt: EConstr.types;
+  elimc: constr with_bindings option;
+  elimt: types;
   indref: global_reference option;
   params: Context.Rel.t;      (** (prm1,tprm1);(prm2,tprm2)...(prmp,tprmp) *)
   nparams: int;               (** number of parameters *)
@@ -253,46 +254,46 @@ type elim_scheme = {
   nargs: int;                 (** number of arguments *)
   indarg: Context.Rel.Declaration.t option;  (** Some (H,I prm1..prmp x1...xni)
 	  		 	                 if HI is in premisses, None otherwise *)
-  concl: EConstr.types;               (** Qi x1...xni HI (f...), HI and (f...)
+  concl: types;               (** Qi x1...xni HI (f...), HI and (f...)
 			          are optional and mutually exclusive *)
   indarg_in_concl: bool;      (** true if HI appears at the end of conclusion *)
   farg_in_concl: bool;        (** true if (f...) appears at the end of conclusion *)
 }
 
-val compute_elim_sig : evar_map -> ?elimc:EConstr.constr with_bindings -> EConstr.types -> elim_scheme
+val compute_elim_sig : evar_map -> ?elimc:constr with_bindings -> types -> elim_scheme
 
 (** elim principle with the index of its inductive arg *)
 type eliminator = {
   elimindex : int option;  (** None = find it automatically *)
   elimrename : (bool * int array) option; (** None = don't rename Prop hyps with H-names *)
-  elimbody : EConstr.constr with_bindings
+  elimbody : constr with_bindings
 }
 
 val general_elim  : evars_flag -> clear_flag ->
-  EConstr.constr with_bindings -> eliminator -> unit Proofview.tactic
+  constr with_bindings -> eliminator -> unit Proofview.tactic
 
 val general_elim_clause : evars_flag -> unify_flags -> identifier option ->
   clausenv -> eliminator -> unit Proofview.tactic
 
-val default_elim  : evars_flag -> clear_flag -> EConstr.constr with_bindings ->
+val default_elim  : evars_flag -> clear_flag -> constr with_bindings ->
   unit Proofview.tactic
-val simplest_elim : EConstr.constr -> unit Proofview.tactic
+val simplest_elim : constr -> unit Proofview.tactic
 val elim :
-  evars_flag -> clear_flag -> EConstr.constr with_bindings -> EConstr.constr with_bindings option -> unit Proofview.tactic
+  evars_flag -> clear_flag -> constr with_bindings -> constr with_bindings option -> unit Proofview.tactic
 
 val simple_induct : quantified_hypothesis -> unit Proofview.tactic
 
-val induction : evars_flag -> clear_flag -> EConstr.constr -> or_and_intro_pattern option ->
-  EConstr.constr with_bindings option -> unit Proofview.tactic
+val induction : evars_flag -> clear_flag -> constr -> or_and_intro_pattern option ->
+  constr with_bindings option -> unit Proofview.tactic
 
 (** {6 Case analysis tactics. } *)
 
-val general_case_analysis : evars_flag -> clear_flag -> EConstr.constr with_bindings ->  unit Proofview.tactic
-val simplest_case         : EConstr.constr -> unit Proofview.tactic
+val general_case_analysis : evars_flag -> clear_flag -> constr with_bindings ->  unit Proofview.tactic
+val simplest_case         : constr -> unit Proofview.tactic
 
 val simple_destruct       : quantified_hypothesis -> unit Proofview.tactic
-val destruct : evars_flag -> clear_flag -> EConstr.constr -> or_and_intro_pattern option ->
-  EConstr.constr with_bindings option -> unit Proofview.tactic
+val destruct : evars_flag -> clear_flag -> constr -> or_and_intro_pattern option ->
+  constr with_bindings option -> unit Proofview.tactic
 
 (** {6 Generic case analysis / induction tactics. } *)
 
@@ -302,7 +303,7 @@ val induction_destruct : rec_flag -> evars_flag ->
   (delayed_open_constr_with_bindings destruction_arg
    * (intro_pattern_naming option * or_and_intro_pattern option)
    * clause option) list *
-  EConstr.constr with_bindings option -> unit Proofview.tactic
+  constr with_bindings option -> unit Proofview.tactic
 
 (** {6 Eliminations giving the type instead of the proof. } *)
 
@@ -312,17 +313,17 @@ val elim_type         : types -> unit Proofview.tactic
 (** {6 Constructor tactics. } *)
 
 val constructor_tac      : evars_flag -> int option -> int ->
-  EConstr.constr bindings -> unit Proofview.tactic
+  constr bindings -> unit Proofview.tactic
 val any_constructor      : evars_flag -> unit Proofview.tactic option -> unit Proofview.tactic
-val one_constructor      : int -> EConstr.constr bindings  -> unit Proofview.tactic
+val one_constructor      : int -> constr bindings  -> unit Proofview.tactic
 
-val left                 : EConstr.constr bindings -> unit Proofview.tactic
-val right                : EConstr.constr bindings -> unit Proofview.tactic
-val split                : EConstr.constr bindings -> unit Proofview.tactic
+val left                 : constr bindings -> unit Proofview.tactic
+val right                : constr bindings -> unit Proofview.tactic
+val split                : constr bindings -> unit Proofview.tactic
 
-val left_with_bindings  : evars_flag -> EConstr.constr bindings -> unit Proofview.tactic
-val right_with_bindings : evars_flag -> EConstr.constr bindings -> unit Proofview.tactic
-val split_with_bindings : evars_flag -> EConstr.constr bindings list -> unit Proofview.tactic
+val left_with_bindings  : evars_flag -> constr bindings -> unit Proofview.tactic
+val right_with_bindings : evars_flag -> constr bindings -> unit Proofview.tactic
+val split_with_bindings : evars_flag -> constr bindings list -> unit Proofview.tactic
 
 val simplest_left        : unit Proofview.tactic
 val simplest_right       : unit Proofview.tactic
@@ -341,41 +342,41 @@ val symmetry                    : unit Proofview.tactic
 val setoid_symmetry_in : (Id.t -> unit Proofview.tactic) Hook.t
 val intros_symmetry             : clause -> unit Proofview.tactic
 
-val setoid_transitivity : (EConstr.constr option -> unit Proofview.tactic) Hook.t
-val transitivity_red            : bool -> EConstr.constr option -> unit Proofview.tactic
-val transitivity                : EConstr.constr -> unit Proofview.tactic
+val setoid_transitivity : (constr option -> unit Proofview.tactic) Hook.t
+val transitivity_red            : bool -> constr option -> unit Proofview.tactic
+val transitivity                : constr -> unit Proofview.tactic
 val etransitivity               : unit Proofview.tactic
-val intros_transitivity         : EConstr.constr option -> unit Proofview.tactic
+val intros_transitivity         : constr option -> unit Proofview.tactic
 
 (** {6 Cut tactics. } *)
 
-val assert_before_replacing: Id.t -> EConstr.types -> unit Proofview.tactic
-val assert_after_replacing : Id.t -> EConstr.types -> unit Proofview.tactic
-val assert_before : Name.t -> EConstr.types -> unit Proofview.tactic
-val assert_after  : Name.t -> EConstr.types -> unit Proofview.tactic
+val assert_before_replacing: Id.t -> types -> unit Proofview.tactic
+val assert_after_replacing : Id.t -> types -> unit Proofview.tactic
+val assert_before : Name.t -> types -> unit Proofview.tactic
+val assert_after  : Name.t -> types -> unit Proofview.tactic
 
 val assert_as     : (* true = before *) bool ->
   (* optionally tell if a specialization of some hyp: *) identifier option ->
-  intro_pattern option -> EConstr.constr -> unit Proofview.tactic
+  intro_pattern option -> constr -> unit Proofview.tactic
 
 (** Implements the tactics assert, enough and pose proof; note that "by"
     applies on the first goal for both assert and enough *)
 
-val assert_by  : Name.t -> EConstr.types -> unit Proofview.tactic ->
+val assert_by  : Name.t -> types -> unit Proofview.tactic ->
   unit Proofview.tactic
-val enough_by  : Name.t -> EConstr.types -> unit Proofview.tactic ->
+val enough_by  : Name.t -> types -> unit Proofview.tactic ->
   unit Proofview.tactic
-val pose_proof : Name.t -> EConstr.constr ->
+val pose_proof : Name.t -> constr ->
   unit Proofview.tactic
 
 (** Common entry point for user-level "assert", "enough" and "pose proof" *)
 
 val forward   : bool -> unit Proofview.tactic option option ->
-  intro_pattern option -> EConstr.constr -> unit Proofview.tactic
+  intro_pattern option -> constr -> unit Proofview.tactic
 
 (** Implements the tactic cut, actually a modus ponens rule *)
 
-val cut        : EConstr.types -> unit Proofview.tactic
+val cut        : types -> unit Proofview.tactic
 
 (** {6 Tactics for adding local definitions. } *)
 
@@ -389,16 +390,16 @@ val letin_pat_tac : (bool * intro_pattern_naming) option ->
 
 (** {6 Generalize tactics. } *)
 
-val generalize      : EConstr.constr list -> unit Proofview.tactic
-val generalize_gen  : (EConstr.constr Locus.with_occurrences * Name.t) list -> unit Proofview.tactic
+val generalize      : constr list -> unit Proofview.tactic
+val generalize_gen  : (constr Locus.with_occurrences * Name.t) list -> unit Proofview.tactic
 
-val new_generalize_gen  : ((occurrences * EConstr.constr) * Name.t) list -> unit Proofview.tactic
+val new_generalize_gen  : ((occurrences * constr) * Name.t) list -> unit Proofview.tactic
 
-val generalize_dep  : ?with_let:bool (** Don't lose let bindings *) -> EConstr.constr  -> unit Proofview.tactic
+val generalize_dep  : ?with_let:bool (** Don't lose let bindings *) -> constr  -> unit Proofview.tactic
 
 (** {6 Other tactics. } *)
 
-val unify           : ?state:Names.transparent_state -> EConstr.constr -> EConstr.constr -> unit Proofview.tactic
+val unify           : ?state:Names.transparent_state -> constr -> constr -> unit Proofview.tactic
 
 val tclABSTRACT : Id.t option -> unit Proofview.tactic -> unit Proofview.tactic
 
@@ -406,15 +407,15 @@ val abstract_generalize : ?generalize_vars:bool -> ?force_dep:bool -> Id.t -> un
 val specialize_eqs : Id.t -> unit Proofview.tactic
 
 val general_rewrite_clause :
-  (bool -> evars_flag -> EConstr.constr with_bindings -> clause -> unit Proofview.tactic) Hook.t
+  (bool -> evars_flag -> constr with_bindings -> clause -> unit Proofview.tactic) Hook.t
 
 val subst_one :
-  (bool -> Id.t -> Id.t * EConstr.constr * bool -> unit Proofview.tactic) Hook.t
+  (bool -> Id.t -> Id.t * constr * bool -> unit Proofview.tactic) Hook.t
 
 val declare_intro_decomp_eq :
-  ((int -> unit Proofview.tactic) -> Coqlib.coq_eq_data * EConstr.types *
-   (EConstr.types * EConstr.constr * EConstr.constr) ->
-   EConstr.constr * EConstr.types -> unit Proofview.tactic) -> unit
+  ((int -> unit Proofview.tactic) -> Coqlib.coq_eq_data * types *
+   (types * constr * constr) ->
+   constr * types -> unit Proofview.tactic) -> unit
 
 (** {6 Simple form of basic tactics. } *)
 
@@ -422,11 +423,11 @@ module Simple : sig
   (** Simplified version of some of the above tactics *)
 
   val intro           : Id.t -> unit Proofview.tactic
-  val apply  : EConstr.constr -> unit Proofview.tactic
-  val eapply : EConstr.constr -> unit Proofview.tactic
-  val elim   : EConstr.constr -> unit Proofview.tactic
-  val case   : EConstr.constr -> unit Proofview.tactic
-  val apply_in : identifier -> EConstr.constr -> unit Proofview.tactic
+  val apply  : constr -> unit Proofview.tactic
+  val eapply : constr -> unit Proofview.tactic
+  val elim   : constr -> unit Proofview.tactic
+  val case   : constr -> unit Proofview.tactic
+  val apply_in : identifier -> constr -> unit Proofview.tactic
 
 end
 
@@ -434,7 +435,7 @@ end
 
 module New : sig
 
-  val refine : ?unsafe:bool -> EConstr.constr Sigma.run -> unit Proofview.tactic
+  val refine : ?unsafe:bool -> constr Sigma.run -> unit Proofview.tactic
   (** [refine ?unsafe c] is [Refine.refine ?unsafe c]
       followed by beta-iota-reduction of the conclusion. *)
 

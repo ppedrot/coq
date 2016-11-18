@@ -1769,7 +1769,6 @@ and interp_atomic ist tac : unit Proofview.tactic =
           let let_tac b na c cl eqpat =
             let id = Option.default (Loc.ghost,IntroAnonymous) eqpat in
             let with_eq = if b then None else Some (true,id) in
-            let c = EConstr.Unsafe.to_constr c in
             Tactics.letin_tac with_eq na c None cl
           in
           let na = interp_name ist env sigma na in

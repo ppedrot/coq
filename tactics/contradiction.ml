@@ -33,7 +33,7 @@ let absurd c =
     let t = EConstr.Unsafe.to_constr j.Environ.utj_val in
     let tac =
     Tacticals.New.tclTHENLIST [
-      elim_type (build_coq_False ());
+      elim_type (EConstr.of_constr (build_coq_False ()));
       Simple.apply (EConstr.of_constr (mk_absurd_proof t))
     ] in
     Sigma.Unsafe.of_pair (tac, sigma)

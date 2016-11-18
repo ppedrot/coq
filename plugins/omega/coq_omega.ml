@@ -1852,7 +1852,7 @@ let destructure_goal =
                 (Proofview.V82.tactic (Tacmach.refine
 		                         (EConstr.of_constr (mkApp (Lazy.force coq_dec_not_not, [| t; dec; mkNewMeta () |])))))
 	        intro
-	    with Undecidable -> Tactics.elim_type (build_coq_False ())
+	    with Undecidable -> Tactics.elim_type (EConstr.of_constr (build_coq_False ()))
 	  in
 	  Tacticals.New.tclTHEN goal_tac destructure_hyps
     in

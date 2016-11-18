@@ -162,6 +162,7 @@ let rec solveArg hyps eqonleft op largs rargs = match largs, rargs with
   Proofview.Goal.enter { enter = begin fun gl ->
   let rectype = pf_unsafe_type_of gl (EConstr.of_constr a1) in
   let decide = mkDecideEqGoal eqonleft op rectype a1 a2 in
+  let decide = EConstr.of_constr decide in
   let tac hyp = solveArg (hyp :: hyps) eqonleft op largs rargs in
   let subtacs =
     if eqonleft then [eqCase tac;diseqCase hyps eqonleft;default_auto]
