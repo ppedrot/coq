@@ -1749,10 +1749,11 @@ and interp_atomic ist tac : unit Proofview.tactic =
         let sigma = project gl in
         let env = Proofview.Goal.env gl in
         let sigma, cl = interp_constr_with_occurrences_and_name_as_list ist env sigma cl in
+        let cl' = List.map (fun ((occ, c), na) -> (occ, EConstr.of_constr c), na) cl in
         Tacticals.New.tclWITHHOLES false
         (name_atomic ~env
           (TacGeneralize cl)
-          (Tactics.generalize_gen cl)) sigma
+          (Tactics.generalize_gen cl')) sigma
       end }
   | TacLetTac (na,c,clp,b,eqpat) ->
       Proofview.V82.nf_evar_goals <*>

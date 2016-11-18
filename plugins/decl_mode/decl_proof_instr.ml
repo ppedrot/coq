@@ -1225,7 +1225,7 @@ let hrec_for fix_id per_info gls obj_id =
     try List.for_all2 eq_constr params per_info.per_params with
         Invalid_argument _ -> false end;
   let hd2 = applist (mkVar fix_id,args@[obj]) in
-    compose_lam rc (Reductionops.whd_beta gls.sigma (EConstr.of_constr hd2))
+    EConstr.of_constr (compose_lam rc (Reductionops.whd_beta gls.sigma (EConstr.of_constr hd2)))
 
 let warn_missing_case =
   CWarnings.create ~name:"declmode-missing-case" ~category:"declmode"
@@ -1376,7 +1376,7 @@ let end_tac et2 gls =
 		(default_justification (List.map mkVar clauses))
 	  | ET_Induction,EK_nodep ->
 	      tclTHENLIST
-		[Proofview.V82.of_tactic (generalize (pi.per_args@[pi.per_casee]));
+		[Proofview.V82.of_tactic (generalize (List.map EConstr.of_constr (pi.per_args@[pi.per_casee])));
 		 Proofview.V82.of_tactic (simple_induct (AnonHyp (succ (List.length pi.per_args))));
 		 default_justification (List.map mkVar clauses)]
 	  | ET_Case_analysis,EK_dep tree ->
@@ -1388,7 +1388,7 @@ let end_tac et2 gls =
 		   (initial_instance_stack clauses) [pi.per_casee] 0 tree
 	  | ET_Induction,EK_dep tree ->
 	      let nargs = (List.length pi.per_args) in
-		tclTHEN (Proofview.V82.of_tactic (generalize (pi.per_args@[pi.per_casee])))
+		tclTHEN (Proofview.V82.of_tactic (generalize (List.map EConstr.of_constr (pi.per_args@[pi.per_casee]))))
 		  begin
 		    fun gls0 ->
 		      let fix_id =

@@ -1947,7 +1947,7 @@ let replace_term dir_opt c  =
 (* Declare rewriting tactic for intro patterns "<-" and "->" *)
 
 let _ =
-  let gmr l2r with_evars tac c = general_rewrite_clause l2r with_evars tac c in
+  let gmr l2r with_evars tac c = general_rewrite_clause l2r with_evars (Miscops.map_with_bindings EConstr.Unsafe.to_constr tac) c in
   Hook.set Tactics.general_rewrite_clause gmr
 
 let _ = Hook.set Tactics.subst_one subst_one

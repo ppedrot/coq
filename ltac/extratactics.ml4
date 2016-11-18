@@ -738,7 +738,7 @@ let  mkCaseEq a  : unit Proofview.tactic =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
     let type_of_a = Tacmach.New.of_old (fun g -> Tacmach.pf_unsafe_type_of g (EConstr.of_constr a)) gl in
        Tacticals.New.tclTHENLIST
-         [Tactics.generalize [mkApp(delayed_force refl_equal, [| type_of_a; a|])];
+         [Tactics.generalize [EConstr.of_constr (mkApp(delayed_force refl_equal, [| type_of_a; a|]))];
           Proofview.Goal.nf_enter { enter = begin fun gl ->
             let concl = Proofview.Goal.concl gl in
             let env = Proofview.Goal.env gl in

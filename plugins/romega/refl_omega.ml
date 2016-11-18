@@ -1222,7 +1222,7 @@ let resolution env full_reified_goal systems_list =
   (* variables a introduire *)
   let to_introduce = add_stated_equations env solution_tree in
   let stated_vars =  List.map (fun (v,_,_,_) -> v) to_introduce in
-  let l_generalize_arg = List.map (fun (_,t,_,_) -> t) to_introduce in
+  let l_generalize_arg = List.map (fun (_,t,_,_) -> EConstr.of_constr t) to_introduce in
   let hyp_stated_vars = List.map (fun (_,_,_,id) -> CCEqua id) to_introduce in
   (* L'environnement de base se construit en deux morceaux :
      - les variables des équations utiles (et de la conclusion)
@@ -1282,7 +1282,7 @@ let resolution env full_reified_goal systems_list =
   let decompose_tactic = decompose_tree env context solution_tree in
 
   Proofview.V82.of_tactic (Tactics.generalize
-    (l_generalize_arg @ List.map Term.mkVar (List.tl l_hyps))) >>
+    (l_generalize_arg @ List.map EConstr.mkVar (List.tl l_hyps))) >>
   Proofview.V82.of_tactic (Tactics.change_concl reified) >>
   Proofview.V82.of_tactic (Tactics.apply (EConstr.of_constr (app coq_do_omega [|decompose_tactic; normalization_trace|]))) >>
   show_goal >>

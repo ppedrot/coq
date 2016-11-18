@@ -211,7 +211,7 @@ let decideGralEquality =
         | _ -> tclZEROMSG (Pp.str"This decision procedure only works for inductive objects.")
         end >>= fun rectype ->
           (tclTHEN
-             (mkBranches c1 c2)
+             (mkBranches c1 (EConstr.of_constr c2))
              (tclORELSE (solveNoteqBranch eqonleft) (solveEqBranch rectype)))
       end }
     end

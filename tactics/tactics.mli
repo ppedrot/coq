@@ -162,7 +162,7 @@ val unfold_option     :
 val change            :
   constr_pattern option -> change_arg -> clause -> unit Proofview.tactic
 val pattern_option    :
-  (occurrences * constr) list -> goal_location -> unit Proofview.tactic
+  (occurrences * EConstr.constr) list -> goal_location -> unit Proofview.tactic
 val reduce            : red_expr -> clause -> unit Proofview.tactic
 val unfold_constr     : global_reference -> unit Proofview.tactic
 
@@ -183,7 +183,7 @@ val revert        : Id.t list -> unit Proofview.tactic
 
 (** {6 Resolution tactics. } *)
 
-val apply_type : constr -> constr list -> unit Proofview.tactic
+val apply_type : EConstr.constr -> EConstr.constr list -> unit Proofview.tactic
 val bring_hyps : Context.Named.t -> unit Proofview.tactic
 
 val apply                 : EConstr.constr -> unit Proofview.tactic
@@ -389,10 +389,10 @@ val letin_pat_tac : (bool * intro_pattern_naming) option ->
 
 (** {6 Generalize tactics. } *)
 
-val generalize      : constr list -> unit Proofview.tactic
-val generalize_gen  : (constr Locus.with_occurrences * Name.t) list -> unit Proofview.tactic
+val generalize      : EConstr.constr list -> unit Proofview.tactic
+val generalize_gen  : (EConstr.constr Locus.with_occurrences * Name.t) list -> unit Proofview.tactic
 
-val new_generalize_gen  : ((occurrences * constr) * Name.t) list -> unit Proofview.tactic
+val new_generalize_gen  : ((occurrences * EConstr.constr) * Name.t) list -> unit Proofview.tactic
 
 val generalize_dep  : ?with_let:bool (** Don't lose let bindings *) -> constr  -> unit Proofview.tactic
 
@@ -406,7 +406,7 @@ val abstract_generalize : ?generalize_vars:bool -> ?force_dep:bool -> Id.t -> un
 val specialize_eqs : Id.t -> unit Proofview.tactic
 
 val general_rewrite_clause :
-  (bool -> evars_flag -> constr with_bindings -> clause -> unit Proofview.tactic) Hook.t
+  (bool -> evars_flag -> EConstr.constr with_bindings -> clause -> unit Proofview.tactic) Hook.t
 
 val subst_one :
   (bool -> Id.t -> Id.t * constr * bool -> unit Proofview.tactic) Hook.t

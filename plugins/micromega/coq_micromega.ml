@@ -2004,7 +2004,7 @@ let micromega_gen
          [
            kill_arith;
            (Tacticals.New.tclTHENLIST
-            [(Tactics.generalize (List.map Term.mkVar ids));
+            [(Tactics.generalize (List.map EConstr.mkVar ids));
              Tactics.exact_check (EConstr.of_constr (Term.applist (Term.mkVar goal_name, arith_args)))
             ] )
          ]
@@ -2118,7 +2118,7 @@ let micromega_genr prover tac =
          [
            kill_arith;
            (Tacticals.New.tclTHENLIST
-            [(Tactics.generalize (List.map Term.mkVar ids));
+            [(Tactics.generalize (List.map EConstr.mkVar ids));
              Tactics.exact_check (EConstr.of_constr (Term.applist (Term.mkVar goal_name, arith_args)))
             ] )
          ]

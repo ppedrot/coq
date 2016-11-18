@@ -149,7 +149,7 @@ let mk_then = tclTHENLIST
 
 let exists_tac c = constructor_tac false (Some 1) 1 (ImplicitBindings [c])
 
-let generalize_tac t = generalize t
+let generalize_tac t = generalize (List.map EConstr.of_constr t)
 let elim t = simplest_elim t
 let exact t = Tacmach.refine t
 let unfold s = Tactics.unfold_in_concl [Locus.AllOccurrences, Lazy.force s]

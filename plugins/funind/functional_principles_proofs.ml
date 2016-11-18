@@ -712,11 +712,12 @@ let build_proof
 		  let term_eq =
 		    make_refl_eq (Lazy.force refl_equal) type_of_term t
 		  in
+		  let term_eq = EConstr.of_constr term_eq in
 		  tclTHENSEQ
 		    [
-		      Proofview.V82.of_tactic (generalize (term_eq::(List.map mkVar dyn_infos.rec_hyps)));
+		      Proofview.V82.of_tactic (generalize (term_eq::(List.map EConstr.mkVar dyn_infos.rec_hyps)));
 		      thin dyn_infos.rec_hyps;
-		      Proofview.V82.of_tactic (pattern_option [Locus.AllOccurrencesBut [1],t] None);
+		      Proofview.V82.of_tactic (pattern_option [Locus.AllOccurrencesBut [1],EConstr.of_constr t] None);
 		      (fun g -> observe_tac "toto" (
 			 tclTHENSEQ [Proofview.V82.of_tactic (Simple.case (EConstr.of_constr t));
 				     (fun g' ->
@@ -945,7 +946,7 @@ let generalize_non_dep hyp g =
   in
 (*   observe (str "to_revert := " ++ prlist_with_sep spc Ppconstr.pr_id to_revert); *)
   tclTHEN
-    ((* observe_tac "h_generalize" *) (Proofview.V82.of_tactic (generalize  (List.map mkVar to_revert) )))
+    ((* observe_tac "h_generalize" *) (Proofview.V82.of_tactic (generalize  (List.map EConstr.mkVar to_revert) )))
     ((* observe_tac "thin" *) (thin to_revert))
     g
 
@@ -953,7 +954,7 @@ let id_of_decl = RelDecl.get_name %> Nameops.out_name
 let var_of_decl = id_of_decl %> mkVar
 let revert idl =
   tclTHEN
-    (Proofview.V82.of_tactic (generalize (List.map mkVar idl)))
+    (Proofview.V82.of_tactic (generalize (List.map EConstr.mkVar idl)))
     (thin idl)
 
 let generate_equation_lemma evd fnames f fun_num nb_params nb_args rec_args_num =
@@ -1575,7 +1576,7 @@ let prove_principle_for_gen
     Nameops.out_name (fresh_id (Name (Id.of_string ("Acc_"^(Id.to_string rec_arg_id)))))
   in
   let revert l =
-    tclTHEN (Proofview.V82.of_tactic (Tactics.generalize (List.map mkVar l))) (Proofview.V82.of_tactic (clear l))
+    tclTHEN (Proofview.V82.of_tactic (Tactics.generalize (List.map EConstr.mkVar l))) (Proofview.V82.of_tactic (clear l))
   in
   let fix_id = Nameops.out_name (fresh_id (Name hrec_id)) in
   let prove_rec_arg_acc g =
@@ -1599,7 +1600,7 @@ let prove_principle_for_gen
   let lemma =
     match !tcc_lemma_ref with
      | None -> error "No tcc proof !!"
-     | Some lemma -> lemma
+     | Some lemma -> EConstr.of_constr lemma
   in
 (*   let rec list_diff del_list check_list = *)
 (*     match del_list with *)

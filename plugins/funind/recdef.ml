@@ -657,7 +657,7 @@ let terminate_letin (na,b,t,e) expr_info continuation_tac info =
   continuation_tac {info with info = new_e; forbidden_ids = new_forbidden} 
 
 let pf_type c tac gl = 
-  let evars, ty = Typing.type_of (pf_env gl) (project gl) (EConstr.of_constr c) in
+  let evars, ty = Typing.type_of (pf_env gl) (project gl) c in
     tclTHEN (Refiner.tclEVARS evars) (tac ty) gl
 
 let pf_typel l tac =
@@ -687,6 +687,7 @@ let mkDestructEq :
   let type_of_expr = pf_unsafe_type_of g (EConstr.of_constr expr) in
   let new_hyps = mkApp(Lazy.force refl_equal, [|type_of_expr; expr|])::
            to_revert_constr in
+  let new_hyps = List.map EConstr.of_constr new_hyps in
     pf_typel new_hyps (fun _ ->
     observe_tclTHENLIST (str "mkDestructEq")
      [Proofview.V82.of_tactic (generalize new_hyps);
@@ -1117,7 +1118,7 @@ let termination_proof_header is_mes input_type ids args_id relation
 	       [observe_tac (str "generalize")
 		  (onNLastHypsId (nargs+1)
 		     (tclMAP (fun id ->
-			tclTHEN (Proofview.V82.of_tactic (Tactics.generalize [mkVar id])) (Proofview.V82.of_tactic (clear [id])))
+			tclTHEN (Proofview.V82.of_tactic (Tactics.generalize [EConstr.mkVar id])) (Proofview.V82.of_tactic (clear [id])))
 		     ))
 	       ;
 		observe_tac (str "fix") (Proofview.V82.of_tactic (fix (Some hrec) (nargs+1)));
@@ -1298,6 +1299,7 @@ let open_new_goal build_proof sigma using_lemmas ref_ goal_name (gls_type,decomp
     in
     let lemma = mkConst (Names.Constant.make1 (Lib.make_kn na)) in
     ref_ := Some lemma ;
+    let lemma = EConstr.of_constr lemma in
     let lid = ref [] in
     let h_num = ref (-1) in
     let env = Global.env () in
