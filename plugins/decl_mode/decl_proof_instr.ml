@@ -548,7 +548,7 @@ let decompose_eq id gls =
   let whd =  (special_whd gls typ) in
     match kind_of_term whd with
 	App (f,args)->
-	  if eq_constr f (Lazy.force _eq) && Int.equal (Array.length args) 3
+	  if Term.eq_constr f (Lazy.force _eq) && Int.equal (Array.length args) 3
 	  then (args.(0),
 		args.(1),
 		args.(2))
@@ -1092,7 +1092,7 @@ let thesis_for obj typ per_info env=
       ((Printer.pr_constr_env env Evd.empty obj) ++ spc () ++
 	 str"cannot give an induction hypothesis (wrong inductive type).") in
   let params,args = List.chop per_info.per_nparams all_args in
-  let _ = if not (List.for_all2 eq_constr params per_info.per_params) then
+  let _ = if not (List.for_all2 Term.eq_constr params per_info.per_params) then
     user_err ~hdr:"thesis_for"
       ((Printer.pr_constr_env env Evd.empty obj) ++ spc () ++
 	 str "cannot give an induction hypothesis (wrong parameters).") in
@@ -1224,7 +1224,7 @@ let hrec_for fix_id per_info gls obj_id =
   let ind,u = destInd cind in assert (eq_ind ind per_info.per_ind);
   let params,args= List.chop per_info.per_nparams all_args in
   assert begin
-    try List.for_all2 eq_constr params per_info.per_params with
+    try List.for_all2 Term.eq_constr params per_info.per_params with
         Invalid_argument _ -> false end;
   let hd2 = applist (mkVar fix_id,args@[obj]) in
     EConstr.of_constr (compose_lam rc (Reductionops.whd_beta gls.sigma (EConstr.of_constr hd2)))

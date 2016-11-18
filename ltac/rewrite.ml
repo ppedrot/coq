@@ -774,7 +774,7 @@ let poly_subrelation sort =
   if sort then PropGlobal.subrelation else TypeGlobal.subrelation
 
 let resolve_subrelation env avoid car rel sort prf rel' res =
-  if eq_constr rel rel' then res
+  if Termops.eq_constr (fst res.rew_evars) (EConstr.of_constr rel) (EConstr.of_constr rel') then res
   else
     let evars, app = app_poly_check env res.rew_evars (poly_subrelation sort) [|car; rel; rel'|] in
     let evars, subrel = new_cstr_evar evars env app in
@@ -872,7 +872,7 @@ let apply_rule unify loccs : int pure_strategy =
         | Some rew ->
 	  let occ = succ occ in
 	    if not (is_occ occ) then (occ, Fail)
-	    else if eq_constr t rew.rew_to then (occ, Identity)
+	    else if Termops.eq_constr (fst rew.rew_evars) (EConstr.of_constr t) (EConstr.of_constr rew.rew_to) then (occ, Identity)
 	    else
 	      let res = { rew with rew_car = ty } in
               let rel, prf = get_rew_prf res in
@@ -1111,7 +1111,7 @@ let subterm all flags (s : 'a pure_strategy) : 'a pure_strategy =
       | Prod (n, dom, codom) ->
 	  let lam = mkLambda (n, dom, codom) in
 	  let (evars', app), unfold = 
-	    if eq_constr ty mkProp then
+	    if eq_constr (fst evars) (EConstr.of_constr ty) EConstr.mkProp then
 	      (app_poly_sort prop env evars coq_all [| dom; lam |]), TypeGlobal.unfold_all
 	    else 
 	      let forall = if prop then PropGlobal.coq_forall else TypeGlobal.coq_forall in
@@ -1409,7 +1409,7 @@ module Strategies =
           let sigma = Sigma.Unsafe.of_evar_map (goalevars evars) in
 	  let Sigma (t', sigma, _) = rfn.Reductionops.e_redfun env sigma (EConstr.of_constr t) in
 	  let evars' = Sigma.to_evar_map sigma in
-	    if eq_constr t' t then
+	    if Termops.eq_constr evars' (EConstr.of_constr t') (EConstr.of_constr t) then
 	      state, Identity
 	    else
 	      state, Success { rew_car = ty; rew_from = t; rew_to = t';

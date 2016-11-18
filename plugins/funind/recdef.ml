@@ -465,7 +465,7 @@ let rec travel_aux jinfo continuation_tac (expr_info:constr infos) =
       end
     | App _ -> 
       let f,args = decompose_app expr_info.info in 
-      if eq_constr f (expr_info.f_constr) 
+      if Term.eq_constr f (expr_info.f_constr) 
       then jinfo.app_reC (f,args) expr_info continuation_tac expr_info 
       else
       begin
@@ -517,7 +517,7 @@ let rec prove_lt hyple g =
       let h =
 	List.find (fun id ->
           match decompose_app (pf_unsafe_type_of g (EConstr.mkVar id)) with
-            | _, t::_ -> eq_constr t varx
+            | _, t::_ -> Term.eq_constr t varx
             | _ -> false
 	) hyple
       in
@@ -1216,7 +1216,7 @@ let build_and_l l =
       | Prod(_,_,t') -> is_well_founded t'
       | App(_,_) -> 
 	let (f,_) = decompose_app t in 
-	eq_constr f (well_founded ())
+	Term.eq_constr f (well_founded ())
       | _ -> 
 	false
   in
@@ -1326,7 +1326,7 @@ let open_new_goal build_proof sigma using_lemmas ref_ goal_name (gls_type,decomp
 	     ] gls)
       (fun g ->
 	 match kind_of_term (pf_concl g) with
-	   | App(f,_) when eq_constr f (well_founded ()) ->
+	   | App(f,_) when Term.eq_constr f (well_founded ()) ->
 	       Proofview.V82.of_tactic (Auto.h_auto None [] (Some []))  g
 	   | _ ->
 	       incr h_num;

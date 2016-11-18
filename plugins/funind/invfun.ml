@@ -316,7 +316,7 @@ let prove_fun_correct evd functional_induction funs_constr graphs_constr schemes
 			     match kind_of_term t'',kind_of_term t''' with
 			       | App(eq,args), App(graph',_)
 				   when
-				     (eq_constr eq eq_ind) &&
+				     (Term.eq_constr eq eq_ind) &&
 				       Array.exists  (Constr.eq_constr_nounivs graph') graphs_constr ->
 				   (args.(2)::(mkApp(mkVar hid,[|args.(2);(mkApp(eq_construct,[|args.(0);args.(2)|]))|]))
 				    ::acc)
@@ -496,7 +496,7 @@ and intros_with_rewrite_aux : tactic =
 	  | Prod(_,t,t') ->
 	      begin
 		match kind_of_term t with
-		  | App(eq,args) when (eq_constr eq eq_ind)  ->
+		  | App(eq,args) when (Term.eq_constr eq eq_ind)  ->
  		      if Reductionops.is_conv (pf_env g) (project g) (EConstr.of_constr args.(1)) (EConstr.of_constr args.(2))
 		      then
 			let id = pf_get_new_id (Id.of_string "y") g  in
@@ -542,7 +542,7 @@ and intros_with_rewrite_aux : tactic =
 			    intros_with_rewrite
 			  ] g
 			end
-		  | Ind _ when eq_constr t (Coqlib.build_coq_False ()) ->
+		  | Ind _ when Term.eq_constr t (Coqlib.build_coq_False ()) ->
 		      Proofview.V82.of_tactic tauto g
 		  | Case(_,_,v,_) ->
 		      tclTHENSEQ[
@@ -598,7 +598,7 @@ let rec reflexivity_with_destruct_cases g =
 	     None -> tclIDTAC g
 	   | Some id ->
 	       match kind_of_term  (pf_unsafe_type_of g (EConstr.mkVar id)) with
-		 | App(eq,[|_;t1;t2|]) when eq_constr eq eq_ind ->
+		 | App(eq,[|_;t1;t2|]) when Term.eq_constr eq eq_ind ->
 		     if Equality.discriminable (pf_env g) (project g) (EConstr.of_constr t1) (EConstr.of_constr t2)
 		     then Proofview.V82.of_tactic (Equality.discrHyp id) g
 		     else if Equality.injectable (pf_env g) (project g) (EConstr.of_constr t1) (EConstr.of_constr t2)
@@ -974,12 +974,12 @@ let functional_inversion kn hid fconst f_correct : tactic =
     let old_ids = List.fold_right Id.Set.add  (pf_ids_of_hyps g) Id.Set.empty in
     let type_of_h = pf_unsafe_type_of g (EConstr.mkVar hid) in
     match kind_of_term type_of_h with
-      | App(eq,args) when eq_constr eq (make_eq ())  ->
+      | App(eq,args) when Term.eq_constr eq (make_eq ())  ->
 	  let pre_tac,f_args,res =
 	    match kind_of_term args.(1),kind_of_term args.(2) with
-	      | App(f,f_args),_ when eq_constr f fconst ->
+	      | App(f,f_args),_ when Term.eq_constr f fconst ->
 		  ((fun hid -> Proofview.V82.of_tactic (intros_symmetry (Locusops.onHyp hid))),f_args,args.(2))
-	      |_,App(f,f_args) when eq_constr f fconst ->
+	      |_,App(f,f_args) when Term.eq_constr f fconst ->
 		 ((fun hid -> tclIDTAC),f_args,args.(1))
 	      | _ -> (fun hid -> tclFAIL 1 (mt ())),[||],args.(2)
 	  in
@@ -1026,7 +1026,7 @@ let invfun qhyp f g =
 	  (fun hid -> Proofview.V82.tactic begin fun g ->
 	     let hyp_typ = pf_unsafe_type_of g (EConstr.mkVar hid)  in
 	     match kind_of_term hyp_typ with
-	       | App(eq,args) when eq_constr eq (make_eq ()) ->
+	       | App(eq,args) when Term.eq_constr eq (make_eq ()) ->
 		   begin
 		     let f1,_ = decompose_app args.(1) in
 		     try

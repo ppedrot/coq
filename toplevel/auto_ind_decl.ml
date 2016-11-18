@@ -386,7 +386,7 @@ let do_replace_lb mode lb_scheme_key aavoid narg p q =
                           (Array.map (fun x -> x) v)
                           (Array.map (fun x -> do_arg x 1) v))
                           (Array.map (fun x -> do_arg x 2) v)
-        in let app =  if Array.equal eq_constr lb_args [||]
+        in let app =  if Array.equal Term.eq_constr lb_args [||]
                        then lb_type_of_p else mkApp (lb_type_of_p,lb_args)
            in
            let app = EConstr.of_constr app in
@@ -427,7 +427,7 @@ let do_replace_bl mode bl_scheme_key (ind,u as indu) aavoid narg lft rgt =
     | (t1::q1,t2::q2) ->
         Proofview.Goal.enter { enter = begin fun gl ->
         let tt1 = Tacmach.New.pf_unsafe_type_of gl (EConstr.of_constr t1) in
-        if eq_constr t1 t2 then aux q1 q2
+        if Term.eq_constr t1 t2 then aux q1 q2
         else (
           let u,v = try  destruct_ind tt1
           (* trick so that the good sequence is returned*)
@@ -456,7 +456,7 @@ let do_replace_bl mode bl_scheme_key (ind,u as indu) aavoid narg lft rgt =
                           (Array.map (fun x -> do_arg x 1) v))
                           (Array.map (fun x -> do_arg x 2) v )
                 in
-                let app =  if Array.equal eq_constr bl_args [||]
+                let app =  if Array.equal Term.eq_constr bl_args [||]
                            then bl_t1 else mkApp (bl_t1,bl_args)
                 in
                 let app = EConstr.of_constr app in
@@ -517,7 +517,7 @@ let eqI ind l =
     try let c, eff = find_scheme beq_scheme_kind ind in mkConst c, eff 
     with Not_found -> user_err ~hdr:"AutoIndDecl.eqI"
       (str "The boolean equality on " ++ pr_mind (fst ind) ++ str " is needed.");
-  in (if Array.equal eq_constr eA [||] then e else mkApp(e,eA)), eff
+  in (if Array.equal Term.eq_constr eA [||] then e else mkApp(e,eA)), eff
 
 (**********************************************************************)
 (* Boolean->Leibniz *)
