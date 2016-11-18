@@ -165,9 +165,7 @@ let side_tac tac sidetac =
 
 let instantiate_lemma_all frzevars gl c ty l l2r concl =
   let env = Proofview.Goal.env gl in
-  let c = EConstr.of_constr c in
   let ty = EConstr.of_constr ty in
-  let l = Miscops.map_bindings EConstr.of_constr l in
   let eqclause = pf_apply Clenv.make_clenv_binding gl (c,ty) l in
   let (equiv, args) = decompose_appvect (EConstr.Unsafe.to_constr (Clenv.clenv_type eqclause)) in
   let arglen = Array.length args in
@@ -184,11 +182,9 @@ let instantiate_lemma_all frzevars gl c ty l l2r concl =
   in List.map try_occ occs
 
 let instantiate_lemma gl c ty l l2r concl =
-  let c = EConstr.of_constr c in
   let sigma, ct = pf_type_of gl c in
   let ct = EConstr.of_constr ct in
   let t = try snd (reduce_to_quantified_ind (pf_env gl) sigma ct) with UserError _ -> ct in
-  let l = Miscops.map_bindings EConstr.of_constr l in
   let eqclause = Clenv.make_clenv_binding (pf_env gl) sigma (c,t) l in
   [eqclause]
 
@@ -411,7 +407,8 @@ let leibniz_rewrite_ebindings_clause cls lft2rgt tac c t l with_evars frzevars d
   let isatomic = isProd (whd_zeta evd (EConstr.of_constr hdcncl)) in
   let dep_fun = if isatomic then dependent else dependent_no_evar in
   let type_of_cls = type_of_clause cls gl in
-  let dep = dep_proof_ok && dep_fun evd (EConstr.of_constr c) (EConstr.of_constr type_of_cls) in
+  let type_of_cls = EConstr.of_constr type_of_cls in
+  let dep = dep_proof_ok && dep_fun evd c type_of_cls in
   let Sigma ((elim, effs), sigma, p) = find_elim hdcncl lft2rgt dep cls (Some t) gl in
   let elim = EConstr.of_constr elim in
   let tac =
@@ -440,15 +437,16 @@ let rewrite_side_tac tac sidetac = side_tac tac (Option.map fst sidetac)
 (* Main function for dispatching which kind of rewriting it is about *)
 
 let general_rewrite_ebindings_clause cls lft2rgt occs frzevars dep_proof_ok ?tac
-    ((c,l) : constr with_bindings) with_evars =
+    ((c,l) : EConstr.constr with_bindings) with_evars =
   if occs != AllOccurrences then (
     rewrite_side_tac (Hook.get forward_general_setoid_rewrite_clause cls lft2rgt occs (c,l) ~new_goals:[]) tac)
   else
     Proofview.Goal.enter { enter = begin fun gl ->
       let sigma = Tacmach.New.project gl in
       let env = Proofview.Goal.env gl in
-    let ctype = get_type_of env sigma (EConstr.of_constr c) in
-    let rels, t = decompose_prod_assum (whd_betaiotazeta sigma (EConstr.of_constr ctype)) in
+    let ctype = get_type_of env sigma c in
+    let ctype = EConstr.of_constr ctype in
+    let rels, t = decompose_prod_assum (whd_betaiotazeta sigma ctype) in
       match match_with_equality_type sigma (EConstr.of_constr t) with
       | Some (hdcncl,args) -> (* Fast path: direct leibniz-like rewrite *)
           let hdcncl = EConstr.Unsafe.to_constr hdcncl in
@@ -533,7 +531,7 @@ let general_rewrite_clause l2r with_evars ?tac c cl =
 	let do_hyps =
 	  (* If the term to rewrite uses an hypothesis H, don't rewrite in H *)
 	  let ids gl =
-	    let ids_in_c = Environ.global_vars_set (Global.env()) (fst c) in
+	    let ids_in_c = Termops.global_vars_set (Global.env()) (project gl) (fst c) in
             let ids_of_hyps = pf_ids_of_hyps gl in
 	    Id.Set.fold (fun id l -> List.remove Id.equal id l) ids_in_c ids_of_hyps
 	  in
@@ -563,7 +561,6 @@ let general_multi_rewrite with_evars l cl tac =
       let sigma = Tacmach.New.project gl in
       let env = Proofview.Goal.env gl in
       let (c, sigma) = run_delayed env sigma f in
-      let c = Miscops.map_with_bindings EConstr.Unsafe.to_constr c in
       tclWITHHOLES with_evars
         (general_rewrite_clause l2r with_evars ?tac c cl) sigma
     end }
@@ -608,6 +605,7 @@ let check_setoid cl =
     cl.onhyps
 
 let replace_core clause l2r eq =
+  let open EConstr in
   if check_setoid clause
   then init_setoid ();
   tclTHENFIRST
@@ -624,6 +622,7 @@ let replace_core clause l2r eq =
    gl : goal *)
 
 let replace_using_leibniz clause c1 c2 l2r unsafe try_prove_eq_opt =
+  let open EConstr in
   let try_prove_eq =
     match try_prove_eq_opt with
       | None -> Proofview.tclUNIT ()
@@ -631,12 +630,14 @@ let replace_using_leibniz clause c1 c2 l2r unsafe try_prove_eq_opt =
   in
   Proofview.Goal.enter { enter = begin fun gl ->
   let get_type_of = pf_apply get_type_of gl in
-  let t1 = get_type_of (EConstr.of_constr c1)
-  and t2 = get_type_of (EConstr.of_constr c2) in
+  let t1 = get_type_of c1
+  and t2 = get_type_of c2 in
+  let t1 = EConstr.of_constr t1 in
+  let t2 = EConstr.of_constr t2 in
   let evd = 
     if unsafe then Some (Tacmach.New.project gl)
     else
-      try Some (Evarconv.the_conv_x (Proofview.Goal.env gl) (EConstr.of_constr t1) (EConstr.of_constr t2) (Tacmach.New.project gl))
+      try Some (Evarconv.the_conv_x (Proofview.Goal.env gl) t1 t2 (Tacmach.New.project gl))
       with Evarconv.UnableToUnify _ -> None
   in
   match evd with
@@ -647,9 +648,9 @@ let replace_using_leibniz clause c1 c2 l2r unsafe try_prove_eq_opt =
     let sym = build_coq_eq_sym () in
     Tacticals.New.pf_constr_of_global sym (fun sym ->
     Tacticals.New.pf_constr_of_global e (fun e ->
+    let e = EConstr.of_constr e in
     let eq = applist (e, [t1;c1;c2]) in
     let sym = EConstr.of_constr sym in
-    let eq = EConstr.of_constr eq in
     tclTHENLAST
       (replace_core clause l2r eq)
       (tclFIRST
@@ -1428,7 +1429,7 @@ let injEqThen tac l2r (eq,_,(t,t1,t2) as u) eq_clause =
      tclZEROMSG (str"Nothing to inject.")
   | Inr posns ->
       inject_at_positions env sigma l2r u eq_clause posns
-	(tac (EConstr.Unsafe.to_constr (clenv_value eq_clause)))
+	(tac (clenv_value eq_clause))
 
 let get_previous_hyp_position id gl =
   let rec aux dest = function
@@ -1451,10 +1452,10 @@ let injEq ?(old=false) with_evars clear_flag ipats =
     match ipats_style with
     | Some ipats ->
       Proofview.Goal.enter { enter = begin fun gl ->
-        let destopt = match kind_of_term c with
+        let sigma = project gl in
+        let destopt = match EConstr.kind sigma c with
         | Var id -> get_previous_hyp_position id gl
         | _ -> MoveLast in
-        let c = EConstr.of_constr c in
         let clear_tac =
           tclTRY (apply_clear_request clear_flag dft_clear_flag c) in
         (* Try should be removal if dependency were treated *)
@@ -1729,6 +1730,7 @@ let is_eq_x gl x d =
    erase hyp and x; proceed by generalizing all dep hyps *)
 
 let subst_one dep_proof_ok x (hyp,rhs,dir) =
+  let open EConstr in
   Proofview.Goal.enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
@@ -1892,35 +1894,33 @@ let subst_all ?(flags=default_subst_tactic_flags ()) () =
 
 let cond_eq_term_left c t gl =
   try
-    let t = EConstr.of_constr t in
     let (_,x,_) = pi3 (find_eq_data_decompose gl t) in
-    if pf_conv_x gl (EConstr.of_constr c) x then true else failwith "not convertible"
+    if pf_conv_x gl c x then true else failwith "not convertible"
   with Constr_matching.PatternMatchingFailure -> failwith "not an equality"
 
 let cond_eq_term_right c t gl =
   try
-    let t = EConstr.of_constr t in
     let (_,_,x) = pi3 (find_eq_data_decompose gl t) in
-    if pf_conv_x gl (EConstr.of_constr c) x then false else failwith "not convertible"
+    if pf_conv_x gl c x then false else failwith "not convertible"
   with Constr_matching.PatternMatchingFailure -> failwith "not an equality"
 
 let cond_eq_term c t gl =
   try
-    let t = EConstr.of_constr t in
     let (_,x,y) = pi3 (find_eq_data_decompose gl t) in
-    if pf_conv_x gl (EConstr.of_constr c) x then true
-    else if pf_conv_x gl (EConstr.of_constr c) y then false
+    if pf_conv_x gl c x then true
+    else if pf_conv_x gl c y then false
     else failwith "not convertible"
   with Constr_matching.PatternMatchingFailure -> failwith "not an equality"
 
 let rewrite_assumption_cond cond_eq_term cl =
+  let open EConstr in
   let rec arec hyps gl = match hyps with
     | [] -> error "No such assumption."
     | hyp ::rest ->
         let id = NamedDecl.get_id hyp in
 	begin
 	  try
-            let dir = cond_eq_term (NamedDecl.get_type hyp) gl in
+            let dir = cond_eq_term (EConstr.of_constr (NamedDecl.get_type hyp)) gl in
 	    general_rewrite_clause dir false (mkVar id,NoBindings) cl
 	  with | Failure _ | UserError _ -> arec rest gl
 	end
@@ -1946,7 +1946,7 @@ let replace_term dir_opt c  =
 (* Declare rewriting tactic for intro patterns "<-" and "->" *)
 
 let _ =
-  let gmr l2r with_evars tac c = general_rewrite_clause l2r with_evars (Miscops.map_with_bindings EConstr.Unsafe.to_constr tac) c in
+  let gmr l2r with_evars tac c = general_rewrite_clause l2r with_evars tac c in
   Hook.set Tactics.general_rewrite_clause gmr
 
 let _ = Hook.set Tactics.subst_one subst_one

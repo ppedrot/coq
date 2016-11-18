@@ -29,43 +29,43 @@ type conditions =
 
 val general_rewrite_bindings :
   orientation -> occurrences -> freeze_evars_flag -> dep_proof_flag ->
-  ?tac:(unit Proofview.tactic * conditions) -> constr with_bindings -> evars_flag -> unit Proofview.tactic
+  ?tac:(unit Proofview.tactic * conditions) -> EConstr.constr with_bindings -> evars_flag -> unit Proofview.tactic
 val general_rewrite :
   orientation -> occurrences -> freeze_evars_flag -> dep_proof_flag ->
-  ?tac:(unit Proofview.tactic * conditions) -> constr -> unit Proofview.tactic
+  ?tac:(unit Proofview.tactic * conditions) -> EConstr.constr -> unit Proofview.tactic
 
 (* Equivalent to [general_rewrite l2r] *)
-val rewriteLR : ?tac:(unit Proofview.tactic * conditions) -> constr -> unit Proofview.tactic
-val rewriteRL : ?tac:(unit Proofview.tactic * conditions) -> constr  -> unit Proofview.tactic
+val rewriteLR : ?tac:(unit Proofview.tactic * conditions) -> EConstr.constr -> unit Proofview.tactic
+val rewriteRL : ?tac:(unit Proofview.tactic * conditions) -> EConstr.constr -> unit Proofview.tactic
 
 (* Warning: old [general_rewrite_in] is now [general_rewrite_bindings_in] *)
 
 val general_setoid_rewrite_clause :
-  (Id.t option -> orientation -> occurrences -> constr with_bindings ->
-   new_goals:constr list -> unit Proofview.tactic) Hook.t
+  (Id.t option -> orientation -> occurrences -> EConstr.constr with_bindings ->
+   new_goals:EConstr.constr list -> unit Proofview.tactic) Hook.t
 
 val general_rewrite_ebindings_clause : Id.t option ->
   orientation -> occurrences -> freeze_evars_flag -> dep_proof_flag ->
-  ?tac:(unit Proofview.tactic * conditions) -> constr with_bindings -> evars_flag -> unit Proofview.tactic
+  ?tac:(unit Proofview.tactic * conditions) -> EConstr.constr with_bindings -> evars_flag -> unit Proofview.tactic
 
 val general_rewrite_bindings_in :
   orientation -> occurrences -> freeze_evars_flag -> dep_proof_flag ->
   ?tac:(unit Proofview.tactic * conditions) ->
-  Id.t -> constr with_bindings -> evars_flag -> unit Proofview.tactic
+  Id.t -> EConstr.constr with_bindings -> evars_flag -> unit Proofview.tactic
 val general_rewrite_in          :
   orientation -> occurrences -> freeze_evars_flag -> dep_proof_flag -> 
-  ?tac:(unit Proofview.tactic * conditions) -> Id.t -> constr -> evars_flag -> unit Proofview.tactic
+  ?tac:(unit Proofview.tactic * conditions) -> Id.t -> EConstr.constr -> evars_flag -> unit Proofview.tactic
 
 val general_rewrite_clause :
-  orientation -> evars_flag -> ?tac:(unit Proofview.tactic * conditions) -> constr with_bindings -> clause -> unit Proofview.tactic
+  orientation -> evars_flag -> ?tac:(unit Proofview.tactic * conditions) -> EConstr.constr with_bindings -> clause -> unit Proofview.tactic
 
 val general_multi_rewrite :
   evars_flag -> (bool * multi * clear_flag * EConstr.constr with_bindings delayed_open) list ->
     clause -> (unit Proofview.tactic * conditions) option -> unit Proofview.tactic
 
-val replace_in_clause_maybe_by : constr -> constr -> clause -> unit Proofview.tactic option -> unit Proofview.tactic
-val replace    : constr -> constr -> unit Proofview.tactic
-val replace_by : constr -> constr -> unit Proofview.tactic -> unit Proofview.tactic
+val replace_in_clause_maybe_by : EConstr.constr -> EConstr.constr -> clause -> unit Proofview.tactic option -> unit Proofview.tactic
+val replace    : EConstr.constr -> EConstr.constr -> unit Proofview.tactic
+val replace_by : EConstr.constr -> EConstr.constr -> unit Proofview.tactic -> unit Proofview.tactic
 
 val discr        : evars_flag -> EConstr.constr with_bindings -> unit Proofview.tactic
 val discrConcl   : unit Proofview.tactic
@@ -116,7 +116,7 @@ val subst_all : ?flags:subst_tactic_flags -> unit -> unit Proofview.tactic
    perfoms replacement of [c] by the first value found in context
    (according to [dir] if given to get the rewrite direction)  in the clause [cl]
 *)
-val replace_term : bool option -> constr -> clause -> unit Proofview.tactic
+val replace_term : bool option -> EConstr.constr -> clause -> unit Proofview.tactic
 
 val set_eq_dec_scheme_kind : mutual scheme_kind -> unit
 
