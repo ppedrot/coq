@@ -240,8 +240,8 @@ val run_delayed : Environ.env -> evar_map -> 'a delayed_open -> 'a * evar_map
 (** [rel_contexts] and [rel_declaration] actually contain triples, and
    lists are actually in reverse order to fit [compose_prod]. *)
 type elim_scheme = {
-  elimc: constr with_bindings option;
-  elimt: types;
+  elimc: EConstr.constr with_bindings option;
+  elimt: EConstr.types;
   indref: global_reference option;
   params: Context.Rel.t;      (** (prm1,tprm1);(prm2,tprm2)...(prmp,tprmp) *)
   nparams: int;               (** number of parameters *)
@@ -253,19 +253,19 @@ type elim_scheme = {
   nargs: int;                 (** number of arguments *)
   indarg: Context.Rel.Declaration.t option;  (** Some (H,I prm1..prmp x1...xni)
 	  		 	                 if HI is in premisses, None otherwise *)
-  concl: types;               (** Qi x1...xni HI (f...), HI and (f...)
+  concl: EConstr.types;               (** Qi x1...xni HI (f...), HI and (f...)
 			          are optional and mutually exclusive *)
   indarg_in_concl: bool;      (** true if HI appears at the end of conclusion *)
   farg_in_concl: bool;        (** true if (f...) appears at the end of conclusion *)
 }
 
-val compute_elim_sig : ?elimc: constr with_bindings -> types -> elim_scheme
+val compute_elim_sig : evar_map -> ?elimc:EConstr.constr with_bindings -> EConstr.types -> elim_scheme
 
 (** elim principle with the index of its inductive arg *)
 type eliminator = {
   elimindex : int option;  (** None = find it automatically *)
   elimrename : (bool * int array) option; (** None = don't rename Prop hyps with H-names *)
-  elimbody : constr with_bindings
+  elimbody : EConstr.constr with_bindings
 }
 
 val general_elim  : evars_flag -> clear_flag ->
@@ -278,12 +278,12 @@ val default_elim  : evars_flag -> clear_flag -> EConstr.constr with_bindings ->
   unit Proofview.tactic
 val simplest_elim : EConstr.constr -> unit Proofview.tactic
 val elim :
-  evars_flag -> clear_flag -> EConstr.constr with_bindings -> constr with_bindings option -> unit Proofview.tactic
+  evars_flag -> clear_flag -> EConstr.constr with_bindings -> EConstr.constr with_bindings option -> unit Proofview.tactic
 
 val simple_induct : quantified_hypothesis -> unit Proofview.tactic
 
 val induction : evars_flag -> clear_flag -> EConstr.constr -> or_and_intro_pattern option ->
-  constr with_bindings option -> unit Proofview.tactic
+  EConstr.constr with_bindings option -> unit Proofview.tactic
 
 (** {6 Case analysis tactics. } *)
 
@@ -292,7 +292,7 @@ val simplest_case         : EConstr.constr -> unit Proofview.tactic
 
 val simple_destruct       : quantified_hypothesis -> unit Proofview.tactic
 val destruct : evars_flag -> clear_flag -> EConstr.constr -> or_and_intro_pattern option ->
-  constr with_bindings option -> unit Proofview.tactic
+  EConstr.constr with_bindings option -> unit Proofview.tactic
 
 (** {6 Generic case analysis / induction tactics. } *)
 
@@ -302,7 +302,7 @@ val induction_destruct : rec_flag -> evars_flag ->
   (delayed_open_constr_with_bindings destruction_arg
    * (intro_pattern_naming option * or_and_intro_pattern option)
    * clause option) list *
-  constr with_bindings option -> unit Proofview.tactic
+  EConstr.constr with_bindings option -> unit Proofview.tactic
 
 (** {6 Eliminations giving the type instead of the proof. } *)
 

@@ -81,7 +81,8 @@ let functional_induction with_clean c princl pat =
       | Some ((princ,binding)) ->
 	 princ,binding,Tacmach.pf_unsafe_type_of g (EConstr.of_constr princ),g
     in
-    let princ_infos = Tactics.compute_elim_sig princ_type in
+    let princ_type = EConstr.of_constr princ_type in
+    let princ_infos = Tactics.compute_elim_sig (Tacmach.project g') princ_type in
     let args_as_induction_constr =
       let c_list =
 	if princ_infos.Tactics.farg_in_concl
@@ -92,6 +93,8 @@ let functional_induction with_clean c princl pat =
       List.map2 (fun c pat -> ((None,Tacexpr.ElimOnConstr ({ Tacexpr.delayed = fun env sigma -> Sigma ((EConstr.of_constr c,NoBindings), sigma, Sigma.refl) })),(None,pat),None))
         (args@c_list) encoded_pat_as_patlist
     in
+    let princ = EConstr.of_constr princ in
+    let bindings = Miscops.map_bindings EConstr.of_constr bindings in
     let princ' = Some (princ,bindings) in
     let princ_vars =
       List.fold_right

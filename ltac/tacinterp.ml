@@ -746,11 +746,12 @@ let interp_closed_typed_pattern_with_occurrences ist env sigma (occs, a) =
 
 let interp_constr_with_occurrences_and_name_as_list =
   interp_constr_in_compound_list
-    (fun c -> ((AllOccurrences,c),Anonymous))
+    (fun c -> ((AllOccurrences,EConstr.of_constr c),Anonymous))
     (function ((occs,c),Anonymous) when occs == AllOccurrences -> c
       | _ -> raise Not_found)
     (fun ist env sigma (occ_c,na) ->
       let (sigma,c_interp) = interp_constr_with_occurrences ist env sigma occ_c in
+      let c_interp = (fst c_interp, EConstr.of_constr (snd c_interp)) in
       sigma, (c_interp,
        interp_name ist env sigma na))
 
@@ -1003,6 +1004,8 @@ let interp_bindings ist env sigma = function
 let interp_constr_with_bindings ist env sigma (c,bl) =
   let sigma, bl = interp_bindings ist env sigma bl in
   let sigma, c = interp_open_constr ist env sigma c in
+  let c = EConstr.of_constr c in
+  let bl = Miscops.map_bindings EConstr.of_constr bl in
   sigma, (c,bl)
 
 let interp_open_constr_with_bindings ist env sigma (c,bl) =
@@ -1033,7 +1036,6 @@ let interp_destruction_arg ist gl arg =
       keep,ElimOnConstr { delayed = fun env sigma ->
         let sigma = Sigma.to_evar_map sigma in
         let (sigma, c) = interp_constr_with_bindings ist env sigma c in
-        let c = Miscops.map_with_bindings EConstr.of_constr c in
         Sigma.Unsafe.of_pair (c, sigma)
       }
   | keep,ElimOnAnonHyp n as x -> x
@@ -1682,8 +1684,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
         let sigma, cb = interp_constr_with_bindings ist env sigma cb in
         let sigma, cbo = Option.fold_map (interp_constr_with_bindings ist env) sigma cbo in
         let named_tac =
-          let cb' = Miscops.map_with_bindings EConstr.of_constr cb in
-          let tac = Tactics.elim ev keep cb' cbo in
+          let tac = Tactics.elim ev keep cb cbo in
           name_atomic ~env (TacElim (ev,(keep,cb),cbo)) tac
         in
         Tacticals.New.tclWITHHOLES ev named_tac sigma
@@ -1694,8 +1695,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
         let env = Proofview.Goal.env gl in
         let sigma, cb = interp_constr_with_bindings ist env sigma cb in
         let named_tac =
-          let cb' = Miscops.map_with_bindings EConstr.of_constr cb in
-          let tac = Tactics.general_case_analysis ev keep cb' in
+          let tac = Tactics.general_case_analysis ev keep cb in
           name_atomic ~env (TacCase(ev,(keep,cb))) tac
         in
         Tacticals.New.tclWITHHOLES ev named_tac sigma
@@ -1737,23 +1737,23 @@ and interp_atomic ist tac : unit Proofview.tactic =
         let (sigma,c) = 
           (if Option.is_empty t then interp_constr else interp_type) ist env sigma c
         in
+        let c = EConstr.of_constr c in
         let sigma, ipat' = interp_intro_pattern_option ist env sigma ipat in
         let tac = Option.map (Option.map (interp_tactic ist)) t in
         Tacticals.New.tclWITHHOLES false
         (name_atomic ~env
           (TacAssert(b,Option.map (Option.map ignore) t,ipat,c))
-          (Tactics.forward b tac ipat' (EConstr.of_constr c))) sigma
+          (Tactics.forward b tac ipat' c)) sigma
       end }
   | TacGeneralize cl ->
       Proofview.Goal.enter { enter = begin fun gl ->
         let sigma = project gl in
         let env = Proofview.Goal.env gl in
         let sigma, cl = interp_constr_with_occurrences_and_name_as_list ist env sigma cl in
-        let cl' = List.map (fun ((occ, c), na) -> (occ, EConstr.of_constr c), na) cl in
         Tacticals.New.tclWITHHOLES false
         (name_atomic ~env
           (TacGeneralize cl)
-          (Tactics.generalize_gen cl')) sigma
+          (Tactics.generalize_gen cl)) sigma
       end }
   | TacLetTac (na,c,clp,b,eqpat) ->
       Proofview.V82.nf_evar_goals <*>
@@ -1765,9 +1765,11 @@ and interp_atomic ist tac : unit Proofview.tactic =
         if Locusops.is_nowhere clp then
         (* We try to fully-typecheck the term *)
           let (sigma,c_interp) = interp_constr ist env sigma c in
+          let c_interp = EConstr.of_constr c_interp in
           let let_tac b na c cl eqpat =
             let id = Option.default (Loc.ghost,IntroAnonymous) eqpat in
             let with_eq = if b then None else Some (true,id) in
+            let c = EConstr.Unsafe.to_constr c in
             Tactics.letin_tac with_eq na c None cl
           in
           let na = interp_name ist env sigma na in
@@ -1783,11 +1785,12 @@ and interp_atomic ist tac : unit Proofview.tactic =
             Tactics.letin_pat_tac with_eq na c cl
           in
           let (sigma',c) = interp_pure_open_constr ist env sigma c in
+          let c = EConstr.of_constr c in
           name_atomic ~env
             (TacLetTac(na,c,clp,b,eqpat))
 	    (Tacticals.New.tclWITHHOLES false (*in hope of a future "eset/epose"*)
                (let_pat_tac b (interp_name ist env sigma na)
-                  ((sigma,sigma'),EConstr.of_constr c) clp eqpat) sigma')
+                  ((sigma,sigma'),c) clp eqpat) sigma')
       end }
 
   (* Derived basic tactics *)
@@ -1916,6 +1919,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
           | None -> sigma , None
           | Some c ->
               let (sigma,c_interp) = interp_constr ist env sigma c in
+              let c_interp = EConstr.of_constr c_interp in
               sigma , Some c_interp
         in
         let dqhyps = interp_declared_or_quantified_hypothesis ist env sigma hyp in
@@ -1942,6 +1946,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
         let env = Proofview.Goal.env gl in
         let sigma = project gl in
         let (sigma,c_interp) = interp_constr ist env sigma c in
+        let c_interp = EConstr.of_constr c_interp in
         let dqhyps = interp_declared_or_quantified_hypothesis ist env sigma hyp in
         let hyps = interp_hyp_list ist env sigma idl in
         let tac = name_atomic ~env
@@ -2057,7 +2062,6 @@ let interp_bindings' ist bl = Ftactic.return { delayed = fun env sigma ->
 
 let interp_constr_with_bindings' ist c = Ftactic.return { delayed = fun env sigma ->
   let (sigma, c) = interp_constr_with_bindings ist env (Sigma.to_evar_map sigma) c in
-  let c = Miscops.map_with_bindings EConstr.of_constr c in
   Sigma.Unsafe.of_pair (c, sigma)
   }
 

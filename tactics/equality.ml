@@ -413,6 +413,7 @@ let leibniz_rewrite_ebindings_clause cls lft2rgt tac c t l with_evars frzevars d
   let type_of_cls = type_of_clause cls gl in
   let dep = dep_proof_ok && dep_fun evd (EConstr.of_constr c) (EConstr.of_constr type_of_cls) in
   let Sigma ((elim, effs), sigma, p) = find_elim hdcncl lft2rgt dep cls (Some t) gl in
+  let elim = EConstr.of_constr elim in
   let tac =
       Proofview.tclEFFECTS effs <*>
       general_elim_clause with_evars frzevars tac cls c t l

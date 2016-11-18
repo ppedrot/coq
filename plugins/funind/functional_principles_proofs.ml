@@ -1068,10 +1068,11 @@ let do_replace (evd:Evd.evar_map ref) params rec_arg_num rev_args_id f fun_num a
 let prove_princ_for_struct (evd:Evd.evar_map ref) interactive_proof fun_num fnames all_funs _nparams : tactic =
   fun g ->
   let princ_type = pf_concl g in
+  let princ_type = EConstr.of_constr princ_type in
   (* Pp.msgnl (str "princ_type " ++ Printer.pr_lconstr princ_type); *)
   (* Pp.msgnl (str "all_funs "); *)
   (* Array.iter (fun c -> Pp.msgnl (Printer.pr_lconstr c)) all_funs; *)
-    let princ_info = compute_elim_sig princ_type in
+    let princ_info = compute_elim_sig (project g) princ_type in
     let fresh_id =
       let avoid = ref (pf_ids_of_hyps g) in
       (fun na ->
@@ -1522,7 +1523,8 @@ let prove_principle_for_gen
     (f_ref,functional_ref,eq_ref) tcc_lemma_ref is_mes
     rec_arg_num rec_arg_type relation gl =
   let princ_type = pf_concl gl in
-  let princ_info = compute_elim_sig princ_type in
+  let princ_type = EConstr.of_constr princ_type in
+  let princ_info = compute_elim_sig (project gl) princ_type in
   let fresh_id =
     let avoid = ref (pf_ids_of_hyps gl) in
     fun na ->

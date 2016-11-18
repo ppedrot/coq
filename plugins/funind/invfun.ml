@@ -252,7 +252,8 @@ let prove_fun_correct evd functional_induction funs_constr graphs_constr schemes
     (* and the principle to use in this lemma in $\zeta$ normal form *)
     let f_principle,princ_type = schemes.(i) in
     let princ_type =  nf_zeta (EConstr.of_constr princ_type) in
-    let princ_infos = Tactics.compute_elim_sig princ_type in
+    let princ_type = EConstr.of_constr princ_type in
+    let princ_infos = Tactics.compute_elim_sig evd princ_type in
     (* The number of args of the function is then easily computable *)
     let nb_fun_args = nb_prod (project g) (EConstr.of_constr (pf_concl g)) - 2 in
     let args_names = generate_fresh_id (Id.of_string "x") [] nb_fun_args in
@@ -439,7 +440,7 @@ let prove_fun_correct evd functional_induction funs_constr graphs_constr schemes
       [ 
 	observe_tac "principle" (Proofview.V82.of_tactic (assert_by
 	  (Name principle_id)
-	  (EConstr.of_constr princ_type)
+	  princ_type
 	  (exact_check (EConstr.of_constr f_principle))));
 	observe_tac "intro args_names" (tclMAP (fun id -> Proofview.V82.of_tactic (Simple.intro id)) args_names);
 	(* observe_tac "titi" (pose_proof (Name (Id.of_string "__")) (Reductionops.nf_beta Evd.empty  ((mkApp (mkVar principle_id,Array.of_list bindings))))); *)
@@ -662,7 +663,8 @@ let prove_fun_complete funcs graphs schemes lemmas_types_infos i : tactic =
     let f = funcs.(i) in
     let graph_principle = nf_zeta (EConstr.of_constr schemes.(i))  in
     let princ_type = pf_unsafe_type_of g (EConstr.of_constr graph_principle) in
-    let princ_infos = Tactics.compute_elim_sig princ_type in
+    let princ_type = EConstr.of_constr princ_type in
+    let princ_infos = Tactics.compute_elim_sig (project g) princ_type in
     (* Then we get the number of argument of the function
        and compute a fresh name for each of them
     *)
@@ -759,7 +761,7 @@ let prove_fun_complete funcs graphs schemes lemmas_types_infos i : tactic =
 	(Proofview.V82.of_tactic (generalize [EConstr.of_constr (mkApp(applist(graph_principle,params),Array.map (fun c -> applist(c,params)) lemmas))]));
 	Proofview.V82.of_tactic (Simple.intro graph_principle_id);
 	observe_tac "" (tclTHEN_i
-	  (observe_tac "elim" (Proofview.V82.of_tactic (elim false None (EConstr.mkVar hres,NoBindings) (Some (mkVar graph_principle_id,NoBindings)))))
+	  (observe_tac "elim" (Proofview.V82.of_tactic (elim false None (EConstr.mkVar hres,NoBindings) (Some (EConstr.mkVar graph_principle_id,NoBindings)))))
 	  (fun i g -> observe_tac "prove_branche" (prove_branche i) g ))
       ]
       g

@@ -1374,11 +1374,12 @@ let nth_arg i c =
   | App (f,cl) -> cl.(i)
   | _ -> anomaly (Pp.str "nth_arg")
 
-let index_of_ind_arg t =
-  let rec aux i j t = match kind_of_term t with
+let index_of_ind_arg sigma t =
+  let open EConstr in
+  let rec aux i j t = match EConstr.kind sigma t with
   | Prod (_,t,u) ->
       (* heuristic *)
-      if isInd (fst (decompose_app t)) then aux (Some j) (j+1) u
+      if isInd sigma (fst (decompose_app sigma t)) then aux (Some j) (j+1) u
       else aux i (j+1) u
   | _ -> match i with
       | Some i -> i
@@ -1427,10 +1428,12 @@ let enforce_prop_bound_names rename tac =
   | _ ->
       tac
 
-let rec contract_letin_in_lam_header c =
-  match kind_of_term c with
-  | Lambda (x,t,c)  -> mkLambda (x,t,contract_letin_in_lam_header c)
-  | LetIn (x,b,t,c) -> contract_letin_in_lam_header (subst1 b c)
+let rec contract_letin_in_lam_header sigma c =
+  let open EConstr in
+  let open Vars in
+  match EConstr.kind sigma c with
+  | Lambda (x,t,c)  -> mkLambda (x,t,contract_letin_in_lam_header sigma c)
+  | LetIn (x,b,t,c) -> contract_letin_in_lam_header sigma (subst1 b c)
   | _ -> c
 
 let elimination_clause_scheme with_evars ?(with_classes=true) ?(flags=elim_flags ()) 
@@ -1438,10 +1441,7 @@ let elimination_clause_scheme with_evars ?(with_classes=true) ?(flags=elim_flags
   Proofview.Goal.enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
-  let elim = contract_letin_in_lam_header elim in
-  let bindings = Miscops.map_bindings EConstr.of_constr bindings in
-  let elim = EConstr.of_constr elim in
-  let elimty = EConstr.of_constr elimty in
+  let elim = contract_letin_in_lam_header sigma elim in
   let elimclause = make_clenv_binding env sigma (elim, elimty) bindings in
   let indmv =
     (match kind_of_term (nth_arg i (EConstr.Unsafe.to_constr elimclause.templval.rebus)) with
@@ -1464,7 +1464,7 @@ let elimination_clause_scheme with_evars ?(with_classes=true) ?(flags=elim_flags
 type eliminator = {
   elimindex : int option;  (* None = find it automatically *)
   elimrename : (bool * int array) option; (** None = don't rename Prop hyps with H-names *)
-  elimbody : constr with_bindings
+  elimbody : EConstr.constr with_bindings
 }
 
 let general_elim_clause_gen elimtac indclause elim =
@@ -1472,9 +1472,10 @@ let general_elim_clause_gen elimtac indclause elim =
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
   let (elimc,lbindelimc) = elim.elimbody in
-  let elimt = Retyping.get_type_of env sigma (EConstr.of_constr elimc) in
+  let elimt = Retyping.get_type_of env sigma elimc in
+  let elimt = EConstr.of_constr elimt in
   let i =
-    match elim.elimindex with None -> index_of_ind_arg elimt | Some i -> i in
+    match elim.elimindex with None -> index_of_ind_arg sigma elimt | Some i -> i in
   elimtac elim.elimrename i (elimc, elimt, lbindelimc) indclause
   end }
 
@@ -1510,6 +1511,7 @@ let general_case_analysis_in_context with_evars clear_flag (c,lbindc) =
       build_case_analysis_scheme env sigma mind true sort
     else
       build_case_analysis_scheme_default env sigma mind sort in
+  let elim = EConstr.of_constr elim in
   let tac =
   (general_elim with_evars clear_flag (c,lbindc)
    {elimindex = None; elimbody = (elim,NoBindings);
@@ -1546,6 +1548,7 @@ let find_eliminator c gl =
   let ((ind,u),t) = Tacmach.New.pf_reduce_to_quantified_ind gl (EConstr.of_constr (Tacmach.New.pf_unsafe_type_of gl c)) in
   if is_nonrec ind then raise IsNonrec;
   let evd, c = find_ind_eliminator ind (Tacticals.New.elimination_sort_of_goal gl) gl in
+  let c = EConstr.of_constr c in
     evd, {elimindex = None; elimbody = (c,NoBindings);
           elimrename = Some (true, constructors_nrealdecls ind)}
 
@@ -1608,10 +1611,7 @@ let elimination_in_clause_scheme with_evars ?(flags=elim_flags ())
   Proofview.Goal.enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
-  let elim = contract_letin_in_lam_header elim in
-  let elim = EConstr.of_constr elim in
-  let elimty = EConstr.of_constr elimty in
-  let bindings = Miscops.map_bindings EConstr.of_constr bindings in
+  let elim = contract_letin_in_lam_header sigma elim in
   let elimclause = make_clenv_binding env sigma (elim, elimty) bindings in
   let indmv = destMeta (nth_arg i (EConstr.Unsafe.to_constr elimclause.templval.rebus)) in
   let hypmv =
@@ -3506,8 +3506,8 @@ let cook_sign hyp0_opt inhyps indvars env sigma =
 (* [rel_contexts] and [rel_declaration] actually contain triples, and
    lists are actually in reverse order to fit [compose_prod]. *)
 type elim_scheme = {
-  elimc: constr with_bindings option;
-  elimt: types;
+  elimc: EConstr.constr with_bindings option;
+  elimt: EConstr.types;
   indref: global_reference option;
   params: Context.Rel.t;      (* (prm1,tprm1);(prm2,tprm2)...(prmp,tprmp) *)
   nparams: int;               (* number of parameters *)
@@ -3519,7 +3519,7 @@ type elim_scheme = {
   nargs: int;                 (* number of arguments *)
   indarg: Context.Rel.Declaration.t option; (* Some (H,I prm1..prmp x1...xni)
                                                if HI is in premisses, None otherwise *)
-  concl: types;               (* Qi x1...xni HI (f...), HI and (f...)
+  concl: EConstr.types;               (* Qi x1...xni HI (f...), HI and (f...)
 			         are optional and mutually exclusive *)
   indarg_in_concl: bool;      (* true if HI appears at the end of conclusion *)
   farg_in_concl: bool;        (* true if (f...) appears at the end of conclusion *)
@@ -3528,7 +3528,7 @@ type elim_scheme = {
 let empty_scheme =
   {
     elimc = None;
-    elimt = mkProp;
+    elimt = EConstr.mkProp;
     indref = None;
     params = [];
     nparams = 0;
@@ -3539,7 +3539,7 @@ let empty_scheme =
     args = [];
     nargs = 0;
     indarg = None;
-    concl = mkProp;
+    concl = EConstr.mkProp;
     indarg_in_concl = false;
     farg_in_concl = false;
   }
@@ -3907,8 +3907,9 @@ let specialize_eqs id = Proofview.Goal.nf_enter { enter = begin fun gl ->
     Proofview.V82.tactic (specialize_eqs id)
 end }
 
-let occur_rel n c =
-  let res = not (noccurn n c) in
+let occur_rel sigma n c =
+  let open EConstr.Vars in
+  let res = not (noccurn sigma n c) in
   res
 
 (* This function splits the products of the induction scheme [elimt] into four
@@ -3919,20 +3920,21 @@ let occur_rel n c =
    if there is no branch, we try to fill in acc3 with args/indargs.
    We also return the conclusion.
 *)
-let decompose_paramspred_branch_args elimt =
+let decompose_paramspred_branch_args sigma elimt =
+  let open EConstr in
   let open Context.Rel.Declaration in
   let rec cut_noccur elimt acc2 =
-    match kind_of_term elimt with
+    match EConstr.kind sigma elimt with
       | Prod(nme,tpe,elimt') ->
-	  let hd_tpe,_ = decompose_app ((strip_prod_assum tpe)) in
-	  if not (occur_rel 1 elimt') && isRel hd_tpe
-	  then cut_noccur elimt' (LocalAssum (nme,tpe)::acc2)
-	  else let acc3,ccl = decompose_prod_assum elimt in acc2 , acc3 , ccl
+	  let hd_tpe,_ = decompose_app sigma (snd (decompose_prod_assum sigma tpe)) in
+	  if not (occur_rel sigma 1 elimt') && isRel sigma hd_tpe
+	  then cut_noccur elimt' (local_assum (nme,tpe)::acc2)
+	  else let acc3,ccl = decompose_prod_assum sigma elimt in acc2 , acc3 , ccl
       | App(_, _) | Rel _ -> acc2 , [] , elimt
       | _ -> error_ind_scheme "" in
   let rec cut_occur elimt acc1 =
-    match kind_of_term elimt with
-      | Prod(nme,tpe,c) when occur_rel 1 c -> cut_occur c (LocalAssum (nme,tpe)::acc1)
+    match EConstr.kind sigma elimt with
+      | Prod(nme,tpe,c) when occur_rel sigma 1 c -> cut_occur c (local_assum (nme,tpe)::acc1)
       | Prod(nme,tpe,c) -> let acc2,acc3,ccl = cut_noccur elimt [] in acc1,acc2,acc3,ccl
       | App(_, _) | Rel _ -> acc1,[],[],elimt
       | _ -> error_ind_scheme "" in
@@ -3945,17 +3947,18 @@ let decompose_paramspred_branch_args elimt =
      args. We suppose there is only one predicate here. *)
   match acc2 with
   | [] ->
-    let hyps,ccl = decompose_prod_assum elimt in
-    let hd_ccl_pred,_ = decompose_app ccl in
-    begin match kind_of_term hd_ccl_pred with
+    let hyps,ccl = decompose_prod_assum sigma elimt in
+    let hd_ccl_pred,_ = decompose_app sigma ccl in
+    begin match EConstr.kind sigma hd_ccl_pred with
       | Rel i  -> let acc3,acc1 = List.chop (i-1) hyps in acc1 , [] , acc3 , ccl
       | _ -> error_ind_scheme ""
     end
   | _ -> acc1, acc2 , acc3, ccl
 
 
-let exchange_hd_app subst_hd t =
-  let hd,args= decompose_app t in mkApp (subst_hd,Array.of_list args)
+let exchange_hd_app sigma subst_hd t =
+  let open EConstr in
+  let hd,args= decompose_app sigma t in mkApp (subst_hd,Array.of_list args)
 
 (* Builds an elim_scheme from its type and calling form (const+binding). We
    first separate branches.  We obtain branches, hyps before (params + preds),
@@ -3973,14 +3976,15 @@ let exchange_hd_app subst_hd t =
      predicates are cited in the conclusion.
 
    - finish to fill in the elim_scheme: indarg/farg/args and finally indref. *)
-let compute_elim_sig ?elimc elimt =
+let compute_elim_sig sigma ?elimc elimt =
+  let open EConstr in
   let open Context.Rel.Declaration in
   let params_preds,branches,args_indargs,conclusion =
-    decompose_paramspred_branch_args elimt in
+    decompose_paramspred_branch_args sigma elimt in
 
-  let ccl = exchange_hd_app (mkVar (Id.of_string "__QI_DUMMY__")) conclusion in
+  let ccl = exchange_hd_app sigma (mkVar (Id.of_string "__QI_DUMMY__")) conclusion in
   let concl_with_args = it_mkProd_or_LetIn ccl args_indargs in
-  let nparams = Int.Set.cardinal (free_rels Evd.empty (** FIXME *) (EConstr.of_constr concl_with_args)) in
+  let nparams = Int.Set.cardinal (free_rels sigma concl_with_args) in
   let preds,params = List.chop (List.length params_preds - nparams) params_preds in
 
   (* A first approximation, further analysis will tweak it *)
@@ -3989,7 +3993,7 @@ let compute_elim_sig ?elimc elimt =
     elimc = elimc; elimt = elimt; concl = conclusion;
     predicates = preds; npredicates = List.length preds;
     branches = branches; nbranches = List.length branches;
-    farg_in_concl = isApp ccl && isApp (last_arg ccl);
+    farg_in_concl = isApp sigma ccl && isApp sigma (Termops.last_arg sigma ccl);
     params = params; nparams = nparams;
     (* all other fields are unsure at this point. Including these:*)
     args = args_indargs; nargs = List.length args_indargs; } in
@@ -4010,9 +4014,10 @@ let compute_elim_sig ?elimc elimt =
       match List.hd args_indargs with
 	| LocalDef (hiname,_,hi) -> error_ind_scheme ""
 	| LocalAssum (hiname,hi) ->
-	    let hi_ind, hi_args = decompose_app hi in
+            let hi = EConstr.of_constr hi in
+	    let hi_ind, hi_args = decompose_app sigma hi in
 	    let hi_is_ind = (* hi est d'un type globalisable *)
-	      match kind_of_term hi_ind with
+	      match EConstr.kind sigma hi_ind with
 		| Ind (mind,_)  -> true
 		| Var _ -> true
 		| Const _ -> true
@@ -4025,7 +4030,7 @@ let compute_elim_sig ?elimc elimt =
 	    else (* Last arg is the indarg *)
 	      res := {!res with
 		indarg = Some (List.hd !res.args);
-		indarg_in_concl = occur_rel 1 ccl;
+		indarg_in_concl = occur_rel sigma 1 ccl;
 		args = List.tl !res.args; nargs = !res.nargs - 1;
 	      };
 	    raise Exit);
@@ -4035,55 +4040,59 @@ let compute_elim_sig ?elimc elimt =
       | None -> !res (* No indref *)
       | Some (LocalDef _) -> error_ind_scheme ""
       | Some (LocalAssum (_,ind)) ->
-	  let indhd,indargs = decompose_app ind in
-	  try {!res with indref = Some (global_of_constr indhd) }
+          let ind = EConstr.of_constr ind in
+	  let indhd,indargs = decompose_app sigma ind in
+	  try {!res with indref = Some (fst (Termops.global_of_constr sigma indhd)) }
 	  with e when CErrors.noncritical e ->
             error "Cannot find the inductive type of the inductive scheme."
 
 let compute_scheme_signature evd scheme names_info ind_type_guess =
+  let open EConstr in
   let open Context.Rel.Declaration in
-  let f,l = decompose_app scheme.concl in
+  let f,l = decompose_app evd scheme.concl in
   (* Vérifier que les arguments de Qi sont bien les xi. *)
   let cond, check_concl =
     match scheme.indarg with
       | Some (LocalDef _) ->
 	  error "Strange letin, cannot recognize an induction scheme."
       | None -> (* Non standard scheme *)
-	  let cond hd = Term.eq_constr hd ind_type_guess && not scheme.farg_in_concl
+	  let cond hd = EConstr.eq_constr evd hd ind_type_guess && not scheme.farg_in_concl
 	  in (cond, fun _ _ -> ())
       | Some (LocalAssum (_,ind)) -> (* Standard scheme from an inductive type *)
-	  let indhd,indargs = decompose_app ind in
-	  let cond hd = Term.eq_constr hd indhd in
+          let ind = EConstr.of_constr ind in
+	  let indhd,indargs = decompose_app evd ind in
+	  let cond hd = EConstr.eq_constr evd hd indhd in
 	  let check_concl is_pred p =
 	    (* Check again conclusion *)
 	    let ccl_arg_ok = is_pred (p + scheme.nargs + 1) f == IndArg in
 	    let ind_is_ok =
-	      List.equal Term.eq_constr
+	      List.equal (fun c1 c2 -> EConstr.eq_constr evd c1 c2)
 		(List.lastn scheme.nargs indargs)
-		(Context.Rel.to_extended_list 0 scheme.args) in
+		(List.map EConstr.of_constr (Context.Rel.to_extended_list 0 scheme.args)) in
 	    if not (ccl_arg_ok && ind_is_ok) then
 	      error_ind_scheme "the conclusion of"
 	  in (cond, check_concl)
   in
   let is_pred n c =
-    let hd = fst (decompose_app c) in
-    match kind_of_term hd with
+    let hd = fst (decompose_app evd c) in
+    match EConstr.kind evd hd with
       | Rel q when n < q && q <= n+scheme.npredicates -> IndArg
       | _ when cond hd -> RecArg
       | _ -> OtherArg
   in
   let rec check_branch p c =
-    match kind_of_term c with
+    match EConstr.kind evd c with
       | Prod (_,t,c) ->
-	(is_pred p t, true, not (EConstr.Vars.noccurn evd 1 (EConstr.of_constr c))) :: check_branch (p+1) c
+	(is_pred p t, true, not (Vars.noccurn evd 1 c)) :: check_branch (p+1) c
       | LetIn (_,_,_,c) ->
-	(OtherArg, false, not (EConstr.Vars.noccurn evd 1 (EConstr.of_constr c))) :: check_branch (p+1) c
+	(OtherArg, false, not (Vars.noccurn evd 1 c)) :: check_branch (p+1) c
       | _ when is_pred p c == IndArg -> []
       | _ -> raise Exit
   in
   let rec find_branches p lbrch =
     match lbrch with
       | LocalAssum (_,t) :: brs ->
+        let t = EConstr.of_constr t in
 	(try
 	   let lchck_brch = check_branch p t in
 	   let n = List.fold_left
@@ -4109,10 +4118,11 @@ let compute_scheme_signature evd scheme names_info ind_type_guess =
    the non standard case, naming of generated hypos is slightly
    different. *)
 let compute_elim_signature (evd,(elimc,elimt),ind_type_guess) names_info =
-  let scheme = compute_elim_sig ~elimc:elimc elimt in
+  let scheme = compute_elim_sig evd ~elimc:elimc elimt in
     evd, (compute_scheme_signature evd scheme names_info ind_type_guess, scheme)
 
 let guess_elim isrec dep s hyp0 gl =
+  let open EConstr in
   let tmptyp0 =	Tacmach.New.pf_get_hyp_typ hyp0 gl in
   let tmptyp0 = EConstr.of_constr tmptyp0 in
   let mind,_ = Tacmach.New.pf_reduce_to_quantified_ind gl tmptyp0 in
@@ -4129,35 +4139,42 @@ let guess_elim isrec dep s hyp0 gl =
         let Sigma (ind, sigma, _) = build_case_analysis_scheme_default env sigma mind s in
         (Sigma.to_evar_map sigma, ind)
   in
-  let elimt = Tacmach.New.pf_unsafe_type_of gl (EConstr.of_constr elimc) in
+  let elimc = EConstr.of_constr elimc in
+  let elimt = Tacmach.New.pf_unsafe_type_of gl elimc in
+  let elimt = EConstr.of_constr elimt in
     evd, ((elimc, NoBindings), elimt), mkIndU mind
 
 let given_elim hyp0 (elimc,lbind as e) gl =
+  let open EConstr in
+  let sigma = Tacmach.New.project gl in
   let tmptyp0 = Tacmach.New.pf_get_hyp_typ hyp0 gl in
-  let ind_type_guess,_ = decompose_app ((strip_prod tmptyp0)) in
-  let elimc = EConstr.of_constr elimc in
-  Tacmach.New.project gl, (e, Tacmach.New.pf_unsafe_type_of gl elimc), ind_type_guess
+  let tmptyp0 = EConstr.of_constr tmptyp0 in
+  let ind_type_guess,_ = decompose_app sigma (snd (decompose_prod sigma tmptyp0)) in
+  let elimt = Tacmach.New.pf_unsafe_type_of gl elimc in
+  let elimt = EConstr.of_constr elimt in
+  Tacmach.New.project gl, (e, elimt), ind_type_guess
 
 type scheme_signature =
     (Id.t list * (elim_arg_kind * bool * bool * Id.t) list) array
 
 type eliminator_source =
-  | ElimUsing of (eliminator * types) * scheme_signature
+  | ElimUsing of (eliminator * EConstr.types) * scheme_signature
   | ElimOver of bool * Id.t
 
 let find_induction_type isrec elim hyp0 gl =
+  let sigma = Tacmach.New.project gl in
   let scheme,elim =
     match elim with
     | None ->
        let sort = Tacticals.New.elimination_sort_of_goal gl in
        let _, (elimc,elimt),_ = 
 	 guess_elim isrec (* dummy: *) true sort hyp0 gl in
-	let scheme = compute_elim_sig ~elimc elimt in
+	let scheme = compute_elim_sig sigma ~elimc elimt in
 	(* We drop the scheme waiting to know if it is dependent *)
 	scheme, ElimOver (isrec,hyp0)
     | Some e ->
 	let evd, (elimc,elimt),ind_guess = given_elim hyp0 e gl in
-	let scheme = compute_elim_sig ~elimc elimt in
+	let scheme = compute_elim_sig sigma ~elimc elimt in
 	if Option.is_empty scheme.indarg then error "Cannot find induction type";
 	let indsign = compute_scheme_signature evd scheme hyp0 ind_guess in
 	let elim = ({elimindex = Some(-1); elimbody = elimc; elimrename = None},elimt) in
@@ -4171,7 +4188,8 @@ let get_elim_signature elim hyp0 gl =
   compute_elim_signature (given_elim hyp0 elim gl) hyp0
 
 let is_functional_induction elimc gl =
-  let scheme = compute_elim_sig ~elimc (Tacmach.New.pf_unsafe_type_of gl (EConstr.of_constr (fst elimc))) in
+  let sigma = Tacmach.New.project gl in
+  let scheme = compute_elim_sig sigma ~elimc (EConstr.of_constr (Tacmach.New.pf_unsafe_type_of gl (fst elimc))) in
   (* The test is not safe: with non-functional induction on non-standard
      induction scheme, this may fail *)
   Option.is_empty scheme.indarg
@@ -4233,15 +4251,14 @@ let recolle_clenv i params args elimclause gl =
     produce new ones). Then refine with the resulting term with holes.
 *)
 let induction_tac with_evars params indvars elim =
+  let open EConstr in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
+  let sigma = Tacmach.New.project gl in
   let ({elimindex=i;elimbody=(elimc,lbindelimc);elimrename=rename},elimt) = elim in
-  let i = match i with None -> index_of_ind_arg elimt | Some i -> i in
+  let i = match i with None -> index_of_ind_arg sigma elimt | Some i -> i in
   (* elimclause contains this: (elimc ?i ?j ?k...?l) *)
-  let elimc = contract_letin_in_lam_header elimc in
+  let elimc = contract_letin_in_lam_header sigma elimc in
   let elimc = mkCast (elimc, DEFAULTcast, elimt) in
-  let elimc = EConstr.of_constr elimc in
-  let elimt = EConstr.of_constr elimt in
-  let lbindelimc = Miscops.map_bindings EConstr.of_constr lbindelimc in
   let elimclause = pf_apply make_clenv_binding gl (elimc,elimt) lbindelimc in
   (* elimclause' is built from elimclause by instanciating all args and params. *)
   let elimclause' = recolle_clenv i params indvars elimclause gl in
@@ -4404,7 +4421,6 @@ let check_expected_type env sigma (elimc,bl) elimt =
   (* Compute the expected template type of the term in case a using
      clause is given *)
   let open EConstr in
-  let elimt = EConstr.of_constr elimt in
   let sign,_ = splay_prod env sigma elimt in
   let n = List.length sign in
   if n == 0 then error "Scheme cannot be applied.";
@@ -4422,9 +4438,9 @@ let check_enough_applied env sigma elim =
       fun u ->
       let t,_ = decompose_app (whd_all env sigma u) in isInd t
   | Some elimc ->
-      let elimt = Retyping.get_type_of env sigma (EConstr.of_constr (fst elimc)) in
-      let scheme = compute_elim_sig ~elimc elimt in
-      let elimc = Miscops.map_with_bindings EConstr.of_constr elimc in
+      let elimt = Retyping.get_type_of env sigma (fst elimc) in
+      let elimt = EConstr.of_constr elimt in
+      let scheme = compute_elim_sig sigma ~elimc elimt in
       match scheme.indref with
       | None ->
          (* in the absence of information, do not assume it may be

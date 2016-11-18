@@ -354,7 +354,7 @@ type raw_tactic_arg =
 
 (** Interpreted tactics *)
 
-type t_trm = Term.constr
+type t_trm = EConstr.constr
 type t_pat = constr_pattern
 type t_cst = evaluable_global_reference
 type t_ref = ltac_constant located

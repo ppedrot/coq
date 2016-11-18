@@ -505,7 +505,7 @@ let inv k = inv_gen k NoDep
 let inv_tac id       = inv FullInversion None (NamedHyp id)
 let inv_clear_tac id = inv FullInversionClear None (NamedHyp id)
 
-let dinv k c = inv_gen k (Dep c)
+let dinv k c = inv_gen k (Dep (Option.map EConstr.Unsafe.to_constr c))
 
 let dinv_tac id       = dinv FullInversion None None (NamedHyp id)
 let dinv_clear_tac id = dinv FullInversionClear None None (NamedHyp id)
