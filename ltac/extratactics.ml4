@@ -153,9 +153,9 @@ let injHyp id =
   injection_main false { delayed = fun env sigma -> Sigma.here (EConstr.mkVar id, NoBindings) sigma }
 
 TACTIC EXTEND dependent_rewrite
-| [ "dependent" "rewrite" orient(b) constr(c) ] -> [ rewriteInConcl b c ]
+| [ "dependent" "rewrite" orient(b) constr(c) ] -> [ rewriteInConcl b (EConstr.of_constr c) ]
 | [ "dependent" "rewrite" orient(b) constr(c) "in" hyp(id) ]
-    -> [ rewriteInHyp b c id ]
+    -> [ rewriteInHyp b (EConstr.of_constr c) id ]
 END
 
 (** To be deprecated?, "cutrewrite (t=u) as <-" is equivalent to
@@ -163,9 +163,9 @@ END
     "cutrewrite (t=u) as ->" is equivalent to "enough (t=u) as ->". *)
 
 TACTIC EXTEND cut_rewrite
-| [ "cutrewrite" orient(b) constr(eqn) ] -> [ cutRewriteInConcl b eqn ]
+| [ "cutrewrite" orient(b) constr(eqn) ] -> [ cutRewriteInConcl b (EConstr.of_constr eqn) ]
 | [ "cutrewrite" orient(b) constr(eqn) "in" hyp(id) ]
-    -> [ cutRewriteInHyp b eqn id ]
+    -> [ cutRewriteInHyp b (EConstr.of_constr eqn) id ]
 END
 
 (**********************************************************************)

@@ -1522,10 +1522,10 @@ let decompEqThen ntac (lbeq,_,(t,t1,t2) as u) clause =
       | Inl (cpath, (_,dirn), _) ->
 	  discr_positions env sigma u clause cpath dirn
       | Inr [] -> (* Change: do not fail, simplify clear this trivial hyp *)
-        ntac (EConstr.Unsafe.to_constr (clenv_value clause)) 0
+        ntac (clenv_value clause) 0
     | Inr posns ->
 	inject_at_positions env sigma true u clause posns
-          (ntac (EConstr.Unsafe.to_constr (clenv_value clause)))
+          (ntac (clenv_value clause))
   end }
 
 let dEqThen with_evars ntac = function
@@ -1534,7 +1534,6 @@ let dEqThen with_evars ntac = function
 
 let dEq with_evars =
   dEqThen with_evars (fun clear_flag c x ->
-    let c = EConstr.of_constr c in
     (apply_clear_request clear_flag (use_clear_hyp_by_default ()) c))
 
 let intro_decomp_eq tac data (c, t) =
@@ -1578,29 +1577,29 @@ let _ = declare_intro_decomp_eq intro_decomp_eq
  *)
 
 let decomp_tuple_term env sigma c t =
+  let open EConstr in
   let rec decomprec inner_code ex exty =
     let iterated_decomp =
     try
-      let ex = EConstr.of_constr ex in
       let ({proj1=p1; proj2=p2}),(i,a,p,car,cdr) = find_sigma_data_decompose sigma ex in
-      let a = EConstr.Unsafe.to_constr a in
-      let p = EConstr.Unsafe.to_constr p in
-      let car = EConstr.Unsafe.to_constr car in
-      let cdr = EConstr.Unsafe.to_constr cdr in
       let car_code = applist (mkConstU (destConstRef p1,i),[a;p;inner_code])
       and cdr_code = applist (mkConstU (destConstRef p2,i),[a;p;inner_code]) in
-      let cdrtyp = beta_applist sigma (EConstr.of_constr p,[EConstr.of_constr car]) in
+      let cdrtyp = beta_applist sigma (p,[car]) in
+      let cdrtyp = EConstr.of_constr cdrtyp in
       List.map (fun l -> ((car,a),car_code)::l) (decomprec cdr_code cdr cdrtyp)
     with Constr_matching.PatternMatchingFailure ->
       []
     in [((ex,exty),inner_code)]::iterated_decomp
   in decomprec (mkRel 1) c t
 
+let lambda_create env (a,b) =
+  EConstr.mkLambda (named_hd env (EConstr.Unsafe.to_constr a) Anonymous, a, b)
+
 let subst_tuple_term env sigma dep_pair1 dep_pair2 b =
-  let dep_pair1 = EConstr.Unsafe.to_constr dep_pair1 in
-  let dep_pair2 = EConstr.Unsafe.to_constr dep_pair2 in
+  let open EConstr in
   let sigma = Sigma.to_evar_map sigma in
-  let typ = get_type_of env sigma (EConstr.of_constr dep_pair1) in
+  let typ = get_type_of env sigma dep_pair1 in
+  let typ = EConstr.of_constr typ in
   (* We find all possible decompositions *)
   let decomps1 = decomp_tuple_term env sigma dep_pair1 typ in
   let decomps2 = decomp_tuple_term env sigma dep_pair2 typ in
@@ -1615,15 +1614,18 @@ let subst_tuple_term env sigma dep_pair1 dep_pair2 b =
   (* We build the expected goal *)
   let abst_B =
     List.fold_right
-      (fun (e,t) body -> lambda_create env (t,subst_term sigma (EConstr.of_constr e) (EConstr.of_constr body))) e1_list b in
-  let pred_body = beta_applist sigma (EConstr.of_constr abst_B, List.map EConstr.of_constr proj_list) in
+      (fun (e,t) body -> lambda_create env (t,EConstr.of_constr (subst_term sigma e body))) e1_list b in
+  let pred_body = beta_applist sigma (abst_B,proj_list) in
+  let pred_body = EConstr.of_constr pred_body in
   let body = mkApp (lambda_create env (typ,pred_body),[|dep_pair1|]) in
-  let expected_goal = beta_applist sigma (EConstr.of_constr abst_B,List.map (fst %> EConstr.of_constr) e2_list) in
+  let expected_goal = beta_applist sigma (abst_B,List.map fst e2_list) in
   (* Simulate now the normalisation treatment made by Logic.mk_refgoals *)
-  let expected_goal = nf_betaiota sigma (EConstr.of_constr expected_goal) in
+  let expected_goal = EConstr.of_constr expected_goal in
+  let expected_goal = nf_betaiota sigma expected_goal in
+  let expected_goal = EConstr.of_constr expected_goal in
   (* Retype to get universes right *)
-  let sigma, expected_goal_ty = Typing.type_of env sigma (EConstr.of_constr expected_goal) in
-  let sigma, _ = Typing.type_of env sigma (EConstr.of_constr body) in
+  let sigma, expected_goal_ty = Typing.type_of env sigma expected_goal in
+  let sigma, _ = Typing.type_of env sigma body in
   Sigma.Unsafe.of_pair ((body, expected_goal), sigma)
 
 (* Like "replace" but decompose dependent equalities                      *)
@@ -1632,16 +1634,14 @@ let subst_tuple_term env sigma dep_pair1 dep_pair2 b =
 (* on for further iterated sigma-tuples                                   *)
 
 let cutSubstInConcl l2r eqn =
-  let eqn = EConstr.of_constr eqn in
   Proofview.Goal.nf_s_enter { s_enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Proofview.Goal.sigma gl in
   let (lbeq,u,(t,e1,e2)) = find_eq_data_decompose gl eqn in
   let typ = pf_concl gl in
+  let typ = EConstr.of_constr typ in
   let (e1,e2) = if l2r then (e1,e2) else (e2,e1) in
   let Sigma ((typ, expected), sigma, p) = subst_tuple_term env sigma e1 e2 typ in
-  let typ = EConstr.of_constr typ in
-  let expected = EConstr.of_constr expected in
   let tac =
   tclTHENFIRST
     (tclTHENLIST [
@@ -1654,16 +1654,14 @@ let cutSubstInConcl l2r eqn =
   end }
 
 let cutSubstInHyp l2r eqn id =
-  let eqn = EConstr.of_constr eqn in
   Proofview.Goal.nf_s_enter { s_enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Proofview.Goal.sigma gl in
   let (lbeq,u,(t,e1,e2)) = find_eq_data_decompose gl eqn in
   let typ = pf_get_hyp_typ id gl in
+  let typ = EConstr.of_constr typ in
   let (e1,e2) = if l2r then (e1,e2) else (e2,e1) in
   let Sigma ((typ, expected), sigma, p) = subst_tuple_term env sigma e1 e2 typ in
-  let typ = EConstr.of_constr typ in
-  let expected = EConstr.of_constr expected in
   let tac =
     tclTHENFIRST
     (tclTHENLIST [
@@ -1695,9 +1693,9 @@ let cutRewriteInHyp l2r eqn id = cutRewriteClause l2r eqn (Some id)
 let cutRewriteInConcl l2r eqn = cutRewriteClause l2r eqn None
 
 let substClause l2r c cls =
-  let c = EConstr.of_constr c in
   Proofview.Goal.enter { enter = begin fun gl ->
   let eq = pf_apply get_type_of gl c in
+  let eq = EConstr.of_constr eq in
   tclTHENS (cutSubstClause l2r eq cls)
     [Proofview.tclUNIT (); exact_no_check c]
   end }
@@ -1814,7 +1812,7 @@ let subst_one_var dep_proof_ok x =
           user_err ~hdr:"Subst"
             (str "Cannot find any non-recursive equality over " ++ pr_id x ++
 	       str".")
-        with FoundHyp (id, c, b) -> (id, EConstr.Unsafe.to_constr c, b) in
+        with FoundHyp res -> res in
       subst_one dep_proof_ok x res
   end }
 
