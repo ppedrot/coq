@@ -1350,44 +1350,49 @@ let eq_dec_scheme_kind_name = ref (fun _ -> failwith "eq_dec_scheme undefined")
 let set_eq_dec_scheme_kind k = eq_dec_scheme_kind_name := (fun _ -> k)
 
 let inject_if_homogenous_dependent_pair ty =
+  let open EConstr in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
   try
     let sigma = Tacmach.New.project gl in
     let eq,u,(t,t1,t2) = find_this_eq_data_decompose gl ty in
-    let t = EConstr.Unsafe.to_constr t in
     (* fetch the informations of the  pair *)
     let ceq = Universes.constr_of_global Coqlib.glob_eq in
+    let ceq = EConstr.of_constr ceq in
     let sigTconstr () = (Coqlib.build_sigma_type()).Coqlib.typ in
     let existTconstr () = (Coqlib.build_sigma_type()).Coqlib.intro in
     (* check whether the equality deals with dep pairs or not *)
-    let eqTypeDest = fst (decompose_app t) in
-    if not (Globnames.is_global (sigTconstr()) eqTypeDest) then raise Exit;
+    let eqTypeDest = fst (decompose_app sigma t) in
+    if not (Termops.is_global sigma (sigTconstr()) eqTypeDest) then raise Exit;
     let hd1,ar1 = decompose_app_vect sigma t1 and
         hd2,ar2 = decompose_app_vect sigma t2 in
-    if not (Globnames.is_global (existTconstr()) hd1) then raise Exit;
-    if not (Globnames.is_global (existTconstr()) hd2) then raise Exit;
-    let ind,_ = try pf_apply find_mrectype gl (EConstr.of_constr ar1.(0)) with Not_found -> raise Exit in
+    let hd1 = EConstr.of_constr hd1 in
+    let hd2 = EConstr.of_constr hd2 in
+    let ar1 = Array.map EConstr.of_constr ar1 in
+    let ar2 = Array.map EConstr.of_constr ar2 in
+    if not (Termops.is_global sigma (existTconstr()) hd1) then raise Exit;
+    if not (Termops.is_global sigma (existTconstr()) hd2) then raise Exit;
+    let ind,_ = try pf_apply find_mrectype gl ar1.(0) with Not_found -> raise Exit in
     (* check if the user has declared the dec principle *)
     (* and compare the fst arguments of the dep pair *)
     (* Note: should work even if not an inductive type, but the table only *)
     (* knows inductive types *)
     if not (Ind_tables.check_scheme (!eq_dec_scheme_kind_name()) (fst ind) &&
-      pf_apply is_conv gl (EConstr.of_constr ar1.(2)) (EConstr.of_constr ar2.(2))) then raise Exit;
+      pf_apply is_conv gl ar1.(2) ar2.(2)) then raise Exit;
     Coqlib.check_required_library ["Coq";"Logic";"Eqdep_dec"];
-    let new_eq_args = [|pf_unsafe_type_of gl (EConstr.of_constr ar1.(3));ar1.(3);ar2.(3)|] in
+    let new_eq_args = [|EConstr.of_constr (pf_unsafe_type_of gl ar1.(3));ar1.(3);ar2.(3)|] in
     let inj2 = Coqlib.coq_constant "inj_pair2_eq_dec is missing"
       ["Logic";"Eqdep_dec"] "inj_pair2_eq_dec" in
+    let inj2 = EConstr.of_constr inj2 in
     let c, eff = find_scheme (!eq_dec_scheme_kind_name()) (Univ.out_punivs ind) in
     (* cut with the good equality and prove the requested goal *)
     tclTHENLIST
       [Proofview.tclEFFECTS eff;
        intro;
        onLastHyp (fun hyp ->
-       let hyp = EConstr.Unsafe.to_constr hyp in
-        tclTHENS (cut (EConstr.of_constr (mkApp (ceq,new_eq_args))))
-          [clear [destVar hyp];
+        tclTHENS (cut (mkApp (ceq,new_eq_args)))
+          [clear [destVar sigma hyp];
            Proofview.V82.tactic (Tacmach.refine
-             (EConstr.of_constr (mkApp(inj2,[|ar1.(0);mkConst c;ar1.(1);ar1.(2);ar1.(3);ar2.(3);hyp|]))))
+             (mkApp(inj2,[|ar1.(0);mkConst c;ar1.(1);ar1.(2);ar1.(3);ar2.(3);hyp|])))
           ])]
   with Exit ->
     Proofview.tclUNIT ()
@@ -1398,10 +1403,12 @@ let inject_if_homogenous_dependent_pair ty =
    in hd position, otherwise delta expansion is not done *)
 
 let simplify_args env sigma t =
+  let open EConstr in
   (* Quick hack to reduce in arguments of eq only *)
-  match decompose_app t with
-    | eq, [t;c1;c2] -> applist (eq,[t;simpl env sigma (EConstr.of_constr c1);simpl env sigma (EConstr.of_constr c2)])
-    | eq, [t1;c1;t2;c2] -> applist (eq,[t1;simpl env sigma (EConstr.of_constr c1);t2;simpl env sigma (EConstr.of_constr c2)])
+  let simpl env sigma c = EConstr.of_constr (simpl env sigma c) in
+  match decompose_app sigma t with
+    | eq, [t;c1;c2] -> applist (eq,[t;simpl env sigma c1;simpl env sigma c2])
+    | eq, [t1;c1;t2;c2] -> applist (eq,[t1;simpl env sigma c1;t2;simpl env sigma c2])
     | _ -> t
 
 let inject_at_positions env sigma l2r (eq,_,(t,t1,t2)) eq_clause posns tac =
@@ -1421,8 +1428,7 @@ let inject_at_positions env sigma l2r (eq,_,(t,t1,t2)) eq_clause posns tac =
       let pf_typ = EConstr.of_constr pf_typ in
       let inj_clause = apply_on_clause (pf,pf_typ) eq_clause in
       let pf = Clenvtac.clenv_value_cast_meta inj_clause in
-      let ty = simplify_args env sigma (EConstr.Unsafe.to_constr (clenv_type inj_clause)) in
-      let pf = EConstr.Unsafe.to_constr pf in
+      let ty = simplify_args env sigma (clenv_type inj_clause) in
 	evdref := sigma;
 	Some (pf, ty)
     with Failure _ -> None
@@ -1434,9 +1440,9 @@ let inject_at_positions env sigma l2r (eq,_,(t,t1,t2)) eq_clause posns tac =
     Proofview.tclTHEN (Proofview.Unsafe.tclEVARS !evdref)
     (Tacticals.New.tclTHENFIRST
       (Proofview.tclIGNORE (Proofview.Monad.List.map
-         (fun (pf,ty) -> tclTHENS (cut (EConstr.of_constr ty))
-           [inject_if_homogenous_dependent_pair (EConstr.of_constr ty);
-            Proofview.V82.tactic (Tacmach.refine (EConstr.of_constr pf))])
+         (fun (pf,ty) -> tclTHENS (cut ty)
+           [inject_if_homogenous_dependent_pair ty;
+            Proofview.V82.tactic (Tacmach.refine pf)])
          (if l2r then List.rev injectors else injectors)))
       (tac (List.length injectors)))
 
