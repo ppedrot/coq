@@ -6,14 +6,17 @@
 (*         *       GNU Lesser General Public License Version 2.1        *)
 (************************************************************************)
 
+module CVars = Vars
+
 open Pp
 open CErrors
 open Util
 open Names
 open Nameops
 open Term
-open Vars
 open Termops
+open EConstr
+open Vars
 open Find_subterm
 open Namegen
 open Declarations
@@ -48,7 +51,7 @@ open Context.Named.Declaration
 module RelDecl = Context.Rel.Declaration
 module NamedDecl = Context.Named.Declaration
 
-let inj_with_occurrences e = (AllOccurrences,e)
+let inj_with_occurrences e = (AllOccurrences,EConstr.Unsafe.to_constr e)
 
 let dloc = Loc.ghost
 
@@ -190,8 +193,6 @@ let nlocal_def (na, b, t) =
 (** This tactic creates a partial proof realizing the introduction rule, but
     does not check anything. *)
 let unsafe_intro env store decl b =
-  let open EConstr in
-  let open Vars in
   Refine.refine ~unsafe:true { run = begin fun sigma ->
     let ctx = named_context_val env in
     let nctx = push_named_context_val decl ctx in
@@ -226,8 +227,6 @@ let introduction ?(check=true) id =
 let refine          = Tacmach.refine
 
 let convert_concl ?(check=true) ty k =
-  let open EConstr in
-  let open Vars in
   Proofview.Goal.enter { enter = begin fun gl ->
     let env = Proofview.Goal.env gl in
     let store = Proofview.Goal.extra gl in
@@ -341,7 +340,6 @@ let clear ids = clear_gen error_clear_dependency ids
 let clear_for_replacing ids = clear_gen error_replacing_dependency ids
 
 let apply_clear_request clear_flag dft c =
-  let open EConstr in
   Proofview.tclEVARMAP >>= fun sigma ->
   let check_isvar c =
     if not (isVar sigma c) then
@@ -407,9 +405,9 @@ let rename_hyp repl =
         with Not_found -> ()
       in
       (** All is well *)
-      let make_subst (src, dst) = (src, mkVar dst) in
+      let make_subst (src, dst) = (src, Constr.mkVar dst) in
       let subst = List.map make_subst repl in
-      let subst c = Vars.replace_vars subst c in
+      let subst c = CVars.replace_vars subst c in
       let map decl =
         decl |> NamedDecl.map_id (fun id -> try List.assoc_f Id.equal id repl with Not_found -> id)
              |> NamedDecl.map_constr subst
@@ -549,7 +547,6 @@ let rec check_mutind env sigma k cl = match EConstr.kind sigma (EConstr.of_const
 
 (* Refine as a fixpoint *)
 let mutual_fix f n rest j = Proofview.Goal.nf_enter { enter = begin fun gl ->
-  let open EConstr in
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
   let concl = Proofview.Goal.concl gl in
@@ -606,7 +603,6 @@ let rec check_is_mutcoind env sigma cl =
 
 (* Refine as a cofixpoint *)
 let mutual_cofix f others j = Proofview.Goal.nf_enter { enter = begin fun gl ->
-  let open EConstr in
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
   let concl = Proofview.Goal.concl gl in
@@ -648,7 +644,7 @@ let cofix ido = match ido with
 (*          Reduction and conversion tactics                  *)
 (**************************************************************)
 
-type tactic_reduction = env -> evar_map -> EConstr.t -> constr
+type tactic_reduction = env -> evar_map -> constr -> Constr.constr
 
 let pf_reduce_decl redfun where decl gl =
   let open Context.Named.Declaration in
@@ -825,7 +821,6 @@ let e_change_in_hyp redfun (id,where) =
 type change_arg = Pattern.patvar_map -> EConstr.constr Sigma.run
 
 let make_change_arg c pats =
-  let open EConstr.Vars in
   let pats = Id.Map.map EConstr.of_constr pats in
   { run = fun sigma -> Sigma.here (replace_vars (Id.Map.bindings pats) c) sigma }
 
@@ -840,15 +835,15 @@ let check_types env sigma mayneedglobalcheck deep newc origc =
     let sigma, b = infer_conv ~pb:Reduction.CUMUL env sigma t1 t2 in
     if not b then
       if
-        isSort (whd_all env sigma t1) &&
-        isSort (whd_all env sigma t2)
+        isSort sigma (EConstr.of_constr (whd_all env sigma t1)) &&
+        isSort sigma (EConstr.of_constr (whd_all env sigma t2))
       then (mayneedglobalcheck := true; sigma)
       else
         user_err ~hdr:"convert-check-hyp" (str "Types are incompatible.")
     else sigma
   end
   else
-    if not (isSort (whd_all env sigma t1)) then
+    if not (isSort sigma (EConstr.of_constr (whd_all env sigma t1))) then
       user_err ~hdr:"convert-check-hyp" (str "Not a type.")
     else sigma
 
@@ -984,8 +979,6 @@ let build_intro_tac id dest tac = match dest with
 
 let rec intro_then_gen name_flag move_flag force_flag dep_flag tac =
   let open Context.Rel.Declaration in
-  let open EConstr in
-  let open Vars in
   Proofview.Goal.enter { enter = begin fun gl ->
     let sigma = Tacmach.New.project gl in
     let concl = Proofview.Goal.concl (Proofview.Goal.assume gl) in
@@ -1270,7 +1263,6 @@ let force_destruction_arg with_evars env sigma c =
 let normalize_cut = false
 
 let cut c =
-  let open EConstr in
   Proofview.Goal.enter { enter = begin fun gl ->
     let env = Proofview.Goal.env gl in
     let sigma = Tacmach.New.project gl in
@@ -1375,7 +1367,6 @@ let nth_arg sigma i c =
   | _ -> anomaly (Pp.str "nth_arg")
 
 let index_of_ind_arg sigma t =
-  let open EConstr in
   let rec aux i j t = match EConstr.kind sigma t with
   | Prod (_,t,u) ->
       (* heuristic *)
@@ -1388,7 +1379,6 @@ let index_of_ind_arg sigma t =
 
 let enforce_prop_bound_names rename tac =
   let open Context.Rel.Declaration in
-  let open EConstr in
   match rename with
   | Some (isrec,nn) when Namegen.use_h_based_elimination_names () ->
       (* Rename dependent arguments in Prop with name "H" *)
@@ -1429,8 +1419,6 @@ let enforce_prop_bound_names rename tac =
       tac
 
 let rec contract_letin_in_lam_header sigma c =
-  let open EConstr in
-  let open Vars in
   match EConstr.kind sigma c with
   | Lambda (x,t,c)  -> mkLambda (x,t,contract_letin_in_lam_header sigma c)
   | LetIn (x,b,t,c) -> contract_letin_in_lam_header sigma (subst1 b c)
@@ -1608,7 +1596,6 @@ let clenv_fchain_in id ?(flags=elim_flags ()) mv elimclause hypclause =
 
 let elimination_in_clause_scheme with_evars ?(flags=elim_flags ()) 
     id rename i (elim, elimty, bindings) indclause =
-  let open EConstr in
   Proofview.Goal.enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
@@ -1646,12 +1633,10 @@ let general_elim_clause with_evars flags id c e =
 
 type conjunction_status =
   | DefinedRecord of constant option list
-  | NotADefinedRecordUseScheme of EConstr.constr
+  | NotADefinedRecordUseScheme of constr
 
 let make_projection env sigma params cstr sign elim i n c u =
   let open Context.Rel.Declaration in
-  let open EConstr in
-  let open Vars in
   let elim = match elim with
   | NotADefinedRecordUseScheme elim ->
       (* bugs: goes from right to left when i increases! *)
@@ -1773,7 +1758,6 @@ let tclORELSEOPT t k =
     | Some tac -> tac)
 
 let general_apply with_delta with_destruct with_evars clear_flag (loc,(c,lbind : EConstr.constr with_bindings)) =
-  let open EConstr in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
   let concl = Proofview.Goal.concl gl in
   let sigma = Tacmach.New.project gl in
@@ -1929,7 +1913,6 @@ let apply_in_once_main flags innerclause env sigma (d,lbind) =
 let apply_in_once sidecond_first with_delta with_destruct with_evars naming
     id (clear_flag,(loc,(d,lbind))) tac =
   let open Context.Rel.Declaration in
-  let open EConstr in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
@@ -1992,7 +1975,6 @@ let apply_in_delayed_once sidecond_first with_delta with_destruct with_evars nam
 *)
 
 let cut_and_apply c =
-  let open EConstr in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
     let sigma = Tacmach.New.project gl in
     match EConstr.kind sigma (EConstr.of_constr (Tacmach.New.pf_hnf_constr gl (EConstr.of_constr (Tacmach.New.pf_unsafe_type_of gl c)))) with
@@ -2222,7 +2204,6 @@ let keep hyps =
    this generalizes [hyps |- goal] into [hyps |- T] *)
 
 let apply_type newcl args =
-  let open EConstr in
   Proofview.Goal.enter { enter = begin fun gl ->
     let env = Proofview.Goal.env gl in
     let store = Proofview.Goal.extra gl in
@@ -2247,12 +2228,14 @@ let bring_hyps hyps =
       let env = Proofview.Goal.env gl in
       let store = Proofview.Goal.extra gl in
       let concl = Tacmach.New.pf_nf_concl gl in
+      let concl = EConstr.of_constr concl in
       let newcl = List.fold_right mkNamedProd_or_LetIn hyps concl in
-      let args = Array.of_list (Context.Named.to_instance hyps) in
+      let args = Array.map_of_list EConstr.of_constr (Context.Named.to_instance hyps) in
       Refine.refine { run = begin fun sigma ->
         let Sigma (ev, sigma, p) =
-          Evarutil.new_evar env sigma ~principal:true ~store (EConstr.of_constr newcl) in
-        Sigma (EConstr.of_constr (mkApp (ev, args)), sigma, p)
+          Evarutil.new_evar env sigma ~principal:true ~store newcl in
+        let ev = EConstr.of_constr ev in
+        Sigma (mkApp (ev, args), sigma, p)
       end }
     end }
 
@@ -2293,7 +2276,6 @@ let constructor_tac with_evars expctdnumopt i lbind =
       let Sigma (cons, sigma, p) = Sigma.fresh_constructor_instance
 	(Proofview.Goal.env gl) sigma (fst mind, i) in
       let cons = mkConstructU cons in
-      let cons = EConstr.of_constr cons in
 	
       let apply_tac = general_apply true false with_evars None (dloc,(cons,lbind)) in
       let tac =
@@ -2382,7 +2364,6 @@ let my_find_eq_data_decompose gl t =
   | Constr_matching.PatternMatchingFailure -> None
 
 let intro_decomp_eq loc l thin tac id =
-  let open EConstr in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
   let c = mkVar id in
   let t = Tacmach.New.pf_unsafe_type_of gl c in
@@ -2414,7 +2395,6 @@ let intro_or_and_pattern loc with_evars bracketed ll thin tac id =
   end }
 
 let rewrite_hyp_then assert_style with_evars thin l2r id tac =
-  let open EConstr in
   let rew_on l2r =
     Hook.get forward_general_rewrite_clause l2r with_evars (EConstr.mkVar id,NoBindings) in
   let subst_on l2r x rhs =
@@ -2643,7 +2623,6 @@ let ipat_of_name = function
   | Name id -> Some (dloc, IntroNaming (IntroIdentifier id))
 
 let head_ident sigma c =
-  let open EConstr in
    let c = fst (decompose_app sigma (snd (decompose_lam_assum sigma c))) in
    if isVar sigma c then Some (destVar sigma c) else None
 
@@ -2708,8 +2687,6 @@ let decode_hyp = function
 *)
 
 let letin_tac_gen with_eq (id,depdecls,lastlhyp,ccl,c) ty =
-  let open EConstr in
-  let open Vars in
   Proofview.Goal.s_enter { s_enter = begin fun gl ->
     let sigma = Proofview.Goal.sigma gl in
     let env = Proofview.Goal.env gl in
@@ -2772,7 +2749,6 @@ let insert_before decls lasthyp env =
 
 let mkletin_goal env sigma store with_eq dep (id,lastlhyp,ccl,c) ty =
   let open Context.Named.Declaration in
-  let open EConstr in
   let t = match ty with Some t -> t | _ -> EConstr.of_constr (typ_of env sigma c) in
   let decl = if dep then nlocal_def (id,c,t)
 	     else nlocal_assum (id,t)
@@ -2795,12 +2771,12 @@ let mkletin_goal env sigma store with_eq dep (id,lastlhyp,ccl,c) ty =
       let eq = applist (eq,args) in
       let refl = applist (refl, [t;mkVar id]) in
       let newenv = insert_before [nlocal_assum (heq,eq); decl] lastlhyp env in
-      let Sigma (x, sigma, r) = new_evar newenv sigma ~principal:true ~store (EConstr.of_constr ccl) in
+      let Sigma (x, sigma, r) = new_evar newenv sigma ~principal:true ~store ccl in
       let x = EConstr.of_constr x in
       Sigma (mkNamedLetIn id c t (mkNamedLetIn heq refl eq x), sigma, p +> q +> r)
   | None ->
       let newenv = insert_before [decl] lastlhyp env in
-      let Sigma (x, sigma, p) = new_evar newenv sigma ~principal:true ~store (EConstr.of_constr ccl) in
+      let Sigma (x, sigma, p) = new_evar newenv sigma ~principal:true ~store ccl in
       let x = EConstr.of_constr x in
       Sigma (mkNamedLetIn id c t x, sigma, p)
 
@@ -2882,11 +2858,11 @@ let generalized_name sigma c t ids cl = function
 	 (* Keep the name even if not occurring: may be used by intros later *)
 	  Name id
       | _ ->
-	  if noccurn 1 cl then Anonymous else
+	  if noccurn sigma 1 cl then Anonymous else
 	    (* On ne s'etait pas casse la tete : on avait pris pour nom de
                variable la premiere lettre du type, meme si "c" avait ete une
                constante dont on aurait pu prendre directement le nom *)
-	    named_hd (Global.env()) t Anonymous
+	    named_hd (Global.env()) (EConstr.Unsafe.to_constr t) Anonymous
 
 (* Abstract over [c] in [forall x1:A1(c)..xi:Ai(c).T(c)] producing
    [forall x, x1:A1(x1), .., xi:Ai(x). T(x)] with all [c] abtracted in [Ai]
@@ -2894,14 +2870,15 @@ let generalized_name sigma c t ids cl = function
 
 let generalize_goal_gen env sigma ids i ((occs,c,b),na) t cl =
   let open Context.Rel.Declaration in
-  let decls,cl = decompose_prod_n_assum i cl in
-  let dummy_prod = EConstr.of_constr (it_mkProd_or_LetIn mkProp decls) in
-  let newdecls,_ = decompose_prod_n_assum i (subst_term_gen sigma EConstr.eq_constr_nounivs c dummy_prod) in
-  let cl',sigma' = subst_closed_term_occ env sigma (AtOccs occs) c (EConstr.of_constr (it_mkProd_or_LetIn cl newdecls)) in
+  let decls,cl = decompose_prod_n_assum sigma i cl in
+  let dummy_prod = it_mkProd_or_LetIn mkProp decls in
+  let newdecls,_ = decompose_prod_n_assum sigma i (EConstr.of_constr (subst_term_gen sigma EConstr.eq_constr_nounivs c dummy_prod)) in
+  let cl',sigma' = subst_closed_term_occ env sigma (AtOccs occs) c (it_mkProd_or_LetIn cl newdecls) in
+  let cl' = EConstr.of_constr cl' in
   let na = generalized_name sigma c t ids cl' na in
   let decl = match b with
-    | None -> LocalAssum (na,t)
-    | Some b -> LocalDef (na,b,t)
+    | None -> local_assum (na,t)
+    | Some b -> local_def (na,b,t)
   in
   mkProd_or_LetIn decl cl', sigma'
 
@@ -2909,10 +2886,10 @@ let generalize_goal gl i ((occs,c,b),na as o) (cl,sigma) =
   let env = Tacmach.pf_env gl in
   let ids = Tacmach.pf_ids_of_hyps gl in
   let sigma, t = Typing.type_of env sigma c in
+  let t = EConstr.of_constr t in
   generalize_goal_gen env sigma ids i o t cl
 
 let old_generalize_dep ?(with_let=false) c gl =
-  let open EConstr in
   let env = pf_env gl in
   let sign = pf_hyps gl in
   let sigma = project gl in
@@ -2934,6 +2911,7 @@ let old_generalize_dep ?(with_let=false) c gl =
       | _ -> tothin
   in
   let cl' = it_mkNamedProd_or_LetIn (Tacmach.pf_concl gl) to_quantify in
+  let cl' = EConstr.of_constr cl' in
   let body =
     if with_let then
       match EConstr.kind sigma c with
@@ -2941,10 +2919,10 @@ let old_generalize_dep ?(with_let=false) c gl =
       | _ -> None
     else None
   in
+  let body = Option.map EConstr.of_constr body in
   let cl'',evd = generalize_goal gl 0 ((AllOccurrences,c,body),Anonymous)
     (cl',project gl) in
   (** Check that the generalization is indeed well-typed *)
-  let cl'' = EConstr.of_constr cl'' in
   let (evd, _) = Typing.type_of env evd cl'' in
   let args = Context.Named.to_instance to_quantify_rev in
   let args = List.map EConstr.of_constr args in
@@ -2962,9 +2940,8 @@ let generalize_gen_let lconstr = Proofview.Goal.nf_s_enter { s_enter = begin fun
   let env = Proofview.Goal.env gl in
   let newcl, evd =
     List.fold_right_i (Tacmach.New.of_old generalize_goal gl) 0 lconstr
-      (Tacmach.New.pf_concl gl,Tacmach.New.project gl)
+      (EConstr.of_constr (Tacmach.New.pf_concl gl),Tacmach.New.project gl)
   in
-  let newcl = EConstr.of_constr newcl in
   let (evd, _) = Typing.type_of env evd newcl in
   let map ((_, c, b),_) = if Option.is_empty b then Some c else None in
   let tac = apply_type newcl (List.map_filter map lconstr) in
@@ -2972,11 +2949,11 @@ let generalize_gen_let lconstr = Proofview.Goal.nf_s_enter { s_enter = begin fun
 end }
 
 let new_generalize_gen_let lconstr =
-  let open EConstr in
   Proofview.Goal.s_enter { s_enter = begin fun gl ->
     let sigma = Proofview.Goal.sigma gl in
     let gl = Proofview.Goal.assume gl in
     let concl = Proofview.Goal.concl gl in
+    let concl = EConstr.of_constr concl in
     let sigma = Sigma.to_evar_map sigma in
     let env = Proofview.Goal.env gl in
     let ids = Tacmach.New.pf_ids_of_hyps gl in
@@ -2984,6 +2961,7 @@ let new_generalize_gen_let lconstr =
       List.fold_right_i 
 	(fun i ((_,c,b),_ as o) (cl, sigma, args) ->
 	  let sigma, t = Typing.type_of env sigma c in
+	  let t = EConstr.of_constr t in
 	  let args = if Option.is_empty b then c :: args else args in
           let cl, sigma = generalize_goal_gen env sigma ids i o t cl in
           (cl, sigma, args))
@@ -2991,7 +2969,7 @@ let new_generalize_gen_let lconstr =
     in
     let tac =
 	Refine.refine { run = begin fun sigma ->
-          let Sigma (ev, sigma, p) = Evarutil.new_evar env sigma ~principal:true (EConstr.of_constr newcl) in
+          let Sigma (ev, sigma, p) = Evarutil.new_evar env sigma ~principal:true newcl in
           let ev = EConstr.of_constr ev in
           Sigma (applist (ev, args), sigma, p)
 	end }
@@ -3026,7 +3004,6 @@ let quantify lconstr =
 (* Modifying/Adding an hypothesis  *)
 
 let specialize (c,lbind) ipat =
-  let open EConstr in
   let nf_evar sigma c = EConstr.of_constr (nf_evar sigma (EConstr.Unsafe.to_constr c)) in
   Proofview.Goal.enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
@@ -3088,8 +3065,6 @@ let specialize (c,lbind) ipat =
 (* The two following functions should already exist, but found nowhere *)
 (* Unfolds x by its definition everywhere *)
 let unfold_body x =
-  let open EConstr in
-  let open Vars in
   let open Context.Named.Declaration in
   Proofview.Goal.enter { enter = begin fun gl ->
   (** We normalize the given hypothesis immediately. *)
@@ -3297,7 +3272,6 @@ let expand_projections env sigma c =
 (* Marche pas... faut prendre en compte l'occurrence précise... *)
 
 let atomize_param_of_ind_then (indref,nparams,_) hyp0 tac =
-  let open EConstr in
   Proofview.Goal.enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Tacmach.New.project gl in
@@ -3607,25 +3581,20 @@ let coq_heq_refl = lazy (EConstr.of_constr (Coqlib.coq_constant "mkHEq" ["Logic"
 
 
 let mkEq t x y =
-  let open EConstr in
   mkApp (Lazy.force coq_eq, [| t; x; y |])
 
 let mkRefl t x =
-  let open EConstr in
   mkApp (Lazy.force coq_eq_refl, [| t; x |])
 
 let mkHEq t x u y =
-  let open EConstr in
   mkApp (Lazy.force coq_heq,
 	[| t; x; u; y |])
 
 let mkHRefl t x =
-  let open EConstr in
   mkApp (Lazy.force coq_heq_refl,
 	[| t; x |])
 
 let lift_togethern n l =
-  let open EConstr.Vars in
   let l', _ =
     List.fold_right
       (fun x (acc, n) ->
@@ -3652,7 +3621,6 @@ let ids_of_constr sigma ?(all=false) vars c =
   in aux vars c
 
 let decompose_indapp sigma f args =
-  let open EConstr in
   match EConstr.kind sigma f with
   | Construct ((ind,_),_)
   | Ind (ind,_) ->
@@ -3670,8 +3638,6 @@ let mk_term_eq env sigma ty t ty' t' =
     mkHEq ty t ty' t', mkHRefl ty' t'
 
 let make_abstract_generalize env id typ concl dep ctx body c eqs args refls =
-  let open EConstr in
-  let open Vars in
   let open Context.Rel.Declaration in
   Refine.refine { run = begin fun sigma ->
   let eqslen = List.length eqs in
@@ -3745,8 +3711,6 @@ let is_defined_variable env id =
   env |> lookup_named id |> is_local_def
 
 let abstract_args gl generalize_vars dep id defined f args =
-  let open EConstr in
-  let open Vars in
   let open Context.Rel.Declaration in
   let sigma = ref (Tacmach.project gl) in
   let env = Tacmach.pf_env gl in
@@ -3840,7 +3804,6 @@ let abstract_args gl generalize_vars dep id defined f args =
 
 let abstract_generalize ?(generalize_vars=true) ?(force_dep=false) id =
   let open Context.Named.Declaration in
-  let open EConstr in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
   Coqlib.check_required_library Coqlib.jmeq_module_name;
   let sigma = Tacmach.New.project gl in
@@ -3881,7 +3844,6 @@ let abstract_generalize ?(generalize_vars=true) ?(force_dep=false) id =
   end }
 
 let compare_upto_variables sigma x y =
-  let open EConstr in
   let rec compare x y =
     if (isVar sigma x || isRel sigma x) && (isVar sigma y || isRel sigma y) then true
     else compare_constr sigma compare x y
@@ -3889,8 +3851,6 @@ let compare_upto_variables sigma x y =
   compare x y
 
 let specialize_eqs id gl =
-  let open EConstr in
-  let open Vars in
   let open Context.Rel.Declaration in
   let env = Tacmach.pf_env gl in
   let ty = Tacmach.pf_get_hyp_typ gl id in
@@ -3952,7 +3912,6 @@ let specialize_eqs id = Proofview.Goal.nf_enter { enter = begin fun gl ->
 end }
 
 let occur_rel sigma n c =
-  let open EConstr.Vars in
   let res = not (noccurn sigma n c) in
   res
 
@@ -3965,7 +3924,6 @@ let occur_rel sigma n c =
    We also return the conclusion.
 *)
 let decompose_paramspred_branch_args sigma elimt =
-  let open EConstr in
   let open Context.Rel.Declaration in
   let rec cut_noccur elimt acc2 =
     match EConstr.kind sigma elimt with
@@ -4001,7 +3959,6 @@ let decompose_paramspred_branch_args sigma elimt =
 
 
 let exchange_hd_app sigma subst_hd t =
-  let open EConstr in
   let hd,args= decompose_app sigma t in mkApp (subst_hd,Array.of_list args)
 
 (* Builds an elim_scheme from its type and calling form (const+binding). We
@@ -4021,7 +3978,6 @@ let exchange_hd_app sigma subst_hd t =
 
    - finish to fill in the elim_scheme: indarg/farg/args and finally indref. *)
 let compute_elim_sig sigma ?elimc elimt =
-  let open EConstr in
   let open Context.Rel.Declaration in
   let params_preds,branches,args_indargs,conclusion =
     decompose_paramspred_branch_args sigma elimt in
@@ -4091,7 +4047,6 @@ let compute_elim_sig sigma ?elimc elimt =
             error "Cannot find the inductive type of the inductive scheme."
 
 let compute_scheme_signature evd scheme names_info ind_type_guess =
-  let open EConstr in
   let open Context.Rel.Declaration in
   let f,l = decompose_app evd scheme.concl in
   (* Vérifier que les arguments de Qi sont bien les xi. *)
@@ -4166,7 +4121,6 @@ let compute_elim_signature (evd,(elimc,elimt),ind_type_guess) names_info =
     evd, (compute_scheme_signature evd scheme names_info ind_type_guess, scheme)
 
 let guess_elim isrec dep s hyp0 gl =
-  let open EConstr in
   let tmptyp0 =	Tacmach.New.pf_get_hyp_typ hyp0 gl in
   let tmptyp0 = EConstr.of_constr tmptyp0 in
   let mind,_ = Tacmach.New.pf_reduce_to_quantified_ind gl tmptyp0 in
@@ -4190,7 +4144,6 @@ let guess_elim isrec dep s hyp0 gl =
     evd, ((elimc, NoBindings), elimt), mkIndU mind
 
 let given_elim hyp0 (elimc,lbind as e) gl =
-  let open EConstr in
   let sigma = Tacmach.New.project gl in
   let tmptyp0 = Tacmach.New.pf_get_hyp_typ hyp0 gl in
   let tmptyp0 = EConstr.of_constr tmptyp0 in
@@ -4258,17 +4211,18 @@ let get_eliminator elim dep s gl =
    of lid are parameters (first ones), the other are
    arguments. Returns the clause obtained.  *)
 let recolle_clenv i params args elimclause gl =
-  let _,arr = destApp (EConstr.Unsafe.to_constr elimclause.templval.rebus) in
+  let _,arr = destApp elimclause.evd elimclause.templval.rebus in
   let lindmv =
     Array.map
       (fun x ->
-	match kind_of_term x with
+	match EConstr.kind elimclause.evd x with
 	  | Meta mv -> mv
 	  | _  -> user_err ~hdr:"elimination_clause"
               (str "The type of the elimination clause is not well-formed."))
       arr in
   let k = match i with -1 -> Array.length lindmv - List.length args | _ -> i in
   (* parameters correspond to first elts of lid. *)
+  let pf_get_hyp_typ id gl = EConstr.of_constr (pf_get_hyp_typ id gl) in
   let clauses_params =
     List.map_i (fun i id -> mkVar id , pf_get_hyp_typ id gl, lindmv.(i))
       0 params in
@@ -4283,8 +4237,6 @@ let recolle_clenv i params args elimclause gl =
       (* from_n (Some 0) means that x should be taken "as is" without
          trying to unify (which would lead to trying to apply it to
          evars if y is a product). *)
-      let x = EConstr.of_constr x in
-      let y = EConstr.of_constr y in
       let indclause  = Tacmach.New.of_old (fun gl -> mk_clenv_from_n gl (Some 0) (x,y)) gl in
       let elimclause' = clenv_fchain ~with_univs:false i acc indclause in
       elimclause')
@@ -4296,7 +4248,6 @@ let recolle_clenv i params args elimclause gl =
     produce new ones). Then refine with the resulting term with holes.
 *)
 let induction_tac with_evars params indvars elim =
-  let open EConstr in
   Proofview.Goal.nf_enter { enter = begin fun gl ->
   let sigma = Tacmach.New.project gl in
   let ({elimindex=i;elimbody=(elimc,lbindelimc);elimrename=rename},elimt) = elim in
@@ -4465,7 +4416,6 @@ let use_bindings env sigma elim must_be_closed (c,lbind) typ =
 let check_expected_type env sigma (elimc,bl) elimt =
   (* Compute the expected template type of the term in case a using
      clause is given *)
-  let open EConstr in
   let sign,_ = splay_prod env sigma elimt in
   let n = List.length sign in
   if n == 0 then error "Scheme cannot be applied.";
@@ -4481,7 +4431,7 @@ let check_enough_applied env sigma elim =
   | None ->
       (* No eliminator given *)
       fun u ->
-      let t,_ = decompose_app (whd_all env sigma u) in isInd t
+      let t,_ = decompose_app sigma (EConstr.of_constr (whd_all env sigma u)) in isInd sigma t
   | Some elimc ->
       let elimt = Retyping.get_type_of env sigma (fst elimc) in
       let elimt = EConstr.of_constr elimt in
@@ -4501,8 +4451,6 @@ let guard_no_unifiable = Proofview.guard_no_unifiable >>= function
 
 let pose_induction_arg_then isrec with_evars (is_arg_pure_hyp,from_prefix) elim
      id ((pending,(c0,lbind)),(eqname,names)) t0 inhyps cls tac =
-  let open EConstr in
-  let open Vars in
   Proofview.Goal.s_enter { s_enter = begin fun gl ->
   let sigma = Proofview.Goal.sigma gl in
   let env = Proofview.Goal.env gl in
@@ -4513,7 +4461,6 @@ let pose_induction_arg_then isrec with_evars (is_arg_pure_hyp,from_prefix) elim
   let abs = AbstractPattern (from_prefix,check,Name id,(pending,c),cls,false) in
   let ccl = EConstr.of_constr ccl in
   let (id,sign,_,lastlhyp,ccl,res) = make_abstraction env sigma' ccl abs in
-  let ccl = EConstr.Unsafe.to_constr ccl in
   match res with
   | None ->
       (* pattern not found *)
@@ -4571,8 +4518,6 @@ let has_generic_occurrences_but_goal cls id env sigma ccl =
 
 let induction_gen clear_flag isrec with_evars elim
     ((_pending,(c,lbind)),(eqname,names) as arg) cls =
-  let open EConstr in
-  let open Vars in
   let inhyps = match cls with
   | Some {onhyps=Some hyps} -> List.map (fun ((_,id),_) -> id) hyps
   | _ -> [] in
@@ -4620,7 +4565,6 @@ let induction_gen clear_flag isrec with_evars elim
    (mandatory for the moment), so we don't need to deal with
     parameters of the inductive type as in induction_gen. *)
 let induction_gen_l isrec with_evars elim names lc =
-  let open EConstr in
   let newlc = ref [] in
   let lc = List.map (function
     | (c,None) -> c
@@ -4851,7 +4795,6 @@ let (forward_setoid_symmetry, setoid_symmetry) = Hook.make ()
 (* This is probably not very useful any longer *)
 let prove_symmetry hdcncl eq_kind =
   let symc =
-    let open EConstr in
     match eq_kind with
     | MonomorphicLeibnizEq (c1,c2) -> mkApp(hdcncl,[|c2;c1|])
     | PolymorphicLeibnizEq (typ,c1,c2) -> mkApp(hdcncl,[|typ;c2;c1|])
@@ -4898,7 +4841,6 @@ let (forward_setoid_symmetry_in, setoid_symmetry_in) = Hook.make ()
 
 
 let symmetry_in id =
-  let open EConstr in
   Proofview.Goal.enter { enter = begin fun gl ->
   let sigma = Tacmach.New.project gl in
   let ctype = Tacmach.New.pf_unsafe_type_of gl (mkVar id) in
@@ -4906,7 +4848,6 @@ let symmetry_in id =
   let sign,t = decompose_prod_assum sigma ctype in
   Proofview.tclORELSE
     begin
-      let open EConstr in
       match_with_equation sigma t >>= fun (_,hdcncl,eq) ->
         let symccl =
           match eq with
@@ -4947,7 +4888,6 @@ let (forward_setoid_transitivity, setoid_transitivity) = Hook.make ()
 (* This is probably not very useful any longer *)
 let prove_transitivity hdcncl eq_kind t =
   Proofview.Goal.enter { enter = begin fun gl ->
-  let open EConstr in
   let (eq1,eq2) = match eq_kind with
   | MonomorphicLeibnizEq (c1,c2) ->
       mkApp (hdcncl, [| c1; t|]), mkApp (hdcncl, [| t; c2 |])
@@ -5029,6 +4969,8 @@ let rec decompose len c t accu =
   | _ -> assert false
 
 let rec shrink ctx sign c t accu =
+  let open Term in
+  let open CVars in
   match ctx, sign with
   | [], [] -> (c, t, accu)
   | p :: ctx, decl :: sign ->
@@ -5111,6 +5053,7 @@ let abstract_subproof id gk tac =
     if !shrink_abstract then shrink_entry sign const
     else (const, List.rev (Context.Named.to_instance sign))
   in
+  let args = List.map EConstr.of_constr args in
   let cd = Entries.DefinitionEntry const in
   let decl = (cd, IsProof Lemma) in
   let cst () =
@@ -5122,6 +5065,7 @@ let abstract_subproof id gk tac =
   let cst = Impargs.with_implicit_protection cst () in
   (* let evd, lem = Evd.fresh_global (Global.env ()) evd (ConstRef cst) in *)
   let lem, ctx = Universes.unsafe_constr_of_global (ConstRef cst) in
+  let lem = EConstr.of_constr lem in
   let evd = Evd.set_universe_context evd ectx in
   let open Safe_typing in
   let eff = private_con_of_con (Global.safe_env ()) cst in
@@ -5129,7 +5073,7 @@ let abstract_subproof id gk tac =
     Entries.(snd (Future.force const.const_entry_body)) in
   let solve =
     Proofview.tclEFFECTS effs <*>
-    exact_no_check (EConstr.of_constr (applist (lem, args)))
+    exact_no_check (applist (lem, args))
   in
   let tac = if not safe then Proofview.mark_as_unsafe <*> solve else solve in
   Sigma.Unsafe.of_pair (tac, evd)
