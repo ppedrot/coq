@@ -151,7 +151,6 @@ let rec add_prods_sign env sigma t =
 
 let compute_first_inversion_scheme env sigma ind sort dep_option =
   let indf,realargs = dest_ind_type ind in
-  let realargs = List.map EConstr.of_constr realargs in
   let allvars = ids_of_context env in
   let p = next_ident_away (Id.of_string "P") allvars in
   let pty,goal =
