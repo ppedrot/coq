@@ -45,7 +45,7 @@ val liftn_inductive_type : int -> int -> inductive_type -> inductive_type
 val lift_inductive_type  : int -> inductive_type -> inductive_type
 val substnl_ind_type : constr list -> int -> inductive_type -> inductive_type
 
-val mkAppliedInd : inductive_type -> constr
+val mkAppliedInd : inductive_type -> EConstr.constr
 val mis_is_recursive_subset : int list -> wf_paths -> bool
 val mis_is_recursive :
   inductive * mutual_inductive_body * one_inductive_body -> bool

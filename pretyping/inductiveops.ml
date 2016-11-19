@@ -72,7 +72,8 @@ let lift_inductive_type n = liftn_inductive_type n 1
 let substnl_ind_type l n = map_inductive_type (substnl l n)
 
 let mkAppliedInd (IndType ((ind,params), realargs)) =
-  applist (mkIndU ind,params@realargs)
+  let open EConstr in
+  applist (mkIndU ind,List.map EConstr.of_constr (params@realargs))
 
 (* Does not consider imbricated or mutually recursive types *)
 let mis_is_recursive_subset listind rarg =
