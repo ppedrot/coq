@@ -46,10 +46,12 @@ type debug = Debug | Info | Off
 exception Bound
 
 let head_constr_bound sigma t =
+  let open EConstr in
   let t = strip_outer_cast sigma (EConstr.of_constr t) in
-  let _,ccl = decompose_prod_assum t in
-  let hd,args = decompose_app ccl in
-  match kind_of_term hd with
+  let t = EConstr.of_constr t in
+  let _,ccl = decompose_prod_assum sigma t in
+  let hd,args = decompose_app sigma ccl in
+  match EConstr.kind sigma hd with
     | Const _ | Ind _ | Construct _ | Var _ -> hd
     | Proj (p, _) -> mkConst (Projection.constant p)
     | _ -> raise Bound
@@ -58,9 +60,11 @@ let head_constr sigma c =
   try head_constr_bound sigma c with Bound -> error "Bound head variable."
 
 let decompose_app_bound sigma t =
+  let open EConstr in
   let t = strip_outer_cast sigma (EConstr.of_constr t) in
-  let _,ccl = decompose_prod_assum t in
-  let hd,args = decompose_app_vect sigma (EConstr.of_constr ccl) in
+  let t = EConstr.of_constr t in
+  let _,ccl = decompose_prod_assum sigma t in
+  let hd,args = decompose_app_vect sigma ccl in
   match kind_of_term hd with
     | Const (c,u) -> ConstRef c, args
     | Ind (i,u) -> IndRef i, args
@@ -256,10 +260,11 @@ let is_transparent_gr (ids, csts) = function
   | ConstRef cst -> Cpred.mem cst csts
   | IndRef _ | ConstructRef _ -> false
 
-let strip_params env c = 
-  match kind_of_term c with
+let strip_params env sigma c = 
+  let open EConstr in
+  match EConstr.kind sigma c with
   | App (f, args) -> 
-    (match kind_of_term f with
+    (match EConstr.kind sigma f with
     | Const (p,_) ->
       let cb = lookup_constant p env in
 	(match cb.Declarations.const_proj with
@@ -280,7 +285,7 @@ let instantiate_hint env sigma p =
     let cty = EConstr.of_constr cty in
     let cl = mk_clenv_from_env env sigma None (c,cty) in 
       {cl with templval = 
-	  { cl.templval with rebus = EConstr.of_constr (strip_params env (EConstr.Unsafe.to_constr cl.templval.rebus)) };
+	  { cl.templval with rebus = strip_params env sigma cl.templval.rebus };
 	env = empty_env}
   in
   let code = match p.code.obj with
@@ -913,7 +918,7 @@ let make_trivial env sigma poly ?(name=PathAny) r =
   let c,ctx = fresh_global_or_constr env sigma poly r in
   let sigma = Evd.merge_context_set univ_flexible sigma ctx in
   let t = hnf_constr env sigma (EConstr.of_constr (unsafe_type_of env sigma (EConstr.of_constr c))) in
-  let hd = head_of_constr_reference sigma (EConstr.of_constr (head_constr sigma t)) in
+  let hd = head_of_constr_reference sigma (head_constr sigma t) in
   let ce = mk_clenv_from_env env sigma None (EConstr.of_constr c,EConstr.of_constr t) in
   (Some hd, { pri=1;
 	      poly = poly;
@@ -1015,7 +1020,7 @@ let subst_autohint (subst, obj) =
   let subst_key gr =
     let (lab'', elab') = subst_global subst gr in
     let gr' =
-      (try head_of_constr_reference Evd.empty (EConstr.of_constr (head_constr_bound Evd.empty (** FIXME *) elab'))
+      (try head_of_constr_reference Evd.empty (head_constr_bound Evd.empty (** FIXME *) elab')
        with Bound -> lab'')
     in if gr' == gr then gr else gr'
   in
