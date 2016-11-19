@@ -64,11 +64,13 @@ let head_constr sigma c =
 
 let decompose_app_bound sigma t =
   let open EConstr in
-  let t = strip_outer_cast sigma (EConstr.of_constr t) in
+  let t = strip_outer_cast sigma t in
   let t = EConstr.of_constr t in
   let _,ccl = decompose_prod_assum sigma t in
   let hd,args = decompose_app_vect sigma ccl in
-  match kind_of_term hd with
+  let hd = EConstr.of_constr hd in
+  let args = Array.map EConstr.of_constr args in
+  match EConstr.kind sigma hd with
     | Const (c,u) -> ConstRef c, args
     | Ind (i,u) -> IndRef i, args
     | Construct (c,u) -> ConstructRef c, args
@@ -252,6 +254,7 @@ let rebuild_dn st se =
   { se with sentry_bnet = dn' }
 
 let lookup_tacs concl st se =
+  let concl = EConstr.Unsafe.to_constr concl in
   let l'  = Bounded_net.lookup st se.sentry_bnet concl in
   let sl' = List.stable_sort pri_order_int l' in
   List.merge pri_order_int se.sentry_nopat sl'
@@ -452,11 +455,11 @@ val find : global_reference -> t -> search_entry
 val map_none : secvars:Id.Pred.t -> t -> full_hint list
 val map_all : secvars:Id.Pred.t -> global_reference -> t -> full_hint list
 val map_existential : evar_map -> secvars:Id.Pred.t ->
-		      (global_reference * constr array) -> constr -> t -> full_hint list
+		      (global_reference * EConstr.constr array) -> EConstr.constr -> t -> full_hint list
 val map_eauto : evar_map -> secvars:Id.Pred.t ->
-		(global_reference * constr array) -> constr -> t -> full_hint list
+		(global_reference * EConstr.constr array) -> EConstr.constr -> t -> full_hint list
 val map_auto : evar_map -> secvars:Id.Pred.t ->
-	       (global_reference * constr array) -> constr -> t -> full_hint list
+	       (global_reference * EConstr.constr array) -> EConstr.constr -> t -> full_hint list
 val add_one : env -> evar_map -> hint_entry -> t -> t
 val add_list : env -> evar_map -> hint_entry list -> t -> t
 val remove_one : global_reference -> t -> t
@@ -511,21 +514,21 @@ struct
       (** Warn about no longer typable hint? *)
       None
 
-  let match_mode m arg =
+  let match_mode sigma m arg =
     match m with
-    | ModeInput -> not (occur_existential Evd.empty (EConstr.of_constr arg)) (** FIXME *)
+    | ModeInput -> not (occur_existential sigma arg)
     | ModeNoHeadEvar ->
-       Evarutil.(try ignore(head_evar arg); false
+       Evarutil.(try ignore(head_evar sigma arg); false
                  with NoHeadEvar -> true)
     | ModeOutput -> true
                                
-  let matches_mode args mode =
+  let matches_mode sigma args mode =
     Array.length mode == Array.length args &&
-      Array.for_all2 match_mode mode args
+      Array.for_all2 (match_mode sigma) mode args
       
-  let matches_modes args modes =
+  let matches_modes sigma args modes =
     if List.is_empty modes then true
-    else List.exists (matches_mode args) modes
+    else List.exists (matches_mode sigma args) modes
 
   let merge_entry secvars db nopat pat =
     let h = List.sort pri_order_int (List.map snd db.hintdb_nopat) in
@@ -549,14 +552,14 @@ struct
 
   let map_existential sigma ~secvars (k,args) concl db =
     let se = find k db in
-      if matches_modes args se.sentry_mode then
+      if matches_modes sigma args se.sentry_mode then
         merge_entry secvars db se.sentry_nopat se.sentry_pat
       else merge_entry secvars db [] []
 
   (* [c] contains an existential *)
   let map_eauto sigma ~secvars (k,args) concl db =
     let se = find k db in
-      if matches_modes args se.sentry_mode then
+      if matches_modes sigma args se.sentry_mode then
         let st = if db.use_dn then Some db.hintdb_state else None in
         let pat = lookup_tacs concl st se in
         merge_entry secvars db [] pat
@@ -1417,7 +1420,7 @@ let pr_hint_term sigma cl =
     let valid_dbs =
       let fn = try
 	  let hdc = decompose_app_bound sigma cl in
-	    if occur_existential sigma (EConstr.of_constr cl) then
+	    if occur_existential sigma cl then
 	      Hint_db.map_existential sigma ~secvars:Id.Pred.full hdc cl
 	    else Hint_db.map_auto sigma ~secvars:Id.Pred.full hdc cl
 	with Bound -> Hint_db.map_none ~secvars:Id.Pred.full
@@ -1440,7 +1443,7 @@ let pr_applicable_hint () =
   match glss.Evd.it with
   | [] -> CErrors.error "No focused goal."
   | g::_ ->
-    pr_hint_term glss.Evd.sigma (EConstr.Unsafe.to_constr (Goal.V82.concl glss.Evd.sigma g))
+    pr_hint_term glss.Evd.sigma (Goal.V82.concl glss.Evd.sigma g)
 
 let pp_hint_mode = function
   | ModeInput -> str"+"

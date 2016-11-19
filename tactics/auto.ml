@@ -140,7 +140,7 @@ let conclPattern concl pat tac =
     | None -> Proofview.tclUNIT Id.Map.empty
     | Some pat ->
 	try
-	  Proofview.tclUNIT (Constr_matching.matches env sigma pat (EConstr.of_constr concl))
+	  Proofview.tclUNIT (Constr_matching.matches env sigma pat concl)
 	with Constr_matching.PatternMatchingFailure ->
           Tacticals.New.tclZEROMSG (str "conclPattern")
   in
@@ -303,7 +303,7 @@ let hintmap_of sigma secvars hdc concl =
   match hdc with
   | None -> Hint_db.map_none ~secvars
   | Some hdc ->
-     if occur_existential sigma (EConstr.of_constr concl) then
+     if occur_existential sigma concl then
        Hint_db.map_existential sigma ~secvars hdc concl
      else Hint_db.map_auto sigma ~secvars hdc concl
 
@@ -330,6 +330,7 @@ let rec trivial_fail_db dbg mod_delta db_list local_db =
   in
   Proofview.Goal.enter { enter = begin fun gl ->
     let concl = Tacmach.New.pf_nf_concl gl in
+    let concl = EConstr.of_constr concl in
     let sigma = Tacmach.New.project gl in
     let secvars = compute_secvars gl in
     Tacticals.New.tclFIRST
@@ -348,7 +349,7 @@ and my_find_search mod_delta =
 
 and my_find_search_delta sigma db_list local_db secvars hdc concl =
   let f = hintmap_of sigma secvars hdc concl in
-    if occur_existential sigma (EConstr.of_constr concl) then
+    if occur_existential sigma concl then
       List.map_append
 	(fun db ->
 	  if Hint_db.use_dn db then
@@ -490,6 +491,7 @@ let search d n mod_delta db_list local_db =
 	  (Tacticals.New.tclORELSE0 (intro_register d (search d n) local_db)
 	     ( Proofview.Goal.enter { enter = begin fun gl ->
                let concl = Tacmach.New.pf_nf_concl gl in
+               let concl = EConstr.of_constr concl in
                let sigma = Tacmach.New.project gl in
                let secvars = compute_secvars gl in
 	       let d' = incr_dbg d in

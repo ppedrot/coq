@@ -126,7 +126,7 @@ let hintmap_of sigma secvars hdc concl =
   match hdc with
   | None -> fun db -> Hint_db.map_none ~secvars db
   | Some hdc ->
-     if occur_existential sigma (EConstr.of_constr concl) then
+     if occur_existential sigma concl then
        (fun db -> Hint_db.map_existential sigma ~secvars hdc concl db)
      else (fun db -> Hint_db.map_auto sigma ~secvars hdc concl db)
    (* FIXME: should be (Hint_db.map_eauto hdc concl db) *)
@@ -150,7 +150,7 @@ let rec e_trivial_fail_db db_list local_db =
   let tacl =
     registered_e_assumption ::
     (Tacticals.New.tclTHEN Tactics.intro next) ::
-    (List.map fst (e_trivial_resolve (Tacmach.New.project gl) db_list local_db secvars (Tacmach.New.pf_nf_concl gl)))
+    (List.map fst (e_trivial_resolve (Tacmach.New.project gl) db_list local_db secvars (EConstr.of_constr (Tacmach.New.pf_nf_concl gl))))
   in
   Tacticals.New.tclFIRST (List.map Tacticals.New.tclCOMPLETE tacl)
   end }
@@ -291,6 +291,7 @@ module SearchProblem = struct
       let rec_tacs =
 	let l =
           let concl = Reductionops.nf_evar (project g)(pf_concl g) in
+          let concl = EConstr.of_constr concl in
 	  filter_tactics s.tacres
                          (e_possible_resolve (project g) s.dblist (List.hd s.localdb) secvars concl)
 	in
