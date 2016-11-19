@@ -41,7 +41,7 @@ type 'a hint_ast =
   | Extern     of Genarg.glob_generic_argument       (* Hint Extern *)
 
 type hint
-type raw_hint = constr * types * Univ.universe_context_set
+type raw_hint = EConstr.constr * EConstr.types * Univ.universe_context_set
 
 type hints_path_atom = 
   | PathHints of global_reference list
@@ -177,7 +177,7 @@ val prepare_hint : bool (* Check no remaining evars *) ->
    [ctyp] is the type of [c].
    [ctx] is its (refreshable) universe context. *)
 val make_exact_entry : env -> evar_map -> int option -> polymorphic -> ?name:hints_path_atom -> 
-  (constr * types * Univ.universe_context_set) -> hint_entry
+  (EConstr.constr * EConstr.types * Univ.universe_context_set) -> hint_entry
 
 (** [make_apply_entry (eapply,hnf,verbose) pri (c,cty,ctx,secvars)].
    [eapply] is true if this hint will be used only with EApply;
@@ -189,7 +189,7 @@ val make_exact_entry : env -> evar_map -> int option -> polymorphic -> ?name:hin
 
 val make_apply_entry :
   env -> evar_map -> bool * bool * bool -> int option -> polymorphic -> ?name:hints_path_atom -> 
-  (constr * types * Univ.universe_context_set) -> hint_entry
+  (EConstr.constr * EConstr.types * Univ.universe_context_set) -> hint_entry
 
 (** A constr which is Hint'ed will be:
    - (1) used as an Exact, if it does not start with a product

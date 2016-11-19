@@ -47,14 +47,17 @@ exception Bound
 
 let head_constr_bound sigma t =
   let open EConstr in
-  let t = strip_outer_cast sigma (EConstr.of_constr t) in
+  let t = strip_outer_cast sigma t in
   let t = EConstr.of_constr t in
   let _,ccl = decompose_prod_assum sigma t in
   let hd,args = decompose_app sigma ccl in
   match EConstr.kind sigma hd with
-    | Const _ | Ind _ | Construct _ | Var _ -> hd
-    | Proj (p, _) -> mkConst (Projection.constant p)
-    | _ -> raise Bound
+  | Const (c, _) -> ConstRef c
+  | Ind (i, _) -> IndRef i
+  | Construct (c, _) -> ConstructRef c
+  | Var id -> VarRef id
+  | Proj (p, _) -> ConstRef (Projection.constant p)
+  | _ -> raise Bound
 
 let head_constr sigma c =
   try head_constr_bound sigma c with Bound -> error "Bound head variable."
@@ -125,7 +128,7 @@ type 'a with_uid = {
   uid : KerName.t;
 }
 
-type raw_hint = constr * types * Univ.universe_context_set
+type raw_hint = EConstr.constr * EConstr.types * Univ.universe_context_set
 
 type hint = (raw_hint * clausenv) hint_ast with_uid
 
@@ -281,8 +284,6 @@ let strip_params env sigma c =
 let instantiate_hint env sigma p =
   let mk_clenv (c, cty, ctx) =
     let sigma = Evd.merge_context_set univ_flexible sigma ctx in
-    let c = EConstr.of_constr c in
-    let cty = EConstr.of_constr cty in
     let cl = mk_clenv_from_env env sigma None (c,cty) in 
       {cl with templval = 
 	  { cl.templval with rebus = strip_params env sigma cl.templval.rebus };
@@ -723,8 +724,8 @@ let _ = Summary.declare_summary "search"
 (*             Auxiliary functions to prepare AUTOHINT objects            *)
 (**************************************************************************)
 
-let rec nb_hyp c = match kind_of_term c with
-  | Prod(_,_,c2) -> if noccurn 1 c2 then 1+(nb_hyp c2) else nb_hyp c2
+let rec nb_hyp sigma c = match EConstr.kind sigma c with
+  | Prod(_,_,c2) -> if EConstr.Vars.noccurn sigma 1 c2 then 1+(nb_hyp sigma c2) else nb_hyp sigma c2
   | _ -> 0
 
 (* adding and removing tactics in the search table *)
@@ -741,19 +742,20 @@ let secvars_of_idset s =
         Id.Pred.add id p
       else p) s Id.Pred.empty
 
-let secvars_of_constr env c =
-  secvars_of_idset (Environ.global_vars_set env c)
+let secvars_of_constr env sigma c =
+  secvars_of_idset (Termops.global_vars_set env sigma c)
 
 let secvars_of_global env gr =
   secvars_of_idset (vars_of_global_reference env gr)
 
 let make_exact_entry env sigma pri poly ?(name=PathAny) (c, cty, ctx) =
-  let secvars = secvars_of_constr env c in
-  let cty = strip_outer_cast sigma (EConstr.of_constr cty) in
-    match kind_of_term cty with
+  let secvars = secvars_of_constr env sigma c in
+  let cty = strip_outer_cast sigma cty in
+  let cty = EConstr.of_constr cty in
+    match EConstr.kind sigma cty with
     | Prod _ -> failwith "make_exact_entry"
     | _ ->
-	let pat = Patternops.pattern_of_constr env sigma (EConstr.of_constr cty) in
+	let pat = Patternops.pattern_of_constr env sigma cty in
 	let hd =
 	  try head_pattern_bound pat
 	  with BoundPattern -> failwith "make_exact_entry"
@@ -768,21 +770,22 @@ let make_exact_entry env sigma pri poly ?(name=PathAny) (c, cty, ctx) =
 	    code = with_uid (Give_exact (c, cty, ctx)); })
 
 let make_apply_entry env sigma (eapply,hnf,verbose) pri poly ?(name=PathAny) (c, cty, ctx) =
-  let cty = if hnf then hnf_constr env sigma (EConstr.of_constr cty) else cty in
-    match kind_of_term cty with
+  let open EConstr in
+  let cty = if hnf then EConstr.of_constr (hnf_constr env sigma cty) else cty in
+    match EConstr.kind sigma cty with
     | Prod _ ->
         let sigma' = Evd.merge_context_set univ_flexible sigma ctx in
-        let ce = mk_clenv_from_env env sigma' None (EConstr.of_constr c,EConstr.of_constr cty) in
+        let ce = mk_clenv_from_env env sigma' None (c,cty) in
 	let c' = clenv_type (* ~reduce:false *) ce in
 	let pat = Patternops.pattern_of_constr env ce.evd c' in
         let hd =
 	  try head_pattern_bound pat
           with BoundPattern -> failwith "make_apply_entry" in
         let nmiss = List.length (clenv_missing ce) in
-        let secvars = secvars_of_constr env c in
+        let secvars = secvars_of_constr env sigma c in
 	if Int.equal nmiss 0 then
 	  (Some hd,
-          { pri = (match pri with None -> nb_hyp cty | Some p -> p);
+          { pri = (match pri with None -> nb_hyp sigma' cty | Some p -> p);
 	    poly = poly;
             pat = Some pat;
 	    name = name;
@@ -792,10 +795,10 @@ let make_apply_entry env sigma (eapply,hnf,verbose) pri poly ?(name=PathAny) (c,
 	else begin
 	  if not eapply then failwith "make_apply_entry";
           if verbose then
-	    Feedback.msg_info (str "the hint: eapply " ++ pr_lconstr c ++
+	    Feedback.msg_info (str "the hint: eapply " ++ pr_lconstr (EConstr.Unsafe.to_constr c) ++
 	    str " will only be used by eauto");
           (Some hd,
-           { pri = (match pri with None -> nb_hyp cty + nmiss | Some p -> p);
+           { pri = (match pri with None -> nb_hyp sigma' cty + nmiss | Some p -> p);
 	     poly = poly;
              pat = Some pat;
 	     name = name;
@@ -853,7 +856,9 @@ let fresh_global_or_constr env sigma poly cr =
 
 let make_resolves env sigma flags pri poly ?name cr =
   let c, ctx = fresh_global_or_constr env sigma poly cr in
-  let cty = Retyping.get_type_of env sigma (EConstr.of_constr c) in
+  let c = EConstr.of_constr c in
+  let cty = Retyping.get_type_of env sigma c in
+  let cty = EConstr.of_constr cty in
   let try_apply f =
     try Some (f (c, cty, ctx)) with Failure _ -> None in
   let ents = List.map_filter try_apply
@@ -862,19 +867,20 @@ let make_resolves env sigma flags pri poly ?name cr =
   in
   if List.is_empty ents then
     user_err ~hdr:"Hint"
-      (pr_lconstr c ++ spc() ++
+      (pr_lconstr (EConstr.Unsafe.to_constr c) ++ spc() ++
         (if pi1 flags then str"cannot be used as a hint."
 	else str "can be used as a hint only for eauto."));
   ents
 
 (* used to add an hypothesis to the local hint database *)
 let make_resolve_hyp env sigma decl =
+  let open EConstr in
   let hname = NamedDecl.get_id decl in
   let c = mkVar hname in
   try
     [make_apply_entry env sigma (true, true, false) None false
        ~name:(PathHints [VarRef hname])
-       (c, NamedDecl.get_type decl, Univ.ContextSet.empty)]
+       (c, EConstr.of_constr (NamedDecl.get_type decl), Univ.ContextSet.empty)]
   with
     | Failure _ -> []
     | e when Logic.catchable_exception e -> anomaly (Pp.str "make_resolve_hyp")
@@ -916,16 +922,18 @@ let make_mode ref m =
       
 let make_trivial env sigma poly ?(name=PathAny) r =
   let c,ctx = fresh_global_or_constr env sigma poly r in
+  let c = EConstr.of_constr c in
   let sigma = Evd.merge_context_set univ_flexible sigma ctx in
-  let t = hnf_constr env sigma (EConstr.of_constr (unsafe_type_of env sigma (EConstr.of_constr c))) in
-  let hd = head_of_constr_reference sigma (head_constr sigma t) in
-  let ce = mk_clenv_from_env env sigma None (EConstr.of_constr c,EConstr.of_constr t) in
+  let t = hnf_constr env sigma (EConstr.of_constr (unsafe_type_of env sigma c)) in
+  let t = EConstr.of_constr t in
+  let hd = head_constr sigma t in
+  let ce = mk_clenv_from_env env sigma None (c,t) in
   (Some hd, { pri=1;
 	      poly = poly;
               pat = Some (Patternops.pattern_of_constr env ce.evd (clenv_type ce));
 	      name = name;
               db = None;
-              secvars = secvars_of_constr env c;
+              secvars = secvars_of_constr env sigma c;
               code= with_uid (Res_pf_THEN_trivial_fail(c,t,ctx)) })
 
 
@@ -1019,14 +1027,16 @@ let cache_autohint (kn, obj) =
 let subst_autohint (subst, obj) =
   let subst_key gr =
     let (lab'', elab') = subst_global subst gr in
+    let elab' = EConstr.of_constr elab' in
     let gr' =
-      (try head_of_constr_reference Evd.empty (head_constr_bound Evd.empty (** FIXME *) elab')
+      (try head_constr_bound Evd.empty elab'
        with Bound -> lab'')
     in if gr' == gr then gr else gr'
   in
   let subst_hint (k,data as hint) =
     let k' = Option.smartmap subst_key k in
     let pat' = Option.smartmap (subst_pattern subst) data.pat in
+    let subst_mps subst c = EConstr.of_constr (subst_mps subst (EConstr.Unsafe.to_constr c)) in
     let code' = match data.code.obj with
       | Res_pf (c,t,ctx) ->
           let c' = subst_mps subst c in
@@ -1353,7 +1363,7 @@ let make_db_list dbnames =
 (*                    Functions for printing the hints                    *)
 (**************************************************************************)
 
-let pr_hint_elt (c, _, _) = pr_constr c
+let pr_hint_elt (c, _, _) = pr_constr (EConstr.Unsafe.to_constr c)
 
 let pr_hint h = match h.obj with
   | Res_pf (c, _) -> (str"simple apply " ++ pr_hint_elt c)

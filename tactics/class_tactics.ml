@@ -217,6 +217,7 @@ let auto_unif_flags freeze st =
 }
 
 let e_give_exact flags poly (c,clenv) gl =
+  let open EConstr in
   let (c, _, _) = c in
   let c, gl =
     if poly then
@@ -226,7 +227,6 @@ let e_give_exact flags poly (c,clenv) gl =
         c, {gl with sigma = evd}
     else c, gl
   in
-  let c = EConstr.of_constr c in
   let t1 = pf_unsafe_type_of gl c in
   let t1 = EConstr.of_constr t1 in
   Proofview.V82.of_tactic (Clenvtac.unify ~flags t1 <*> exact_no_check c) gl
@@ -245,6 +245,7 @@ let unify_resolve poly flags = { enter = begin fun gls (c,_,clenv) ->
 
 (** Application of a lemma using [refine] instead of the old [w_unify] *)
 let unify_resolve_refine poly flags =
+  let open EConstr in
   let open Clenv in
   { enter = begin fun gls ((c, t, ctx),n,clenv) ->
     let env = Proofview.Goal.env gls in
@@ -262,9 +263,6 @@ let unify_resolve_refine poly flags =
           let sigma = Evd.merge_context_set Evd.univ_flexible sigma ctx in
           sigma, c, t
       in
-      let open EConstr in
-      let ty = EConstr.of_constr ty in
-      let term = EConstr.of_constr term in
       let sigma', cl = Clenv.make_evar_clause env sigma ?len:n ty in
       let term = applist (term, List.map (fun x -> x.hole_evar) cl.cl_holes) in
       let sigma' =
@@ -285,7 +283,6 @@ let clenv_of_prods poly nprods (c, clenv) gl =
   let (c, _, _) = c in
   if poly || Int.equal nprods 0 then Some (None, clenv)
   else
-    let c = EConstr.of_constr c in
     let sigma = Tacmach.New.project gl in
     let ty = Retyping.get_type_of (Proofview.Goal.env gl) sigma c in
     let ty = EConstr.of_constr ty in
@@ -542,9 +539,10 @@ let make_resolve_hyp env sigma st flags only_classes pri decl =
                else false
   in
   let is_class = iscl env cty in
+  let cty = EConstr.of_constr cty in
   let keep = not only_classes || is_class in
     if keep then
-      let c = mkVar id in
+      let c = EConstr.mkVar id in
       let name = PathHints [VarRef id] in
       let hints =
         if is_class then
@@ -1523,8 +1521,9 @@ let is_ground c gl =
 let autoapply c i gl =
   let flags = auto_unif_flags Evar.Set.empty
     (Hints.Hint_db.transparent_state (Hints.searchtable_map i)) in
-  let cty = pf_unsafe_type_of gl (EConstr.of_constr c) in
-  let ce = mk_clenv_from gl (EConstr.of_constr c,EConstr.of_constr cty) in
+  let cty = pf_unsafe_type_of gl c in
+  let cty = EConstr.of_constr cty in
+  let ce = mk_clenv_from gl (c,cty) in
   let tac = { enter = fun gl -> (unify_e_resolve false flags).enter gl
     ((c,cty,Univ.ContextSet.empty),0,ce) } in
   Proofview.V82.of_tactic (Proofview.Goal.nf_enter tac) gl

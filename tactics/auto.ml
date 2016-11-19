@@ -93,7 +93,7 @@ let connect_hint_clenv poly (c, _, ctx) clenv gl =
         evd = Evd.map_metas map evd;
         env = Proofview.Goal.env gl;
       } in
-      clenv, map c
+      clenv, emap c
     else
       let evd = Evd.merge_context_set Evd.univ_flexible evd ctx in
       { clenv with evd = evd ; env = Proofview.Goal.env gl }, c
@@ -115,7 +115,6 @@ let unify_resolve_gen poly = function
 let exact poly (c,clenv) =
   Proofview.Goal.enter { enter = begin fun gl ->
     let clenv', c = connect_hint_clenv poly c clenv gl in
-    let c = EConstr.of_constr c in
     Tacticals.New.tclTHEN
     (Proofview.Unsafe.tclEVARUNIVCONTEXT (Evd.evar_universe_context clenv'.evd))
     (exact_check c)

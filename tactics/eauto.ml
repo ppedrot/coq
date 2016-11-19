@@ -29,7 +29,6 @@ open Proofview.Notations
 let eauto_unif_flags = auto_flags_of_state full_transparent_state
 
 let e_give_exact ?(flags=eauto_unif_flags) c =
-  let c = EConstr.of_constr c in
   Proofview.Goal.enter { enter = begin fun gl ->
   let t1 = Tacmach.New.pf_unsafe_type_of gl c in
   let t1 = EConstr.of_constr t1 in
@@ -40,7 +39,7 @@ let e_give_exact ?(flags=eauto_unif_flags) c =
   else exact_check c
   end }
 
-let assumption id = e_give_exact (mkVar id)
+let assumption id = e_give_exact (EConstr.mkVar id)
 
 let e_assumption =
   Proofview.Goal.enter { enter = begin fun gl ->
@@ -49,7 +48,7 @@ let e_assumption =
 
 let registered_e_assumption =
   Proofview.Goal.enter { enter = begin fun gl ->
-  Tacticals.New.tclFIRST (List.map (fun id -> e_give_exact (mkVar id))
+  Tacticals.New.tclFIRST (List.map (fun id -> e_give_exact (EConstr.mkVar id))
               (Tacmach.New.pf_ids_of_hyps gl))
   end }
 
@@ -116,7 +115,6 @@ let priority l = List.map snd (List.filter (fun (pr,_) -> Int.equal pr 0) l)
 let unify_e_resolve poly flags (c,clenv) =
   Proofview.Goal.nf_enter { enter = begin fun gl ->
       let clenv', c = connect_hint_clenv poly c clenv gl in
-      let c = EConstr.of_constr c in
       Proofview.V82.tactic
 	(fun gls ->
 	 let clenv' = clenv_unique_resolver ~flags clenv' gls in
@@ -265,7 +263,7 @@ module SearchProblem = struct
       let g = find_first_goal lg in
       let hyps = pf_ids_of_hyps g in
       let secvars = secvars_of_hyps (pf_hyps g) in
-      let map_assum id = (e_give_exact (mkVar id), (-1), lazy (str "exact" ++ spc () ++ pr_id id)) in
+      let map_assum id = (e_give_exact (EConstr.mkVar id), (-1), lazy (str "exact" ++ spc () ++ pr_id id)) in
       let assumption_tacs =
         let tacs = List.map map_assum hyps in
         let l = filter_tactics s.tacres tacs in
