@@ -10,6 +10,7 @@ open Pp
 open Util
 open Names
 open Term
+open EConstr
 open Environ
 open Globnames
 open Decl_kinds
@@ -24,7 +25,7 @@ open Vernacexpr
 
 exception Bound
 
-val decompose_app_bound : evar_map -> EConstr.constr -> global_reference * EConstr.constr array
+val decompose_app_bound : evar_map -> constr -> global_reference * constr array
 
 type debug = Debug | Info | Off
 
@@ -41,7 +42,7 @@ type 'a hint_ast =
   | Extern     of Genarg.glob_generic_argument       (* Hint Extern *)
 
 type hint
-type raw_hint = EConstr.constr * EConstr.types * Univ.universe_context_set
+type raw_hint = constr * types * Univ.universe_context_set
 
 type hints_path_atom = 
   | PathHints of global_reference list
@@ -100,16 +101,16 @@ module Hint_db :
     (** All hints associated to the reference, respecting modes if evars appear in the 
 	arguments, _not_ using the discrimination net. *)
     val map_existential : evar_map -> secvars:Id.Pred.t ->
-      (global_reference * EConstr.constr array) -> EConstr.constr -> t -> full_hint list
+      (global_reference * constr array) -> constr -> t -> full_hint list
 
     (** All hints associated to the reference, respecting modes if evars appear in the 
 	arguments and using the discrimination net. *)
-    val map_eauto : evar_map -> secvars:Id.Pred.t -> (global_reference * EConstr.constr array) -> EConstr.constr -> t -> full_hint list
+    val map_eauto : evar_map -> secvars:Id.Pred.t -> (global_reference * constr array) -> constr -> t -> full_hint list
 
     (** All hints associated to the reference, respecting modes if evars appear in the 
 	arguments. *)
     val map_auto : evar_map -> secvars:Id.Pred.t ->
-       (global_reference * EConstr.constr array) -> EConstr.constr -> t -> full_hint list
+       (global_reference * constr array) -> constr -> t -> full_hint list
 
     val add_one : env -> evar_map -> hint_entry -> t -> t
     val add_list : env -> evar_map -> hint_entry list -> t -> t
@@ -170,14 +171,14 @@ val add_hints : locality_flag -> hint_db_name list -> hints_entry -> unit
 
 val prepare_hint : bool (* Check no remaining evars *) ->
   (bool * bool) (* polymorphic or monomorphic, local or global *) ->
-  env -> evar_map -> open_constr -> hint_term
+  env -> evar_map -> evar_map * constr -> hint_term
 
 (** [make_exact_entry pri (c, ctyp, ctx, secvars)].
    [c] is the term given as an exact proof to solve the goal;
    [ctyp] is the type of [c].
    [ctx] is its (refreshable) universe context. *)
 val make_exact_entry : env -> evar_map -> int option -> polymorphic -> ?name:hints_path_atom -> 
-  (EConstr.constr * EConstr.types * Univ.universe_context_set) -> hint_entry
+  (constr * types * Univ.universe_context_set) -> hint_entry
 
 (** [make_apply_entry (eapply,hnf,verbose) pri (c,cty,ctx,secvars)].
    [eapply] is true if this hint will be used only with EApply;
@@ -189,7 +190,7 @@ val make_exact_entry : env -> evar_map -> int option -> polymorphic -> ?name:hin
 
 val make_apply_entry :
   env -> evar_map -> bool * bool * bool -> int option -> polymorphic -> ?name:hints_path_atom -> 
-  (EConstr.constr * EConstr.types * Univ.universe_context_set) -> hint_entry
+  (constr * types * Univ.universe_context_set) -> hint_entry
 
 (** A constr which is Hint'ed will be:
    - (1) used as an Exact, if it does not start with a product

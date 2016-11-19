@@ -550,7 +550,7 @@ let make_resolve_hyp env sigma st flags only_classes pri decl =
             (List.map_append
                (fun (path,pri, c) -> make_resolves env sigma ~name:(PathHints path)
                   (true,false,Flags.is_verbose()) pri false
-                 (IsConstr (c,Univ.ContextSet.empty)))
+                 (IsConstr (EConstr.of_constr c,Univ.ContextSet.empty)))
                hints)
         else []
       in

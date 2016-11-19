@@ -88,15 +88,14 @@ let rec prolog l n gl =
 
 let out_term = function
   | IsConstr (c, _) -> c
-  | IsGlobRef gr -> fst (Universes.fresh_global_instance (Global.env ()) gr)
+  | IsGlobRef gr -> EConstr.of_constr (fst (Universes.fresh_global_instance (Global.env ()) gr))
 
 let prolog_tac l n =
   Proofview.V82.tactic begin fun gl ->
   let map c =
     let (c, sigma) = Tactics.run_delayed (pf_env gl) (project gl) c in
-    let c = EConstr.Unsafe.to_constr c in
     let c = pf_apply (prepare_hint false (false,true)) gl (sigma, c) in
-    EConstr.of_constr (out_term c)
+    out_term c
   in
   let l = List.map map l in
   try (prolog l n gl)
