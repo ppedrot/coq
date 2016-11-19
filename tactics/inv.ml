@@ -12,8 +12,9 @@ open Util
 open Names
 open Nameops
 open Term
-open Vars
 open Termops
+open EConstr
+open Vars
 open Namegen
 open Environ
 open Inductiveops
@@ -65,12 +66,9 @@ let var_occurs_in_pf gl id =
 type inversion_status = Dep of EConstr.constr option | NoDep
 
 let compute_eqn env sigma n i ai =
-  let open EConstr in
   (mkRel (n-i),EConstr.of_constr (get_type_of env sigma (mkRel (n-i))))
 
 let make_inv_predicate env evd indf realargs id status concl =
-  let open EConstr in
-  let open Vars in
   let nrealargs = List.length realargs in
   let (hyps,concl) =
     match status with
@@ -345,10 +343,11 @@ let projectAndApply as_mode thin avoid id eqname names depids =
   in
   let substHypIfVariable tac id =
     Proofview.Goal.nf_enter { enter = begin fun gl ->
+    let sigma = project gl in
     (** We only look at the type of hypothesis "id" *)
     let hyp = pf_nf_evar gl (pf_get_hyp_typ id (Proofview.Goal.assume gl)) in
     let (t,t1,t2) = Hipattern.dest_nf_eq gl (EConstr.of_constr hyp) in
-    match (kind_of_term t1, kind_of_term t2) with
+    match (EConstr.kind sigma t1, EConstr.kind sigma t2) with
     | Var id1, _ -> generalizeRewriteIntros as_mode (subst_hyp true id) depids id1
     | _, Var id2 -> generalizeRewriteIntros as_mode (subst_hyp false id) depids id2
     | _ -> tac id
@@ -437,7 +436,6 @@ let rewrite_equations_tac as_mode othin id neqns names ba =
     tac
 
 let raw_inversion inv_kind id status names =
-  let open EConstr in
   Proofview.Goal.nf_s_enter { s_enter = begin fun gl ->
     let sigma = Proofview.Goal.sigma gl in
     let sigma = Sigma.to_evar_map sigma in
