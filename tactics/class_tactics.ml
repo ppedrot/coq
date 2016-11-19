@@ -391,8 +391,8 @@ and e_my_find_search db_list local_db secvars hdc complete only_classes sigma co
       (fun db ->
         let tacs =
           if Hint_db.use_dn db then (* Using dnet *)
-            Hint_db.map_eauto secvars hdc concl db
-          else Hint_db.map_existential secvars hdc concl db
+            Hint_db.map_eauto sigma secvars hdc concl db
+          else Hint_db.map_existential sigma secvars hdc concl db
         in
         let flags = auto_unif_flags freeze (Hint_db.transparent_state db) in
           List.map (fun x -> (flags, x)) tacs)

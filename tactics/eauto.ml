@@ -122,13 +122,13 @@ let unify_e_resolve poly flags (c,clenv) =
 		 (Proofview.V82.of_tactic (Tactics.Simple.eapply c)) gls)
     end }
 
-let hintmap_of secvars hdc concl =
+let hintmap_of sigma secvars hdc concl =
   match hdc with
   | None -> fun db -> Hint_db.map_none ~secvars db
   | Some hdc ->
-     if occur_existential Evd.empty (EConstr.of_constr concl) then (** FIXME *)
-       (fun db -> Hint_db.map_existential ~secvars hdc concl db)
-     else (fun db -> Hint_db.map_auto ~secvars hdc concl db)
+     if occur_existential sigma (EConstr.of_constr concl) then
+       (fun db -> Hint_db.map_existential sigma ~secvars hdc concl db)
+     else (fun db -> Hint_db.map_auto sigma ~secvars hdc concl db)
    (* FIXME: should be (Hint_db.map_eauto hdc concl db) *)
 
 let e_exact poly flags (c,clenv) =
@@ -155,8 +155,8 @@ let rec e_trivial_fail_db db_list local_db =
   Tacticals.New.tclFIRST (List.map Tacticals.New.tclCOMPLETE tacl)
   end }
 
-and e_my_find_search db_list local_db secvars hdc concl =
-  let hint_of_db = hintmap_of secvars hdc concl in
+and e_my_find_search sigma db_list local_db secvars hdc concl =
+  let hint_of_db = hintmap_of sigma secvars hdc concl in
   let hintl =
       List.map_append (fun db ->
 	let flags = auto_flags_of_state (Hint_db.transparent_state db) in
@@ -186,13 +186,13 @@ and e_my_find_search db_list local_db secvars hdc concl =
 
 and e_trivial_resolve sigma db_list local_db secvars gl =
   let hd = try Some (decompose_app_bound sigma gl) with Bound -> None in
-  try priority (e_my_find_search db_list local_db secvars hd gl)
+  try priority (e_my_find_search sigma db_list local_db secvars hd gl)
   with Not_found -> []
 
 let e_possible_resolve sigma db_list local_db secvars gl =
   let hd = try Some (decompose_app_bound sigma gl) with Bound -> None in
   try List.map (fun (b, (tac, pp)) -> (tac, b, pp))
-               (e_my_find_search db_list local_db secvars hd gl)
+               (e_my_find_search sigma db_list local_db secvars hd gl)
   with Not_found -> []
 
 let find_first_goal gls =

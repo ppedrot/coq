@@ -299,13 +299,13 @@ let flags_of_state st =
 let auto_flags_of_state st =
   auto_unif_flags_of full_transparent_state st false
 
-let hintmap_of secvars hdc concl =
+let hintmap_of sigma secvars hdc concl =
   match hdc with
   | None -> Hint_db.map_none ~secvars
   | Some hdc ->
-     if occur_existential Evd.empty (EConstr.of_constr concl) then (** FIXME *)
-       Hint_db.map_existential ~secvars hdc concl
-     else Hint_db.map_auto ~secvars hdc concl
+     if occur_existential sigma (EConstr.of_constr concl) then
+       Hint_db.map_existential sigma ~secvars hdc concl
+     else Hint_db.map_auto sigma ~secvars hdc concl
 
 let exists_evaluable_reference env = function
   | EvalConstRef _ -> true
@@ -338,17 +338,17 @@ let rec trivial_fail_db dbg mod_delta db_list local_db =
              (trivial_resolve sigma dbg mod_delta db_list local_db secvars concl)))
   end }
 
-and my_find_search_nodelta db_list local_db secvars hdc concl =
+and my_find_search_nodelta sigma db_list local_db secvars hdc concl =
   List.map (fun hint -> (None,hint))
-    (List.map_append (hintmap_of secvars hdc concl) (local_db::db_list))
+    (List.map_append (hintmap_of sigma secvars hdc concl) (local_db::db_list))
 
 and my_find_search mod_delta =
   if mod_delta then my_find_search_delta
   else my_find_search_nodelta
 
-and my_find_search_delta db_list local_db secvars hdc concl =
-  let f = hintmap_of secvars hdc concl in
-    if occur_existential Evd.empty (EConstr.of_constr concl) (** FIXME *) then
+and my_find_search_delta sigma db_list local_db secvars hdc concl =
+  let f = hintmap_of sigma secvars hdc concl in
+    if occur_existential sigma (EConstr.of_constr concl) then
       List.map_append
 	(fun db ->
 	  if Hint_db.use_dn db then
@@ -370,8 +370,8 @@ and my_find_search_delta db_list local_db secvars hdc concl =
 	      match hdc with None -> Hint_db.map_none ~secvars db
 	      | Some hdc ->
 		  if (Id.Pred.is_empty ids && Cpred.is_empty csts)
-		  then Hint_db.map_auto ~secvars hdc concl db
-		  else Hint_db.map_existential ~secvars hdc concl db
+		  then Hint_db.map_auto sigma ~secvars hdc concl db
+		  else Hint_db.map_existential sigma ~secvars hdc concl db
 	    in auto_flags_of_state st, l
 	  in List.map (fun x -> (Some flags,x)) l)
       	(local_db::db_list)
@@ -413,7 +413,7 @@ and trivial_resolve sigma dbg mod_delta db_list local_db secvars cl =
     in
       List.map (tac_of_hint dbg db_list local_db cl)
 	(priority
-	    (my_find_search mod_delta db_list local_db secvars head cl))
+	    (my_find_search mod_delta sigma db_list local_db secvars head cl))
   with Not_found -> []
 
 (** The use of the "core" database can be de-activated by passing
@@ -459,7 +459,7 @@ let possible_resolve sigma dbg mod_delta db_list local_db secvars cl =
       with Bound -> None
     in
       List.map (tac_of_hint dbg db_list local_db cl)
-	(my_find_search mod_delta db_list local_db secvars head cl)
+	(my_find_search mod_delta sigma db_list local_db secvars head cl)
   with Not_found -> []
 
 let extend_local_db decl db gl =

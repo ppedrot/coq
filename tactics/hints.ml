@@ -451,11 +451,11 @@ val empty : ?name:hint_db_name -> transparent_state -> bool -> t
 val find : global_reference -> t -> search_entry
 val map_none : secvars:Id.Pred.t -> t -> full_hint list
 val map_all : secvars:Id.Pred.t -> global_reference -> t -> full_hint list
-val map_existential : secvars:Id.Pred.t ->
+val map_existential : evar_map -> secvars:Id.Pred.t ->
 		      (global_reference * constr array) -> constr -> t -> full_hint list
-val map_eauto : secvars:Id.Pred.t ->
+val map_eauto : evar_map -> secvars:Id.Pred.t ->
 		(global_reference * constr array) -> constr -> t -> full_hint list
-val map_auto : secvars:Id.Pred.t ->
+val map_auto : evar_map -> secvars:Id.Pred.t ->
 	       (global_reference * constr array) -> constr -> t -> full_hint list
 val add_one : env -> evar_map -> hint_entry -> t -> t
 val add_list : env -> evar_map -> hint_entry list -> t -> t
@@ -541,20 +541,20 @@ struct
     merge_entry secvars db se.sentry_nopat se.sentry_pat
 	
   (** Precondition: concl has no existentials *)
-  let map_auto ~secvars (k,args) concl db =
+  let map_auto sigma ~secvars (k,args) concl db =
     let se = find k db in
     let st = if db.use_dn then  (Some db.hintdb_state) else None in
     let pat = lookup_tacs concl st se in
     merge_entry secvars db [] pat
 
-  let map_existential ~secvars (k,args) concl db =
+  let map_existential sigma ~secvars (k,args) concl db =
     let se = find k db in
       if matches_modes args se.sentry_mode then
         merge_entry secvars db se.sentry_nopat se.sentry_pat
       else merge_entry secvars db [] []
 
   (* [c] contains an existential *)
-  let map_eauto ~secvars (k,args) concl db =
+  let map_eauto sigma ~secvars (k,args) concl db =
     let se = find k db in
       if matches_modes args se.sentry_mode then
         let st = if db.use_dn then Some db.hintdb_state else None in
@@ -1418,8 +1418,8 @@ let pr_hint_term sigma cl =
       let fn = try
 	  let hdc = decompose_app_bound sigma cl in
 	    if occur_existential sigma (EConstr.of_constr cl) then
-	      Hint_db.map_existential ~secvars:Id.Pred.full hdc cl
-	    else Hint_db.map_auto ~secvars:Id.Pred.full hdc cl
+	      Hint_db.map_existential sigma ~secvars:Id.Pred.full hdc cl
+	    else Hint_db.map_auto sigma ~secvars:Id.Pred.full hdc cl
 	with Bound -> Hint_db.map_none ~secvars:Id.Pred.full
       in
       let fn db = List.map (fun x -> 0, x) (fn db) in
