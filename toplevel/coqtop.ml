@@ -164,11 +164,28 @@ let init_gc () =
              Gc.minor_heap_size = 33554432; (* 4M *)
              Gc.space_overhead = 120}
 
+let init_memprof () =
+  let conf = try Some (Sys.getenv "COQ_MEMPROF") with Not_found -> None in
+  let default = (1E-4, 20, 100) in
+  let (rate, cs_size, min_samples) = match conf with
+  | None -> default
+  | Some conf ->
+    match String.split_on_char ':' conf with
+    | [rate; cs_size; min] ->
+      begin try
+        (float_of_string rate, int_of_string cs_size, int_of_string min)
+      with _ -> default
+      end
+    | _ -> default
+  in
+  CMemprof.start rate cs_size min_samples
+
 let init_process () =
   (* Coq's init process, phase 1:
      OCaml parameters, basic structures, and IO
    *)
   CProfile.init_profile ();
+  init_memprof ();
   init_gc ();
   Sys.catch_break false; (* Ctrl-C is fatal during the initialisation *)
   Lib.init ()
