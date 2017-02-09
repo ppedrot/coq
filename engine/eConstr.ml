@@ -19,12 +19,17 @@ sig
 type t
 val kind : Evd.evar_map -> t -> (t, t) Constr.kind_of_term
 val kind_upto : Evd.evar_map -> constr -> (constr, types) Constr.kind_of_term
+val kind_of_type : Evd.evar_map -> t -> (t, t) kind_of_type
 val whd_evar : Evd.evar_map -> t -> t
 val of_kind : (t, t) Constr.kind_of_term -> t
 val of_constr : Constr.t -> t
 val to_constr : evar_map -> t -> Constr.t
 val unsafe_to_constr : t -> Constr.t
 val unsafe_eq : (t, Constr.t) eq
+val cnd_of_constr : (Constr.t, Constr.types) Context.Named.Declaration.pt -> (t, t) Context.Named.Declaration.pt
+val unsafe_cnd_to_constr : (t, t) Context.Named.Declaration.pt -> (Constr.t, Constr.types) Context.Named.Declaration.pt
+val unsafe_crd_to_constr : (t, t) Context.Rel.Declaration.pt -> (Constr.t, Constr.types) Context.Rel.Declaration.pt
+val crd_of_constr : (Constr.t, Constr.types) Context.Rel.Declaration.pt -> (t, t) Context.Rel.Declaration.pt
 end =
 struct
 
@@ -63,6 +68,7 @@ let rec whd_evar sigma c =
 
 let kind sigma c = Constr.kind (whd_evar sigma c)
 let kind_upto = kind
+let kind_of_type sigma c = Term.kind_of_type (whd_evar sigma c)
 let of_kind = Constr.of_kind
 let of_constr c = c
 let unsafe_to_constr c = c
@@ -70,6 +76,11 @@ let unsafe_eq = Refl
 
 let rec to_constr sigma t =
   Constr.map (fun t -> to_constr sigma t) (whd_evar sigma t)
+
+let cnd_of_constr = Context.Named.Declaration.map_constr of_constr
+let unsafe_cnd_to_constr = Context.Named.Declaration.map_constr unsafe_to_constr
+let crd_of_constr = Context.Rel.Declaration.map_constr of_constr
+let unsafe_crd_to_constr = Context.Rel.Declaration.map_constr unsafe_to_constr
 
 end
 
@@ -260,6 +271,25 @@ let decompose_lam_n_decls sigma n =
       | c -> error "decompose_lam_n_decls: not enough abstractions"
   in
   lamdec_rec Context.Rel.empty n
+
+let lamn n env b =
+  let rec lamrec = function
+    | (0, env, b)        -> b
+    | (n, ((v,t)::l), b) -> lamrec (n-1,  l, mkLambda (v,t,b))
+    | _ -> assert false
+  in
+  lamrec (n,env,b)
+
+let compose_lam l b = lamn (List.length l) l b
+
+let rec to_lambda sigma n prod =
+  if Int.equal n 0 then
+    prod
+  else
+    match kind sigma prod with
+      | Prod (na,ty,bd) -> mkLambda (na,ty,to_lambda sigma (n-1) bd)
+      | Cast (c,_,_) -> to_lambda sigma n c
+      | _   -> user_err ~hdr:"to_lambda" (Pp.mt ())
 
 let decompose_prod sigma c =
   let rec proddec_rec l c = match kind sigma c with
@@ -682,6 +712,10 @@ let lookup_rel i e = cast_rel_decl (sym unsafe_eq) (lookup_rel i e)
 let lookup_named n e = cast_named_decl (sym unsafe_eq) (lookup_named n e)
 let lookup_named_val n e = cast_named_decl (sym unsafe_eq) (lookup_named_val n e)
 
+let fresh_global ?loc ?rigid ?names env sigma reference =
+  let Sigma.Sigma (t,sigma,p) =
+    Sigma.fresh_global ?loc ?rigid ?names env sigma reference in
+  Sigma.Sigma (of_constr t,sigma,p)
 
 module Unsafe =
 struct
