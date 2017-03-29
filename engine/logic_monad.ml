@@ -180,67 +180,81 @@ struct
       { iolist : 'r. 'i -> ('e -> 'r NonLogical.t) ->
                      ('a -> 'o -> ('e -> 'r NonLogical.t) -> 'r NonLogical.t) ->
                      'r NonLogical.t }
+  [@@ocaml.unboxed]
 
-  let return x =
+  let return x = ();
     { iolist = fun s nil cons -> cons x s nil }
+  [@@ocaml.inline]
 
-  let (>>=) m f =
+  let (>>=) m f = ();
     { iolist = fun s nil cons ->
       m.iolist s nil (fun x s next -> (f x).iolist s next cons) }
+  [@@ocaml.inline]
 
-  let (>>) m f =
+  let (>>) m f = ();
     { iolist = fun s nil cons ->
       m.iolist s nil (fun () s next -> f.iolist s next cons) }
+  [@@ocaml.inline]
 
-  let map f m =
+  let map f m = ();
     { iolist = fun s nil cons -> m.iolist s nil (fun x s next -> cons (f x) s next) }
+  [@@ocaml.inline]
 
-  let zero e =
+  let zero e = ();
     { iolist = fun _ nil cons -> nil e }
+  [@@ocaml.inline]
 
-  let plus m1 m2 =
+  let plus m1 m2 = ();
     { iolist = fun s nil cons -> m1.iolist s (fun e -> (m2 e).iolist s nil cons) cons }
+  [@@ocaml.inline]
 
-  let ignore m =
+  let ignore m = ();
     { iolist = fun s nil cons -> m.iolist s nil (fun _ s next -> cons () s next) }
+  [@@ocaml.inline]
 
-  let lift m =
+  let lift m = ();
     { iolist = fun s nil cons -> NonLogical.(m >>= fun x -> cons x s nil) }
+  [@@ocaml.inline]
 
   (** State related *)
 
-  let get =
+  let get = ();
     { iolist = fun s nil cons -> cons s s nil }
 
-  let set s =
+  let set s = ();
     { iolist = fun _ nil cons -> cons () s nil }
+  [@@ocaml.inline]
 
-  let modify f =
+  let modify f = ();
     { iolist = fun s nil cons -> cons () (f s) nil }
+  [@@ocaml.inline]
 
   (** Exception manipulation *)
 
-  let interleave src dst m =
+  let interleave src dst m = ();
     { iolist = fun s nil cons ->
       m.iolist s (fun e1 -> nil (src e1))
         (fun x s next -> cons x s (fun e2 -> next (dst e2)))
     }
+  [@@ocaml.inline]
 
   (** List observation *)
 
-  let once m =
+  let once m = ();
     { iolist = fun s nil cons -> m.iolist s nil (fun x s _ -> cons x s nil) }
+  [@@ocaml.inline]
 
-  let break f m =
+  let break f m = ();
     { iolist = fun s nil cons ->
       m.iolist s nil (fun x s next -> cons x s (fun e -> match f e with None -> next e | Some e -> nil e))
     }
+  [@@ocaml.inline]
 
   (** For [reflect] and [split] see the "Backtracking, Interleaving,
       and Terminating Monad Transformers" paper.  *)
   type ('a, 'e) reified = ('a, ('a, 'e) reified, 'e) list_view NonLogical.t
 
-  let rec reflect (m : ('a * 'o, 'e) reified) =
+  let rec reflect (m : ('a * 'o, 'e) reified) = ();
     { iolist = fun s0 nil cons ->
       let next = function
       | Nil e -> nil e
@@ -346,28 +360,33 @@ struct
   (** State related. We specialize them here to ensure soundness (for reader and
       writer) and efficiency. *)
 
-  let get =
+  let get = ();
     { iolist = fun s nil cons -> cons s.sstate s nil }
 
-  let set (sstate : P.s) =
+  let set (sstate : P.s) = ();
     { iolist = fun s nil cons -> cons () { s with sstate } nil }
+  [@@ocaml.inline]
 
-  let modify (f : P.s -> P.s) =
+  let modify (f : P.s -> P.s) = ();
     { iolist = fun s nil cons -> cons () { s with sstate = f s.sstate } nil }
+  [@@ocaml.inline]
 
-  let current =
+  let current = ();
     { iolist = fun s nil cons -> cons s.rstate s nil }
 
-  let local e m =
+  let local e m = ();
     { iolist = fun s nil cons ->
       m.iolist { s with rstate = e } nil
         (fun x s' next -> cons x {s' with rstate = s.rstate} next) }
+  [@@ocaml.inline]
 
-  let put w =
+  let put w = ();
     { iolist = fun s nil cons -> cons () { s with wstate = P.wprod s.wstate w } nil }
+  [@@ocaml.inline]
 
-  let update (f : P.u -> P.u) =
+  let update (f : P.u -> P.u) = ();
     { iolist = fun s nil cons -> cons () { s with ustate = f s.ustate } nil }
+  [@@ocaml.inline]
 
   (** Monadic run is specialized to handle reader / writer *)
 
