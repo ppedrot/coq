@@ -1765,16 +1765,11 @@ and interp_atomic ist tac : unit Proofview.tactic =
         if Locusops.is_nowhere clp then
         (* We try to fully-typecheck the term *)
           let (sigma,c_interp) = interp_constr ist env sigma c in
-          let let_tac b na c cl eqpat =
-            let id = Option.default (Loc.ghost,IntroAnonymous) eqpat in
-            let with_eq = if b then None else Some (true,id) in
-            Tactics.letin_tac with_eq na c None cl
-          in
           let na = interp_name ist env sigma na in
           Tacticals.New.tclWITHHOLES false
           (name_atomic ~env
             (TacLetTac(na,c_interp,clp,b,eqpat))
-            (let_tac b na c_interp clp eqpat)) sigma
+            (Tactics.pose na c_interp)) sigma
         else
         (* We try to keep the pattern structure as much as possible *)
           let let_pat_tac b na c cl eqpat =

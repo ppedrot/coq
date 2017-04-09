@@ -2742,6 +2742,34 @@ let pose_proof na c = forward true None (ipat_of_name na) c
 let assert_by na t tac = forward true (Some (Some tac)) (ipat_of_name na) t
 let enough_by na t tac = forward false (Some (Some tac)) (ipat_of_name na) t
 
+let pose na c =
+  Proofview.Goal.nf_enter { enter = begin fun gl ->
+    let env = Proofview.Goal.env gl in
+    let concl = Proofview.Goal.concl gl in
+    let t = Tacmach.New.pf_get_type_of gl c in
+    let hyps = List.map get_id (named_context env) in
+    let id = match na with
+    | Anonymous ->
+      let id = Id.of_string (hdchar env t) in
+      next_ident_away_in_goal id hyps
+    | Name id ->
+      let () =
+        if mem_named_context_val id (named_context_val env) then
+          user_err (str "The variable " ++ Nameops.pr_id id ++ str " is already declared.")
+      in
+      id
+    in
+    let ctx = named_context_val env in
+    let nctx = push_named_context_val (NamedDecl.LocalDef (id, c, t)) ctx in
+    let nconcl = Vars.lift 1 concl in
+    Refine.refine { run = begin fun sigma ->
+      let Sigma (ev, sigma, p) = Evarutil.new_pure_evar nctx sigma ~principal:true nconcl in
+      let args = mkRel 1 :: List.map mkVar hyps in
+      let ans = mkLetIn (Name id, c, t, mkEvar (ev, Array.of_list args)) in
+      Sigma (ans, sigma, p)
+    end }
+  end }
+
 (***************************)
 (*  Generalization tactics *)
 (***************************)
