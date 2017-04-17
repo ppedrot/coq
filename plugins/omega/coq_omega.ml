@@ -1839,12 +1839,12 @@ let destructure_hyps =
 		    | Kapp(Nat,_) ->
                         (Tacticals.New.tclTHEN
 			   (convert_hyp_no_check (NamedDecl.set_type (mkApp (Lazy.force coq_neq, [| t1;t2|]))
-                                                                     decl))
+                                                                     decl) DEFAULTcast)
 			   (loop lit))
 		    | Kapp(Z,_) ->
                         (Tacticals.New.tclTHEN
 			   (convert_hyp_no_check (NamedDecl.set_type (mkApp (Lazy.force coq_Zne, [| t1;t2|]))
-                                                                     decl))
+                                                                     decl) DEFAULTcast)
 			   (loop lit))
 		    | _ -> loop lit
                   end

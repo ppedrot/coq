@@ -1575,7 +1575,7 @@ let cl_rewrite_clause_newtac ?abs ?origsigma ~progress strat clause =
   (** For compatibility *)
   let beta_red _ sigma c = Reductionops.nf_betaiota sigma c in
   let beta = Tactics.reduct_in_concl (beta_red, DEFAULTcast) in
-  let beta_hyp id = Tactics.reduct_in_hyp beta_red (id, InHyp) in
+  let beta_hyp id = Tactics.reduct_in_hyp (beta_red, DEFAULTcast) (id, InHyp) in
   let treat sigma res = 
     match res with
     | None -> newfail 0 (str "Nothing to rewrite")
@@ -1595,7 +1595,7 @@ let cl_rewrite_clause_newtac ?abs ?origsigma ~progress strat clause =
 	    tclTHENFIRST (assert_replacing id newt tac) (beta_hyp id)
 	| Some id, None ->
             Proofview.Unsafe.tclEVARS undef <*>
-            convert_hyp_no_check (LocalAssum (id, newt)) <*>
+            convert_hyp_no_check (LocalAssum (id, newt)) DEFAULTcast <*>
             beta_hyp id
 	| None, Some p ->
             Proofview.Unsafe.tclEVARS undef <*>
