@@ -307,7 +307,6 @@ let rec backward_traverse to_revert b_traversed count g x =
   else to_revert, b_traversed, count, g
 
 let rec forward_traverse f_traversed g v_klvl x y =
-  let y = repr g y in
   if y.klvl < v_klvl then begin
     let y = { y with klvl = v_klvl;
                       gtge = if x == y then LSet.empty
@@ -317,6 +316,7 @@ let rec forward_traverse f_traversed g v_klvl x y =
     let ltle, y, g = get_ltle g y in
     let f_traversed, g =
       UMap.fold (fun z _ (f_traversed, g) ->
+        let z = repr g z in
         forward_traverse f_traversed g v_klvl y z)
       ltle (f_traversed, g)
     in
@@ -405,7 +405,8 @@ let reorder g u v =
         the paper, we do not test whether v_klvl = u.klvl nor we assign
         v_klvl to v.klvl. Indeed, the first call to forward_traverse
         will do all that. *)
-    forward_traverse [] g v_klvl (repr g v) v
+    let v = repr g v in
+    forward_traverse [] g v_klvl v v
   in
 
   (* STEP 4: merge nodes if needed. *)
