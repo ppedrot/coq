@@ -304,7 +304,6 @@ let rec ccnv cv_pb l2r infos lft1 lft2 term1 term2 cuniv =
 
 (* Conversion between [lft1](hd1 v1) and [lft2](hd2 v2) *)
 and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
-  Control.check_for_interrupt ();
   (* First head reduce both terms *)
   let whd = whd_stack (infos_with_reds infos betaiotazeta) in
   let rec whd_both (t1,stk1) (t2,stk2) =
