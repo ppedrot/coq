@@ -105,18 +105,30 @@ let lift n = liftn n 1
 type info = Closed | Open | Unknown
 type 'a substituend = { mutable sinfo: info; sit: 'a }
 
+(** Compute the lift and closedness of a term at the same time *)
+let lift_and_closed0 c n =
+  let is_closed = ref true in
+  let rec aux k c = match Constr.kind c with
+  | Constr.Rel i ->
+    if i <= k then c
+    else
+      let () = is_closed := false in
+      let j = i + n in
+      if Int.equal i j then c else Constr.mkRel j
+  | _ -> Constr.map_with_binders succ aux k c
+  in
+  let c = aux 0 c in
+  (c, !is_closed)
+
 let lift_substituend depth s =
   match s.sinfo with
     | Closed -> s.sit
     | Open -> lift depth s.sit
     | Unknown ->
       let sit = s.sit in
-      if closed0 sit then
-        let () = s.sinfo <- Closed in
-        sit
-      else
-        let () = s.sinfo <- Open in
-        lift depth sit
+      let (c, is_closed) = lift_and_closed0 sit depth in
+      let () = if is_closed then s.sinfo <- Closed else s.sinfo <- Open in
+      c
 
 let make_substituend c = { sinfo=Unknown; sit=c }
 
