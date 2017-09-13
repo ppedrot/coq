@@ -511,7 +511,6 @@ let zupdate m s =
   if !share && begin match m.norm with Red -> true | _ -> false end
   then
     let s' = compact_stack m s in
-    let _ = m.term <- FLOCKED in
     Zupdate(m)::s'
   else s
 
@@ -864,10 +863,10 @@ let contract_fix_vect fix =
 let rec knh info m stk =
   match m.term with
     | FLIFT(k,a) -> knh info a (zshift k stk)
-    | FCLOS(t,e) -> knht info e t (zupdate m stk)
+    | FCLOS(t,e) -> knht info e t stk
     | FLOCKED -> assert false
-    | FApp(a,b) -> knh info a (append_stack b (zupdate m stk))
-    | FCaseT(ci,p,t,br,e) -> knh info t (ZcaseT(ci,p,br,e)::zupdate m stk)
+    | FApp(a,b) -> knh info a (append_stack b stk)
+    | FCaseT(ci,p,t,br,e) -> knh info t (ZcaseT (ci, p, br, e) :: stk)
     | FFix(((ri,n),(_,_,_)),_) ->
         (match get_nth_arg m ri.(n) stk with
              (Some(pars,arg),stk') -> knh info arg (Zfix(m,pars)::stk')
@@ -881,7 +880,7 @@ let rec knh info m stk =
 	  | Some pb ->
 	     knh info c (Zproj (pb.Declarations.proj_npars, pb.Declarations.proj_arg,
 				Projection.constant p)
-			 :: zupdate m stk))
+			 :: stk))
 	else (m,stk)
 
 (* cases where knh stops *)
@@ -898,7 +897,9 @@ and knht info e t stk =
         knht info e t (ZcaseT(ci, p, br, e)::stk)
     | Fix _ -> knh info (mk_clos2 e t) stk
     | Cast(a,_,_) -> knht info e a stk
-    | Rel n -> knh info (clos_rel e n) stk
+    | Rel n ->
+      let m = clos_rel e n in
+      knh info m (zupdate m stk)
     | Proj (p,c) -> knh info (mk_clos2 e t) stk
     | (Lambda _|Prod _|Construct _|CoFix _|Ind _|
        LetIn _|Const _|Var _|Evar _|Meta _|Sort _) ->
