@@ -159,12 +159,12 @@ let typecheck_params_and_fields finite def id poly pl t ps nots fs =
 	(Sorts.is_set sort && is_impredicative_set env0)) then
         sigma, typ
       else
-        let sigma = Evd.set_leq_sort env_ar sigma (Type univ) sort in
-	if Univ.is_small_univ univ &&
+        let sigma = Evd.set_leq_sort env_ar sigma (Sorts.sort_of_univ univ) sort in
+        if Univ.is_small_univ univ &&
            Option.cata (Evd.is_flexible_level sigma) false (Evd.is_sort_variable sigma sort) then
 	   (* We can assume that the level in aritysort is not constrained
 	       and clear it, if it is flexible *)
-   Evd.set_eq_sort env_ar sigma Set sort, EConstr.mkSort (Sorts.sort_of_univ univ)
+   Evd.set_eq_sort env_ar sigma Sorts.set sort, EConstr.mkSort (Sorts.sort_of_univ univ)
         else sigma, typ
   in
   let sigma = Evd.minimize_universes sigma in
