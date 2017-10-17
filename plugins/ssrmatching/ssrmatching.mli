@@ -129,7 +129,8 @@ type tpattern
 val mk_tpattern :
   ?p_origin:ssrdir * constr ->
   ?ok:(constr -> evar_map -> bool) ->
-  env -> evar_map ->
+  rigid:(Evar.t -> bool) ->
+  env ->
   evar_map * constr ->
   ssrdir -> constr ->
     evar_map * tpattern
