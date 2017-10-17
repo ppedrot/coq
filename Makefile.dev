@@ -180,6 +180,7 @@ EXTRACTIONVO:=$(filter plugins/extraction/%, $(PLUGINSVO))
 CCVO:=
 DERIVEVO:=$(filter plugins/derive/%, $(PLUGINSVO))
 LTACVO:=$(filter plugins/ltac/%, $(PLUGINSVO))
+SSRVO:=$(filter plugins/ssr/%, $(PLUGINSVO))
 
 omega: $(OMEGAVO) $(OMEGACMO) $(ROMEGAVO) $(ROMEGACMO)
 micromega: $(MICROMEGAVO) $(MICROMEGACMO) $(CSDPCERT)
@@ -192,9 +193,10 @@ cc: $(CCVO) $(CCCMO)
 rtauto: $(RTAUTOVO) $(RTAUTOCMO)
 btauto: $(BTAUTOVO) $(BTAUTOCMO)
 ltac: $(LTACVO) $(LTACCMO)
+ssr: $(SSRVO) $(SSRCMO)
 
 .PHONY: omega micromega setoid_ring nsatz extraction
-.PHONY: fourier funind cc rtauto btauto ltac
+.PHONY: fourier funind cc rtauto btauto ltac ssr
 
 # For emacs:
 # Local Variables:
