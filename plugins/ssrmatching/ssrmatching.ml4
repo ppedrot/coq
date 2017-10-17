@@ -323,25 +323,12 @@ let unif_FO env ise p c =
 
 (* Perform evar substitution in main term and prune substitution. *)
 let nf_open_term sigma0 ise c =
-  let c = EConstr.Unsafe.to_constr c in
-  let s' = ref sigma0 in
-  let rec nf c' = match kind_of_term c' with
-  | Evar ex ->
-    begin try nf (existential_value ise ex) with _ ->
-    let k, a = ex in let a' = Array.map nf a in
-    if not (Evd.mem !s' k) then
-      s' := Evd.add !s' k (Evarutil.nf_evar_info ise (Evd.find ise k));
-    mkEvar (k, a')
-    end
-  | _ -> map_constr nf c' in
-  let copy_def k evi () =
-    assert (evar_body evi == Evd.Evar_empty);
-    match Evd.evar_body (Evd.find ise k) with
-    | Evar_defined c' -> s' := Evd.define k (nf c') !s'
-    | _ -> () in
-  let c' = nf c in let _ = Evd.fold_undefined copy_def sigma0 () in
-  let changed = sigma0 != !s' in
-  changed, !s', Evd.evar_universe_context ise, EConstr.of_constr c'
+  let rec check c = match EConstr.kind ise c with
+  | Evar (evk, _) ->
+    if not (Evd.mem sigma0 evk) then raise Exit
+  | _ -> EConstr.iter ise check c in
+  let changed = try check c; false with Exit -> true in
+  changed, ise, Evd.evar_universe_context ise, Evarutil.nf_evar ise c
 
 let unif_end env sigma0 ise0 pt ok =
   let ise = Evarconv.solve_unif_constraints_with_heuristics env ise0 in
