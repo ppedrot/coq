@@ -166,7 +166,6 @@ val mk_tpattern_matcher :
   ?all_instances:bool ->
   ?raise_NoMatch:bool ->
   ?upats_origin:ssrdir * constr ->
-  fresh:(Evar.t -> bool) ->
   occ -> evar_map * tpattern list ->
     find_P * conclude
 
