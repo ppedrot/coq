@@ -222,8 +222,6 @@ let same_proj sigma t1 t2 =
   | Proj(c1,_), Proj(c2, _) -> Projection.equal c1 c2
   | _ -> false
 
-let all_ok _ _ = true
-
 let fake_pmatcher_end () =
   mkProp, L2R, (Evd.empty, Evd.empty_evar_universe_context, mkProp)
 
@@ -239,7 +237,7 @@ let unfoldintac occ rdx t (kt,_) gl =
   let unfold, conclude = match rdx with
   | Some (_, (In_T _ | In_X_In_T _)) | None ->
     let ise = Evd.create_evar_defs sigma in
-    let ise, u = mk_tpattern env0 sigma0 (ise,EConstr.Unsafe.to_constr t) all_ok L2R (EConstr.Unsafe.to_constr t) in
+    let ise, u = mk_tpattern env0 sigma0 (ise,EConstr.Unsafe.to_constr t) L2R (EConstr.Unsafe.to_constr t) in
     let find_T, end_T =
       mk_tpattern_matcher ~raise_NoMatch:true sigma0 occ (ise,[u]) in
     (fun env c _ h -> 
@@ -290,7 +288,7 @@ let foldtac occ rdx ft gl =
   | Some (_, (In_T _ | In_X_In_T _)) | None ->
     let ise = Evd.create_evar_defs sigma in
     let ut = EConstr.Unsafe.to_constr (red_product_skip_id env0 sigma (EConstr.of_constr t)) in
-    let ise, ut = mk_tpattern env0 sigma0 (ise,t) all_ok L2R ut in
+    let ise, ut = mk_tpattern env0 sigma0 (ise,t) L2R ut in
     let find_T, end_T =
       mk_tpattern_matcher ~raise_NoMatch:true sigma0 occ (ise,[ut]) in
     (fun env c _ h -> try find_T env c h ~k:(fun env t _ _ -> t) with NoMatch ->c),
@@ -568,7 +566,7 @@ let rwrxtac occ rdx_pat dir rule gl =
       let rpat env sigma0 (sigma, pats) (d, r, lhs, rhs) =
         let sigma, pat =
           let rw_progress rhs t evd = rw_progress rhs (EConstr.of_constr t) evd in
-          mk_tpattern env sigma0 (sigma,EConstr.to_constr sigma r) (rw_progress rhs) d (EConstr.to_constr sigma lhs) in
+          mk_tpattern ~ok:(rw_progress rhs) env sigma0 (sigma,EConstr.to_constr sigma r) d (EConstr.to_constr sigma lhs) in
         sigma, pats @ [pat] in
       let rpats = List.fold_left (rpat env0 sigma0) (r_sigma,[]) rules in
       let find_R, end_R = mk_tpattern_matcher sigma0 occ ~upats_origin rpats in
@@ -600,7 +598,7 @@ let ssrinstancesofrule ist dir arg gl =
     let rpat env sigma0 (sigma, pats) (d, r, lhs, rhs) =
       let sigma, pat =
         let rw_progress rhs t evd = rw_progress rhs (EConstr.of_constr t) evd in
-        mk_tpattern env sigma0 (sigma,EConstr.to_constr sigma r) (rw_progress rhs) d (EConstr.to_constr sigma lhs) in
+        mk_tpattern ~ok:(rw_progress rhs) env sigma0 (sigma,EConstr.to_constr sigma r) d (EConstr.to_constr sigma lhs) in
       sigma, pats @ [pat] in
     let rpats = List.fold_left (rpat env0 sigma0) (r_sigma,[]) rules in
     mk_tpattern_matcher ~all_instances:true ~raise_NoMatch:true sigma0 None ~upats_origin rpats in
