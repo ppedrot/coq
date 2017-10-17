@@ -91,7 +91,8 @@ type subst = env -> constr -> constr -> int -> constr
     [subst] *)
 val eval_pattern :
   ?raise_NoMatch:bool ->
-  env -> evar_map -> constr ->
+  rigid:(Evar.t -> bool) ->
+  env -> constr ->
   pattern option -> occ -> subst ->
     constr
 
@@ -165,7 +166,8 @@ val mk_tpattern_matcher :
   ?all_instances:bool ->
   ?raise_NoMatch:bool ->
   ?upats_origin:ssrdir * constr ->
-  evar_map -> occ -> evar_map * tpattern list ->
+  fresh:(Evar.t -> bool) ->
+  occ -> evar_map * tpattern list ->
     find_P * conclude
 
 (** Example of [mk_tpattern_matcher] to implement 
