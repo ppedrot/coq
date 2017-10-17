@@ -154,7 +154,7 @@ type find_P =
     instantiation, the proof term and the ssrdit stored in the tpattern
   @raise UserEerror if too many occurrences were specified *)
 type conclude =
-  unit -> constr * ssrdir * (bool * evar_map * UState.t * constr)
+  unit -> constr * ssrdir * (bool * evar_map * constr)
 
 (** [mk_tpattern_matcher b o sigma0 occ sigma_tplist] creates a pair 
     a function [find_P] and [conclude] with the behaviour explained above.

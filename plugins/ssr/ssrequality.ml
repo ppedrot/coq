@@ -224,7 +224,7 @@ let same_proj sigma t1 t2 =
   | _ -> false
 
 let fake_pmatcher_end () =
-  mkProp, L2R, (false, Evd.empty, Evd.empty_evar_universe_context, mkProp)
+  mkProp, L2R, (false, Evd.empty, mkProp)
 
 let unfoldintac occ rdx t (kt,_) gl = 
   let fs sigma x = Reductionops.nf_evar sigma x in
@@ -558,7 +558,7 @@ let rwrxtac occ rdx_pat dir rule gl =
         try
           let ise = unify_HO env (Evd.create_evar_defs r_sigma) lhs rdx in
           if not (rw_progress rhs rdx ise) then raise NoMatch else
-          d, (ise, Evd.evar_universe_context ise, Reductionops.nf_evar ise r)
+          d, (ise, Reductionops.nf_evar ise r)
         with _ -> rwtac rs in
      rwtac rules in
   let find_rule rdx = prof_rwxrtac_find_rule.profile find_rule rdx in
@@ -580,12 +580,11 @@ let rwrxtac occ rdx_pat dir rule gl =
       let r = ref None in
       (fun env c _ h -> do_once r (fun () -> find_rule (EConstr.of_constr c), c); mkRel h),
       (fun concl -> closed0_check concl e gl;
-        let (d,(ev,ctx,c)) , x = assert_done r in (d,(true, ev,ctx, EConstr.to_constr ev c)) , x) in
+        let (d,(ev,c)), x = assert_done r in (d, (true, ev, EConstr.to_constr ev c)) , x) in
   let concl0 = EConstr.Unsafe.to_constr concl0 in
   let concl = eval_pattern ~rigid env0 concl0 rdx_pat occ find_R in
-  let (d, (_, sigma, uc, t)), rdx = conclude concl in
-  let r = (sigma, uc, t) in
-  let r = Evd.merge_universe_context (pi1 r) (pi2 r), EConstr.of_constr (pi3 r) in
+  let (d, (_, sigma, t)), rdx = conclude concl in
+  let r = (sigma, EConstr.of_constr t) in
   rwcltac (EConstr.of_constr concl) (EConstr.of_constr rdx) d r gl
 ;;
 
