@@ -56,6 +56,7 @@ val check_allowed_sort : env -> evar_map -> pinductive -> constr -> constr ->
 val check_type_fixpoint : ?loc:Loc.t -> env -> evar_map ->
   Names.Name.t array -> types array -> unsafe_judgment array -> evar_map
 
+val judge_of_sprop : unsafe_judgment
 val judge_of_prop : unsafe_judgment
 val judge_of_set : unsafe_judgment
 val judge_of_abstraction : Environ.env -> Name.t ->

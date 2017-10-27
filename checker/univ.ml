@@ -35,6 +35,7 @@ module RawLevel =
 struct
   open Names
   type t =
+    | SProp
     | Prop
     | Set
     | Level of int * DirPath.t
@@ -54,6 +55,9 @@ struct
 
   let compare u v =
     match u, v with
+    | SProp,SProp -> 0
+    | SProp,_ -> -1
+    | _, SProp -> 1
     | Prop,Prop -> 0
     | Prop, _ -> -1
     | _, Prop -> 1
@@ -71,8 +75,9 @@ struct
   open Hashset.Combine
 
   let hash = function
-    | Prop -> combinesmall 1 0
-    | Set -> combinesmall 1 1
+    | SProp -> combinesmall 1 0
+    | Prop -> combinesmall 1 1
+    | Set -> combinesmall 1 2
     | Var n -> combinesmall 2 n
     | Level (n, d) -> combinesmall 3 (combine n (Names.DirPath.hash d))
 end
@@ -82,6 +87,7 @@ module Level = struct
   open Names
 
   type raw_level = RawLevel.t =
+  | SProp
   | Prop
   | Set
   | Level of int * DirPath.t
@@ -103,12 +109,18 @@ module Level = struct
 
   let set = make Set
   let prop = make Prop
+  let sprop = make SProp
   let var i = make (Var i)
 		  
   let is_small x = 
     match data x with
     | Level _ -> false
     | _ -> true
+
+  let is_sprop x =
+    match data x with
+    | SProp -> true
+    | _ -> false
 
   let is_prop x =
     match data x with
@@ -129,6 +141,7 @@ module Level = struct
 	    
   let to_string x = 
     match data x with
+    | SProp -> "SProp"
     | Prop -> "Prop"
     | Set -> "Set"
     | Level (n,d) -> Names.DirPath.to_string d^"."^string_of_int n
@@ -178,6 +191,7 @@ struct
 	
     let make l = (l, 0)
 
+    let sprop = (Level.sprop, 0)
     let prop = (Level.prop, 0)
     let set = (Level.set, 0)
     let type1 = (Level.set, 1)
@@ -198,7 +212,7 @@ struct
 	else false
 
     let successor (u,n) =
-      if Level.is_prop u then type1
+      if Level.is_prop u || Level.is_sprop u then type1
       else (u, n + 1)
 
     let addn k (u,n as x) = 
@@ -255,6 +269,8 @@ struct
     | [l] -> Expr.level l
     | _ -> None
 
+  let sprop = tip Expr.sprop
+
   (* The lower predicative level of the hierarchy that contains (impredicative)
      Prop and singleton inductive types *)
   let type0m = tip Expr.prop
@@ -266,6 +282,7 @@ struct
      hence the definition of [type1_univ], the type of [Prop] *)    
   let type1 = tip (Expr.successor Expr.set)
 
+  let is_sprop x = equal sprop x
   let is_type0m x = equal type0m x
   let is_type0 x = equal type0 x
 
@@ -577,7 +594,8 @@ let check_equal g u v =
   let arcv = repr g v in
   arcu == arcv
 
-let check_eq_level g u v = u == v || check_equal g u v
+let check_eq_level g u v =
+  u == v || (not (Level.is_sprop u || Level.is_sprop v) && check_equal g u v)
 
 let is_set_arc u = Level.is_set u.univ
 let is_prop_arc u = Level.is_prop u.univ
@@ -607,7 +625,8 @@ let check_eq_univs g l1 l2 =
     && List.for_all (fun x2 -> exists x2 l1) l2
 
 let check_eq g u v =
-  Universe.equal u v || check_eq_univs g u v
+  Universe.equal u v ||
+  (not (is_sprop u || is_sprop v) && check_eq_univs g u v)
 
 let check_smaller_expr g (u,n) (v,m) =
   let diff = n - m in
@@ -626,8 +645,9 @@ let real_check_leq g u v =
     
 let check_leq g u v =
   Universe.equal u v ||
-    Universe.is_type0m u ||
-    check_eq_univs g u v || real_check_leq g u v
+  (not (is_sprop u || is_sprop v) &&
+   Universe.is_type0m u ||
+   check_eq_univs g u v || real_check_leq g u v)
 
 (** Enforcing new constraints : [setlt], [setleq], [merge], [merge_disc] *)
 
@@ -790,6 +810,14 @@ let enforce_constraint cst g =
     | (u,Le,v) -> enforce_univ_leq u v g
     | (u,Eq,v) -> enforce_univ_eq u v g
 
+(** Special processing for SProp *)
+let enforce_constraint (u,d,v as c) g =
+  match Level.is_sprop u, d, Level.is_sprop v with
+  | false, _, false -> enforce_constraint c g
+  | true, (Eq | Le), true -> g
+  | true, Lt, true | false, _, true | true, _, false ->
+    error_inconsistency Lt u v
+
 module UConstraintOrd =
 struct
   type t = univ_constraint
@@ -873,6 +901,14 @@ let check_constraint g (l,d,r) =
   | Eq -> check_equal g l r
   | Le -> check_smaller g false l r
   | Lt -> check_smaller g true l r
+
+(** Special processing for SProp *)
+let check_constraint g (u,d,v as c) =
+  match Level.is_sprop u, d, Level.is_sprop v with
+  | false, _, false -> check_constraint g c
+  | true, (Eq | Le), true -> true
+  | true, Lt, true | false, _, true | true, _, false ->
+    false
 
 let check_constraints c g =
   Constraint.for_all (check_constraint g) c

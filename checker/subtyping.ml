@@ -292,6 +292,7 @@ let check_constant env mp1 l info1 cb2 spec2 subst1 subst2 =
                  expressible in the system of algebraic universes: we fail
                  (the user has to use an explicit type in the interface *)
                 error ()
+            | SProp -> CErrors.anomaly Pp.(str "not implemented: Subtyping.check_constant with SProp")
           with UserError _ (* "not an arity" *) ->
             error () end
         | _ -> t1,t2

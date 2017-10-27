@@ -29,7 +29,7 @@ let ldots_var = Id.of_string ".."
 let constr_kw =
   [ "forall"; "fun"; "match"; "fix"; "cofix"; "with"; "in"; "for";
     "end"; "as"; "let"; "if"; "then"; "else"; "return";
-    "Prop"; "Set"; "Type"; ".("; "_"; "..";
+    "SProp"; "Prop"; "Set"; "Type"; ".("; "_"; "..";
     "`{"; "`("; "{|"; "|}" ]
 
 let _ = List.iter CLexer.add_keyword constr_kw
@@ -148,6 +148,7 @@ GEXTEND Gram
   ;
   sort:
     [ [ "Set"  -> GSet
+      | "SProp" -> GSProp
       | "Prop" -> GProp
       | "Type" -> GType []
       | "Type"; "@{"; u = universe; "}" -> GType u
@@ -155,6 +156,7 @@ GEXTEND Gram
   ;
   sort_family:
     [ [ "Set"  -> Sorts.InSet
+      | "SProp" -> Sorts.InSProp
       | "Prop" -> Sorts.InProp
       | "Type" -> Sorts.InType
       ] ]
@@ -319,6 +321,7 @@ GEXTEND Gram
   ;
   universe_level:
     [ [ "Set" -> GSet
+      (* no parsing SProp as a level *)
       | "Prop" -> GProp
       | "Type" -> GType UUnknown
       | "_" -> GType UAnonymous

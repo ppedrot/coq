@@ -189,16 +189,16 @@ let check_predicativity env s small level =
     | Set, ImpredicativeSet -> ()
     | Set, _ ->
         if not small then failwith "impredicative Set inductive type"
-    | Prop,_ -> ()
+    | SProp, _ | Prop, _ -> ()
 
 
 let sort_of_ind = function
   | RegularArity mar -> mar.mind_sort
   | TemplateArity par -> Type par.template_level
 
-let all_sorts = [InProp;InSet;InType]
-let small_sorts = [InProp;InSet]
-let logical_sorts = [InProp]
+let all_sorts = [InSProp;InProp;InSet;InType]
+let small_sorts = [InSProp;InProp;InSet]
+let logical_sorts = [InSProp;InProp]
 
 let allowed_sorts issmall isunit s =
   match family_of_sort s with
@@ -219,7 +219,9 @@ let allowed_sorts issmall isunit s =
   (* Other propositions: elimination only to Prop *)
   | InProp -> logical_sorts
 
+  | InSProp when isunit -> all_sorts
 
+  | InSProp -> [InSProp]
 
 let compute_elim_sorts env_ar params mib arity lc =
   let inst = extended_rel_list 0 params in

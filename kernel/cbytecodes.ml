@@ -235,6 +235,7 @@ open Util
 let pp_sort s =
   let open Sorts in
   match s with
+  | SProp -> str "SProp"
   | Prop -> str "Prop"
   | Set -> str "Set"
   | Type u -> str "Type@{" ++ Univ.pr_uni u ++ str "}"

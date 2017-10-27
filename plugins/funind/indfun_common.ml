@@ -224,6 +224,7 @@ type function_info =
       rect_lemma : Constant.t option;
       rec_lemma : Constant.t option;
       prop_lemma : Constant.t option;
+      sprop_lemma : Constant.t option;
       is_general : bool; (* Has this function been defined using general recursive definition *)
     }
 
@@ -275,6 +276,7 @@ let subst_Function (subst,finfos) =
   let rect_lemma' = Option.Smart.map do_subst_con finfos.rect_lemma in
   let rec_lemma' = Option.Smart.map do_subst_con finfos.rec_lemma in
   let prop_lemma' =  Option.Smart.map do_subst_con finfos.prop_lemma in
+  let sprop_lemma' = Option.Smart.map do_subst_con finfos.sprop_lemma in
   if function_constant' == finfos.function_constant &&
     graph_ind' == finfos.graph_ind &&
     equation_lemma' == finfos.equation_lemma &&
@@ -282,7 +284,8 @@ let subst_Function (subst,finfos) =
     completeness_lemma' == finfos.completeness_lemma &&
     rect_lemma' == finfos.rect_lemma &&
     rec_lemma' == finfos.rec_lemma &&
-    prop_lemma' == finfos.prop_lemma
+    prop_lemma' == finfos.prop_lemma &&
+    sprop_lemma' == finfos.sprop_lemma
   then finfos
   else
     { function_constant = function_constant';
@@ -293,6 +296,7 @@ let subst_Function (subst,finfos) =
       rect_lemma = rect_lemma' ;
       rec_lemma = rec_lemma';
       prop_lemma = prop_lemma';
+      sprop_lemma = sprop_lemma';
       is_general = finfos.is_general
     }
 
@@ -308,6 +312,7 @@ let discharge_Function (_,finfos) =
   and rect_lemma' = Option.Smart.map Lib.discharge_con finfos.rect_lemma
   and rec_lemma' = Option.Smart.map Lib.discharge_con finfos.rec_lemma
   and prop_lemma' = Option.Smart.map Lib.discharge_con finfos.prop_lemma
+  and sprop_lemma' = Option.Smart.map Lib.discharge_con finfos.sprop_lemma
   in
   if function_constant' == finfos.function_constant &&
     graph_ind' == finfos.graph_ind &&
@@ -316,7 +321,8 @@ let discharge_Function (_,finfos) =
     completeness_lemma' == finfos.completeness_lemma &&
     rect_lemma' == finfos.rect_lemma &&
     rec_lemma' == finfos.rec_lemma &&
-    prop_lemma' == finfos.prop_lemma
+    prop_lemma' == finfos.prop_lemma &&
+    sprop_lemma' == finfos.sprop_lemma
   then Some finfos
   else
     Some { function_constant = function_constant' ;
@@ -326,7 +332,8 @@ let discharge_Function (_,finfos) =
 	   completeness_lemma = completeness_lemma';
 	   rect_lemma = rect_lemma';
 	   rec_lemma = rec_lemma';
-	   prop_lemma = prop_lemma' ;
+           prop_lemma = prop_lemma' ;
+           sprop_lemma = sprop_lemma' ;
 	   is_general = finfos.is_general
 	 }
 
@@ -395,6 +402,7 @@ let add_Function is_general f =
   and rect_lemma = find_or_none (Nameops.add_suffix f_id "_rect")
   and rec_lemma = find_or_none (Nameops.add_suffix f_id "_rec")
   and prop_lemma = find_or_none (Nameops.add_suffix f_id "_ind")
+  and sprop_lemma = find_or_none (Nameops.add_suffix f_id "_sind")
   and graph_ind =
     match Nametab.locate (qualid_of_ident (mk_rel_id f_id))
     with | IndRef ind -> ind | _ -> CErrors.anomaly (Pp.str "Not an inductive.")
@@ -407,6 +415,7 @@ let add_Function is_general f =
       rect_lemma = rect_lemma;
       rec_lemma = rec_lemma;
       prop_lemma = prop_lemma;
+      sprop_lemma = sprop_lemma;
       graph_ind = graph_ind;
       is_general = is_general
 

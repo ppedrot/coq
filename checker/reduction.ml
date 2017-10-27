@@ -210,7 +210,7 @@ let convert_constructors
 
 let sort_cmp env univ pb s0 s1 =
   match (s0,s1) with
-  | Prop, Prop | Set, Set -> ()
+  | SProp, SProp | Prop, Prop | Set, Set -> ()
   | Prop, (Set | Type _) | Set, Type _ ->
     if not (pb = CUMUL) then raise NotConvertible
   | Type u1, Type u2 ->
@@ -229,7 +229,7 @@ let sort_cmp env univ pb s0 s1 =
       end;
       raise NotConvertible
     end
-  | Set, Prop | Type _, (Prop | Set) -> raise NotConvertible
+  | SProp, _ | _, SProp | Set, Prop | Type _, (Prop | Set) -> raise NotConvertible
 
 let rec no_arg_available = function
   | [] -> true

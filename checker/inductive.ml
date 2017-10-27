@@ -136,9 +136,10 @@ Remark: Set (predicative) is encoded as Type(0)
 *)
 
 let sort_as_univ = function
-| Type u -> u
-| Prop -> Univ.type0m_univ
-| Set -> Univ.type0_univ
+  | SProp -> Univ.Universe.sprop
+  | Type u -> u
+  | Prop -> Univ.type0m_univ
+  | Set -> Univ.type0_univ
 
 (* cons_subst add the mapping [u |-> su] in subst if [u] is not *)
 (* in the domain or add [u |-> sup x su] if [u] is already mapped *)
@@ -226,6 +227,7 @@ let type_of_inductive env mip =
 (* The max of an array of universes *)
 
 let cumulate_constructor_univ u = function
+  | SProp
   | Prop -> u
   | Set -> Univ.sup Univ.type0_univ u
   | Type u' -> Univ.sup u u'

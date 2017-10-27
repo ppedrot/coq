@@ -50,6 +50,9 @@ sig
   (** Create a universe representing the given level. *)
 
   val pr : t -> Pp.t
+
+  val sprop : t
+  val is_sprop : t -> bool
 end
 
 type universe = Universe.t

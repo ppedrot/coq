@@ -59,6 +59,7 @@ let print_pure_constr fmt csr =
   and pp_sort fmt = function
     | Set -> pp_print_string fmt  "Set"
     | Prop -> pp_print_string fmt "Prop"
+    | SProp -> pp_print_string fmt "SProp"
     | Type u -> fprintf fmt "Type(%a)" chk_pp (Univ.pr_uni u)
 
   and pp_name fmt = function

@@ -103,9 +103,9 @@ let judge_of_apply env (f,funj) argjv =
 let sort_of_product env domsort rangsort =
   match (domsort, rangsort) with
     (* Product rule (s,Prop,Prop) *)
-    | _,       Prop  -> rangsort
+    | _,       (SProp|Prop)  -> rangsort
     (* Product rule (Prop/Set,Set,Set) *)
-    | (Prop | Set),  Set -> rangsort
+    | (SProp | Prop | Set),  Set -> rangsort
     (* Product rule (Type,Set,?) *)
     | Type u1, Set ->
         if engagement env = ImpredicativeSet then
@@ -117,7 +117,7 @@ let sort_of_product env domsort rangsort =
     (* Product rule (Prop,Type_i,Type_i) *)
     | Set,  Type u2  -> Type (Univ.sup Univ.type0_univ u2)
     (* Product rule (Prop,Type_i,Type_i) *)
-    | Prop, Type _  -> rangsort
+    | (SProp|Prop), Type _  -> rangsort
     (* Product rule (Type_i,Type_i,Type_i) *)
     | Type u1, Type u2 -> Type (Univ.sup u1 u2)
 
@@ -239,7 +239,7 @@ let type_fixpoint env lna lar lbody vdefj =
 let rec execute env cstr =
   match cstr with
     (* Atomic terms *)
-    | Sort (Prop | Set) -> judge_of_prop
+    | Sort (SProp | Prop | Set) -> judge_of_prop
 
     | Sort (Type u) -> judge_of_type u
 

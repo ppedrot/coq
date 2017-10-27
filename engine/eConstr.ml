@@ -32,6 +32,7 @@ type 'a puniverses = 'a * EInstance.t
 
 let in_punivs a = (a, EInstance.empty)
 
+let mkSProp = of_kind (Sort (ESorts.make Sorts.sprop))
 let mkProp = of_kind (Sort (ESorts.make Sorts.prop))
 let mkSet = of_kind (Sort (ESorts.make Sorts.set))
 let mkType u = of_kind (Sort (ESorts.make (Sorts.sort_of_univ u)))
@@ -57,6 +58,8 @@ let mkFix f = of_kind (Fix f)
 let mkCoFix f = of_kind (CoFix f)
 let mkProj (p, c) = of_kind (Proj (p, c))
 let mkArrow t1 t2 = of_kind (Prod (Anonymous, t1, t2))
+
+let type1 = mkSort Sorts.type1
 
 let applist (f, arg) = mkApp (f, Array.of_list arg)
 

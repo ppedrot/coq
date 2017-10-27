@@ -34,13 +34,14 @@ open Names
 (** {6 The sorts of CCI. } *)
 
 type sorts =
+  | SProp
   | Prop
   | Set
   | Type of Univ.universe
 
 (** {6 The sorts family of CCI. } *)
 
-type sorts_family = InProp | InSet | InType
+type sorts_family = InSProp | InProp | InSet | InType
 
 (** {6 Useful types } *)
 
