@@ -69,7 +69,7 @@ let clenv_push_prod cl =
     | Prod (na,t,u) ->
 	let mv = new_meta () in
 	let dep = not (noccurn (cl_sigma cl) 1 u) in
-	let na' = if dep then na else Anonymous in
+        let na' = if dep then na.binder_name else Anonymous in
         let e' = meta_declare mv t ~name:na' cl.evd in
 	let concl = if dep then subst1 (mkMeta mv) u else u in
 	let def = applist (cl.templval.rebus,[mkMeta mv]) in
@@ -103,7 +103,7 @@ let clenv_environments evd bound t =
       | (n, Prod (na,t1,t2)) ->
 	  let mv = new_meta () in
 	  let dep = not (noccurn evd 1 t2) in
-	  let na' = if dep then na else Anonymous in
+          let na' = if dep then na.binder_name else Anonymous in
           let e' = meta_declare mv t1 ~name:na' e in
 	  clrec (e', (mkMeta mv)::metas) (Option.map ((+) (-1)) n)
 	    (if dep then (subst1 (mkMeta mv) t2) else t2)
@@ -277,7 +277,7 @@ let adjust_meta_source evd mv = function
   | loc,Evar_kinds.VarInstance id ->
     let rec match_name c l =
       match EConstr.kind evd c, l with
-      | Lambda (Name id,_,c), a::l when EConstr.eq_constr evd a (mkMeta mv) -> Some id
+      | Lambda ({binder_name=Name id},_,c), a::l when EConstr.eq_constr evd a (mkMeta mv) -> Some id
       | Lambda (_,_,c), a::l -> match_name c l
       | _ -> None in
     (* This is very ad hoc code so that an evar inherits the name of the binder
@@ -616,7 +616,7 @@ let make_evar_clause env sigma ?len t =
         hole_type = t1;
         hole_deps = dep;
         (* We fix it later *)
-        hole_name = na;
+        hole_name = na.binder_name;
       } in
       let t2 = if dep then subst1 ev t2 else t2 in
       clrec (sigma, hole :: holes) (pred n) t2

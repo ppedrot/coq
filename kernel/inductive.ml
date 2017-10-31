@@ -199,6 +199,10 @@ let instantiate_universes env ctx ar argsorts =
 
 (* Type of an inductive type *)
 
+let relevance_of_inductive env ind =
+  let _, mip = lookup_mind_specif env ind in
+  mip.mind_relevant
+
 let type_of_inductive_gen ?(polyprop=true) env ((mib,mip),u) paramtyps =
   match mip.mind_arity with
   | RegularArity a -> subst_instance_constr u a.mind_user_arity
@@ -325,7 +329,7 @@ let is_correct_arity env c pj ind specif params =
           srec (push_rel (LocalAssum (na1,a1)) env) t ar'
       (* The last Prod domain is the type of the scrutinee *)
       | Prod (na1,a1,a2), [] -> (* whnf of t was not needed here! *)
-	 let env' = push_rel (LocalAssum (na1,a1)) env in
+         let env' = push_rel (LocalAssum (na1,a1)) env in
 	 let ksort = match kind (whd_all env' a2) with
 	 | Sort s -> Sorts.family s
 	 | _ -> raise (LocalArity None) in
@@ -383,13 +387,14 @@ let type_case_branches env (pind,largs) pj c =
 (************************************************************************)
 (* Checking the case annotation is relevant *)
 
-let check_case_info env (indsp,u) ci =
+let check_case_info env (indsp,u) r ci =
   let (mib,mip as spec) = lookup_mind_specif env indsp in
   if
     not (eq_ind indsp ci.ci_ind) ||
     not (Int.equal mib.mind_nparams ci.ci_npar) ||
     not (Array.equal Int.equal mip.mind_consnrealdecls ci.ci_cstr_ndecls) ||
     not (Array.equal Int.equal mip.mind_consnrealargs ci.ci_cstr_nargs) ||
+    not (ci.ci_relevance == r) ||
     is_primitive_record spec
   then raise (TypeError(env,WrongCaseInfo((indsp,u),ci)))
 
@@ -578,7 +583,9 @@ let ienv_push_inductive (env, ra_env) ((mind,u),lpar) =
   let mib = Environ.lookup_mind mind env in
   let ntypes = mib.mind_ntypes in
   let push_ind specif env =
-    let decl = LocalAssum (Anonymous, hnf_prod_applist env (type_of_inductive env ((mib,specif),u)) lpar) in
+    let r = specif.mind_relevant in
+    let anon = make_annot Anonymous r in
+    let decl = LocalAssum (anon, hnf_prod_applist env (type_of_inductive env ((mib,specif),u)) lpar) in
     push_rel decl env
   in
   let env = Array.fold_right push_ind mib.mind_packets env in
@@ -599,7 +606,8 @@ let rec ienv_decompose_prod (env,_ as ienv) n c =
 let lambda_implicit_lift n a =
   let level = Level.make (DirPath.make [Id.of_string "implicit"]) 0 in
   let implicit_sort = mkType (Universe.make level) in
-  let lambda_implicit a = mkLambda (Anonymous, implicit_sort, a) in
+  let anon = make_annot Anonymous Sorts.Relevant in
+  let lambda_implicit a = mkLambda (anon, implicit_sort, a) in
   iterate lambda_implicit n (lift n a)
 
 (* This removes global parameters of the inductive types in lc (for
@@ -789,7 +797,7 @@ let rec subterm_specif renv stack t =
     | Lambda (x,a,b) ->
       let () = assert (List.is_empty l) in
       let spec,stack' = extract_stack renv a stack in
-	subterm_specif (push_var renv (x,a,spec)) stack' b
+        subterm_specif (push_var renv (x,a,spec)) stack' b
 
       (* Metas and evars are considered OK *)
     | (Meta _|Evar _) -> Dead_code
@@ -980,7 +988,7 @@ let check_one_fix renv recpos trees def =
             let () = assert (List.is_empty l) in
 	    check_rec_call renv [] a ;
 	    let spec, stack' = extract_stack renv a stack in
-	    check_rec_call (push_var renv (x,a,spec)) stack' b
+            check_rec_call (push_var renv (x,a,spec)) stack' b
 
         | Prod (x,a,b) ->
             let () = assert (List.is_empty l && List.is_empty stack) in
@@ -1025,7 +1033,7 @@ let check_one_fix renv recpos trees def =
       check_rec_call (assign_var_spec renv (1,recArgsDecrArg)) [] body
     else
       match kind body with
-	| Lambda (x,a,b) ->
+        | Lambda (x,a,b) ->
 	    check_rec_call renv [] a;
             let renv' = push_var_renv renv (x,a) in
 	      check_nested_fix_body renv' (decr-1) recArgsDecrArg b
@@ -1058,7 +1066,7 @@ let inductive_of_mutfix env ((nvect,bodynum),(names,types,bodies as recdef)) =
       match kind (whd_all env def) with
         | Lambda (x,a,b) ->
 	    if noccur_with_meta n nbfix a then
-	      let env' = push_rel (LocalAssum (x,a)) env in
+              let env' = push_rel (LocalAssum (x,a)) env in
               if Int.equal n (k + 1) then
                 (* get the inductive type of the fixpoint *)
                 let (mind, _) =
@@ -1115,7 +1123,7 @@ let rec codomain_is_coind env c =
   let b = whd_all env c in
   match kind b with
     | Prod (x,a,b) ->
-	codomain_is_coind (push_rel (LocalAssum (x,a)) env) b
+        codomain_is_coind (push_rel (LocalAssum (x,a)) env) b
     | _ ->
 	(try find_coinductive env b
         with Not_found ->
@@ -1153,7 +1161,7 @@ let check_one_cofix env nbfix def deftype =
               | _ -> anomaly_ill_typed ()
             in process_args_of_constr (realargs, lra)
 
-	| Lambda (x,a,b) ->
+        | Lambda (x,a,b) ->
 	    let () = assert (List.is_empty args) in
             if noccur_with_meta n nbfix a then
               let env' = push_rel (LocalAssum (x,a)) env in
@@ -1161,7 +1169,7 @@ let check_one_cofix env nbfix def deftype =
             else
 	      raise (CoFixGuardError (env,RecCallInTypeOfAbstraction a))
 
-	| CoFix (j,(_,varit,vdefs as recdef)) ->
+        | CoFix (j,(_,varit,vdefs as recdef)) ->
             if List.for_all (noccur_with_meta n nbfix) args
             then
 	      if Array.for_all (noccur_with_meta n nbfix) varit then

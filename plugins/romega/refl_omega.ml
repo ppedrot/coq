@@ -539,7 +539,7 @@ and oproposition_of_constr sigma env ((negated,depends,origin,path) as ctxt) gl 
     | Riff (t1,t2) ->
        (* No lifting here, since Omega only works on closed propositions. *)
        binprop sigma env ctxt negated negated gl mkPand
-         (EConstr.mkArrow t1 t2) (EConstr.mkArrow t2 t1)
+         (EConstr.mkArrow t1 Sorts.Relevant t2) (EConstr.mkArrow t2 Sorts.Relevant t1)
     | _ -> Pprop c
 
 (* Destructuration des hypothèses et de la conclusion *)
@@ -772,8 +772,9 @@ let maximize_prop equas c =
         | Pprop p1, Pprop p2 -> Pprop (app coq_and [|p1;p2|])
         | t1', t2' -> Pand(i,t1',t2'))
     | Pimp(i,t1,t2) ->
+      let r =  Sorts.Relevant in (* TODO relevance *)
        (match loop t1, loop t2 with
-        | Pprop p1, Pprop p2 -> Pprop (EConstr.mkArrow p1 p2) (* no lift (closed) *)
+        | Pprop p1, Pprop p2 -> Pprop (EConstr.mkArrow p1 r p2) (* no lift (closed) *)
         | t1', t2' -> Pimp(i,t1',t2'))
     | Ptrue -> Pprop (app coq_True [||])
     | Pfalse -> Pprop (app coq_False [||])

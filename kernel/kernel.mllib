@@ -24,6 +24,7 @@ Retroknowledge
 Conv_oracle
 Environ
 CClosure
+Retypeops
 Reduction
 Clambda
 Nativelambda

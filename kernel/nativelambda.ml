@@ -406,7 +406,7 @@ module Renv =
       construct_tbl = ConstrTable.create 111
     }
 
-    let push_rel env id = Vect.push env.name_rel id
+    let push_rel env id = Vect.push env.name_rel id.binder_name
 
     let push_rels env ids = 
       Array.iter (push_rel env) ids
@@ -559,8 +559,10 @@ let rec lambda_of_constr env sigma c =
 	else 
 	  match b with
 	  | Llam(ids, body) when Int.equal (Array.length ids) arity -> (cn, ids, body)
-	  | _ -> 
-	      let ids = Array.make arity Anonymous in
+          | _ ->
+              (** TODO relevance *)
+              let anon = make_annot Anonymous Sorts.Relevant in
+              let ids = Array.make arity anon in
 	      let args = make_args arity 1 in
 	      let ll = lam_lift arity b in
 	      (cn, ids, mkLapp  ll args) in
@@ -661,7 +663,7 @@ let optimize lam =
 let lambda_of_constr env sigma c =
   set_global_env env;
   let env = Renv.make () in
-  let ids = List.rev_map RelDecl.get_name !global_env.env_rel_context.env_rel_ctx in
+  let ids = List.rev_map RelDecl.get_annot !global_env.env_rel_context.env_rel_ctx in
   Renv.push_rels env (Array.of_list ids);
   let lam = lambda_of_constr env sigma c in
 (*  if Flags.vm_draw_opt () then begin

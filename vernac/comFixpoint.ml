@@ -114,7 +114,9 @@ let interp_fix_context ~cofix env sigma fix =
   sigma, ((env'', ctx' @ ctx), (impl_env',imps @ imps'), annot)
 
 let interp_fix_ccl sigma impls (env,_) fix =
-  interp_type_evars_impls ~impls env sigma fix.fix_type
+  let sigma, (c, impl) = interp_type_evars_impls ~impls env sigma fix.fix_type in
+  let r = Retyping.relevance_of_type env sigma c in
+  sigma, (c, r, impl)
 
 let interp_fix_body env_rec sigma impls (_,ctx) fix ccl =
   let open EConstr in
@@ -125,9 +127,9 @@ let interp_fix_body env_rec sigma impls (_,ctx) fix ccl =
 
 let build_fix_type (_,ctx) ccl = EConstr.it_mkProd_or_LetIn ccl ctx
 
-let prepare_recursive_declaration fixnames fixtypes fixdefs =
+let prepare_recursive_declaration fixnames fixrs fixtypes fixdefs =
   let defs = List.map (subst_vars (List.rev fixnames)) fixdefs in
-  let names = List.map (fun id -> Name id) fixnames in
+  let names = List.map2 (fun id r -> make_annot (Name id) r) fixnames fixrs in
   (Array.of_list names, Array.of_list fixtypes, Array.of_list defs)
 
 (* Jump over let-bindings. *)
@@ -146,7 +148,7 @@ let compute_possible_guardness_evidences (ctx,_,recindex) =
       List.interval 0 (Context.Rel.nhyps ctx - 1)
 
 type recursive_preentry =
-  Id.t list * constr option list * types list
+  Id.t list * Sorts.relevance list * constr option list * types list
 
 (* Wellfounded definition *)
 
@@ -182,8 +184,8 @@ let interp_recursive ~program_mode ~cofix fixl notations =
     on_snd List.split3 @@
       List.fold_left_map (fun sigma -> interp_fix_context env sigma ~cofix) sigma fixl in
   let fixctximpenvs, fixctximps = List.split fiximppairs in
-  let sigma, (fixccls,fixcclimps) =
-    on_snd List.split @@
+  let sigma, (fixccls,fixrs,fixcclimps) =
+    on_snd List.split3 @@
       List.fold_left3_map interp_fix_ccl sigma fixctximpenvs fixctxs fixl in
   let fixtypes = List.map2 build_fix_type fixctxs fixccls in
   let fixtypes = List.map (fun c -> nf_evar sigma c) fixtypes in
@@ -202,8 +204,8 @@ let interp_recursive ~program_mode ~cofix fixl notations =
                Typing.solve_evars env sigma app
              with e when CErrors.noncritical e -> sigma, t
            in
-           sigma, LocalAssum (id,fixprot) :: env'
-         else sigma, LocalAssum (id,t) :: env')
+           sigma, LocalAssum (make_annot id Sorts.Relevant,fixprot) :: env'
+         else sigma, LocalAssum (make_annot id Sorts.Relevant,t) :: env')
       (sigma,[]) fixnames fixtypes
   in
   let env_rec = push_named_context rec_sign env in
@@ -229,9 +231,9 @@ let interp_recursive ~program_mode ~cofix fixl notations =
   let fixctxs = List.map (fun (_,ctx) -> ctx) fixctxs in
 
   (* Build the fix declaration block *)
-  (env,rec_sign,decl,sigma), (fixnames,fixdefs,fixtypes), List.combine3 fixctxs fiximps fixannots
+  (env,rec_sign,decl,sigma), (fixnames,fixrs,fixdefs,fixtypes), List.combine3 fixctxs fiximps fixannots
 
-let check_recursive isfix env evd (fixnames,fixdefs,_) =
+let check_recursive isfix env evd (fixnames,_,fixdefs,_) =
   check_evars_are_solved env evd (Evd.from_env env);
   if List.for_all Option.has_some fixdefs then begin
     let fixdefs = List.map Option.get fixdefs in
@@ -243,7 +245,7 @@ let interp_fixpoint ~cofix l ntns =
   check_recursive true env evd fix;
   (fix,pl,Evd.evar_universe_context evd,info)
 
-let declare_fixpoint local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) indexes ntns =
+let declare_fixpoint local poly ((fixnames,fixrs,fixdefs,fixtypes),pl,ctx,fiximps) indexes ntns =
   if List.exists Option.is_empty fixdefs then
     (* Some bodies to define by proof *)
     let thms =
@@ -258,7 +260,7 @@ let declare_fixpoint local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) ind
   else begin
     (* We shortcut the proof process *)
     let fixdefs = List.map Option.get fixdefs in
-    let fixdecls = prepare_recursive_declaration fixnames fixtypes fixdefs in
+    let fixdecls = prepare_recursive_declaration fixnames fixrs fixtypes fixdefs in
     let env = Global.env() in
     let indexes = search_guard env indexes fixdecls in
     let fiximps = List.map (fun (n,r,p) -> r) fiximps in
@@ -278,7 +280,7 @@ let declare_fixpoint local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) ind
   (* Declare notations *)
   List.iter (Metasyntax.add_notation_interpretation (Global.env())) ntns
 
-let declare_cofixpoint local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) ntns =
+let declare_cofixpoint local poly ((fixnames,fixrs,fixdefs,fixtypes),pl,ctx,fiximps) ntns =
   if List.exists Option.is_empty fixdefs then
     (* Some bodies to define by proof *)
     let thms =
@@ -293,7 +295,7 @@ let declare_cofixpoint local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) n
   else begin
     (* We shortcut the proof process *)
     let fixdefs = List.map Option.get fixdefs in
-    let fixdecls = prepare_recursive_declaration fixnames fixtypes fixdefs in
+    let fixdecls = prepare_recursive_declaration fixnames fixrs fixtypes fixdefs in
     let fixdecls = List.map_i (fun i _ -> mkCoFix (i,fixdecls)) 0 fixnames in
     let env = Global.env () in
     let vars = Univops.universes_of_constr env (List.hd fixdecls) in

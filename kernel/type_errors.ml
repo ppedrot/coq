@@ -58,10 +58,11 @@ type ('constr, 'types) ptype_error =
   | CantApplyBadType of
       (int * 'constr * 'constr) * ('constr, 'types) punsafe_judgment * ('constr, 'types) punsafe_judgment array
   | CantApplyNonFunctional of ('constr, 'types) punsafe_judgment * ('constr, 'types) punsafe_judgment array
-  | IllFormedRecBody of 'constr pguard_error * Name.t array * int * env * ('constr, 'types) punsafe_judgment array
+  | IllFormedRecBody of 'constr pguard_error * Name.t binder_annot array * int * env * ('constr, 'types) punsafe_judgment array
   | IllTypedRecBody of
-      int * Name.t array * ('constr, 'types) punsafe_judgment array * 'types array
+      int * Name.t binder_annot array * ('constr, 'types) punsafe_judgment array * 'types array
   | UnsatisfiedConstraints of Univ.Constraint.t
+  | BadRelevance
 
 type type_error = (constr, types) ptype_error
 
@@ -125,3 +126,6 @@ let error_elim_explain kp ki =
 
 let error_unsatisfied_constraints env c =
   raise (TypeError (env, UnsatisfiedConstraints c))
+
+let error_bad_relevance env =
+  raise (TypeError (env, BadRelevance))

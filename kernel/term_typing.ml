@@ -114,11 +114,11 @@ let inline_side_effects env body ctx side_eff =
   if List.is_empty side_eff then (body, ctx, sigs)
   else
     (** Second step: compute the lifts and substitutions to apply *)
-    let cname c =
+    let cname c r =
       let name = Constant.to_string c in
       let map c = if c == '.' || c == '#' then '_' else c in
       let name = String.map map name in
-      Name (Id.of_string name)
+      make_annot (Name (Id.of_string name)) r
     in
     let fold (subst, var, ctx, args) (c, cb, b) =
       let (b, opaque) = match cb.const_body, b with
@@ -132,7 +132,7 @@ let inline_side_effects env body ctx side_eff =
         let ty = cb.const_type in
         let subst = Cmap_env.add c (Inr var) subst in
         let ctx = Univ.ContextSet.union ctx univs in
-        (subst, var + 1, ctx, (cname c, b, ty, opaque) :: args)
+        (subst, var + 1, ctx, (cname c cb.const_relevance, b, ty, opaque) :: args)
       | Polymorphic_const auctx ->
         (** Inline the term to emulate universe polymorphism *)
         let subst = Cmap_env.add c (Inl b) subst in
@@ -245,13 +245,14 @@ let infer_declaration (type a) ~(trust : a trust) env (dcl : a constant_entry) =
       in
       let j = infer env t in
       let usubst, univs = abstract_constant_universes uctx in
-      let c = Typeops.assumption_of_judgment env j in
+      let c, r = Typeops.assumption_of_judgment env j in
       let t = Constr.hcons (Vars.subst_univs_level_constr usubst c) in
       {
         Cooking.cook_body = Undef nl;
         cook_type = t;
         cook_proj = false;
         cook_universes = univs;
+        cook_relevance = r;
         cook_inline = false;
         cook_context = ctx;
       }
@@ -293,6 +294,7 @@ let infer_declaration (type a) ~(trust : a trust) env (dcl : a constant_entry) =
         cook_type = typ;
         cook_proj = false;
         cook_universes = Monomorphic_const univs;
+        cook_relevance = Sorts.relevance_of_sort tyj.utj_type;
         cook_inline = c.const_entry_inline_code;
         cook_context = c.const_entry_secctx;
       }
@@ -345,6 +347,7 @@ let infer_declaration (type a) ~(trust : a trust) env (dcl : a constant_entry) =
         cook_type = typ;
         cook_proj = false;
         cook_universes = univs;
+        cook_relevance = Retypeops.relevance_of_term env body;
         cook_inline = c.const_entry_inline_code;
         cook_context = c.const_entry_secctx;
       }
@@ -372,6 +375,7 @@ let infer_declaration (type a) ~(trust : a trust) env (dcl : a constant_entry) =
       cook_type = typ;
       cook_proj = true;
       cook_universes = univs;
+      cook_relevance = pb.proj_relevance;
       cook_inline = false;
       cook_context = None;
     }
@@ -467,6 +471,7 @@ let build_constant_declaration kn env result =
     const_proj = result.cook_proj;
     const_body_code = tps;
     const_universes = univs;
+    const_relevance = result.cook_relevance;
     const_inline_code = result.cook_inline;
     const_typing_flags = Environ.typing_flags env }
 
@@ -625,7 +630,7 @@ let translate_local_def env id centry =
     p
   | Undef _ -> assert false
   in
-  c, typ
+  c, decl.cook_relevance, typ
 
 (* Insertion of inductive types. *)
 

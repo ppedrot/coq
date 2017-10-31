@@ -41,7 +41,7 @@ val pf_concl              : goal sigma -> types
 val pf_env                : goal sigma -> env
 val pf_hyps               : goal sigma -> named_context
 (*i val pf_untyped_hyps       : goal sigma -> (Id.t * constr) list i*)
-val pf_hyps_types         : goal sigma -> (Id.t * types) list
+val pf_hyps_types         : goal sigma -> (Id.t binder_annot * types) list
 val pf_nth_hyp_id         : goal sigma -> int -> Id.t
 val pf_last_hyp           : goal sigma -> named_declaration
 val pf_ids_of_hyps        : goal sigma -> Id.t list

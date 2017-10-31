@@ -104,9 +104,9 @@ let canonize_constr sigma c =
   let dn = Name.Anonymous in
   let rec canonize_binders c =
     match EConstr.kind sigma c with
-    | Prod (_,t,b) -> mkProd(dn,t,b)
-    | Lambda (_,t,b) -> mkLambda(dn,t,b)
-    | LetIn (_,u,t,b) -> mkLetIn(dn,u,t,b)
+    | Prod (x,t,b) -> mkProd({x with binder_name=dn},t,b)
+    | Lambda (x,t,b) -> mkLambda({x with binder_name=dn},t,b)
+    | LetIn (x,u,t,b) -> mkLetIn({x with binder_name=dn},u,t,b)
     | _ -> EConstr.map sigma canonize_binders c
   in
   canonize_binders c
@@ -269,7 +269,7 @@ let explain_ill_formed_branch env sigma c ci actty expty =
 let explain_generalization env sigma (name,var) j =
   let pe = pr_ne_context_of (str "In environment") env sigma in
   let pv = pr_letype_env env sigma var in
-  let (pc,pt) = pr_ljudge_env (push_rel_assum (name,var) env) sigma j in
+  let (pc,pt) = pr_ljudge_env (push_rel_assum (make_annot name Sorts.Relevant,var) env) sigma j in
   pe ++ str "Cannot generalize" ++ brk(1,1) ++ pv ++ spc () ++
   str "over" ++ brk(1,1) ++ pc ++ str "," ++ spc () ++
   str "it has type" ++ spc () ++ pt ++
@@ -408,7 +408,7 @@ let explain_not_product env sigma c =
 let explain_ill_formed_rec_body env sigma err names i fixenv vdefj =
   let pr_lconstr_env env sigma c = pr_leconstr_env env sigma c in
   let prt_name i =
-    match names.(i) with
+    match names.(i).binder_name with
         Name id -> str "Recursive definition of " ++ Id.print id
       | Anonymous -> str "The " ++ pr_nth i ++ str " definition" in
 
@@ -423,7 +423,7 @@ let explain_ill_formed_rec_body env sigma err names i fixenv vdefj =
   | RecursionOnIllegalTerm(j,(arg_env, arg),le,lt) ->
       let arg_env = make_all_name_different arg_env sigma in
       let called =
-        match names.(j) with
+        match names.(j).binder_name with
             Name id -> Id.print id
           | Anonymous -> str "the " ++ pr_nth i ++ str " definition" in
       let pr_db x = quote (pr_db env x) in
@@ -443,7 +443,7 @@ let explain_ill_formed_rec_body env sigma err names i fixenv vdefj =
 
   | NotEnoughArgumentsForFixCall j ->
       let called =
-        match names.(j) with
+        match names.(j).binder_name with
             Name id -> Id.print id
           | Anonymous -> str "the " ++ pr_nth i ++ str " definition" in
      str "Recursive call to " ++ called ++ str " has not enough arguments"
@@ -681,6 +681,9 @@ let explain_unsatisfied_constraints env sigma cst =
     Univ.pr_constraints (Termops.pr_evd_level sigma) cst ++ 
     spc () ++ str "(maybe a bugged tactic)."
 
+let explain_bad_relevance env =
+  strbrk "Bad relevance (maybe a bugged tactic)."
+
 let explain_type_error env sigma err =
   let env = make_all_name_different env sigma in
   match err with
@@ -718,6 +721,7 @@ let explain_type_error env sigma err =
       explain_wrong_case_info env ind ci
   | UnsatisfiedConstraints cst ->
       explain_unsatisfied_constraints env sigma cst
+  | BadRelevance -> explain_bad_relevance env
 
 let pr_position (cl,pos) =
   let clpos = match cl with
@@ -1309,6 +1313,7 @@ let map_ptype_error f = function
 | IllTypedRecBody (n, na, jv, t) ->
   IllTypedRecBody (n, na, Array.map (on_judgment f) jv, Array.map f t)
 | UnsatisfiedConstraints g -> UnsatisfiedConstraints g
+| BadRelevance -> BadRelevance
 
 let explain_reduction_tactic_error = function
   | Tacred.InvalidAbstraction (env,sigma,c,(env',e)) ->

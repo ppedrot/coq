@@ -136,7 +136,7 @@ let infos_and_sort env t =
       match kind t with
       | Prod (name,c1,c2) ->
         let varj = infer_type env c1 in
-	let env1 = Environ.push_rel (LocalAssum (name,varj.utj_val)) env in
+        let env1 = Environ.push_rel (LocalAssum (name,varj.utj_val)) env in
         let max = Universe.sup max (Sorts.univ_of_sort varj.utj_type) in
 	  aux env1 c2 max
     | _ when is_constructor_head t -> max
@@ -323,9 +323,10 @@ let typecheck_inductive env mie =
 	    full_arity is used as argument or subject to cast, an
 	    upper universe will be generated *)
 	 let full_arity = it_mkProd_or_LetIn arity paramsctxt in
-	 let id = ind.mind_entry_typename in
+         let id = ind.mind_entry_typename in
+         let x = make_annot (Name id) (Sorts.relevance_of_sort deflev) in
 	 let env_ar' =
-           push_rel (LocalAssum (Name id, full_arity)) env_ar in
+           push_rel (LocalAssum (x, full_arity)) env_ar in
              (* (add_constraints cst2 env_ar) in *)
 	   (env_ar', (id,full_arity,sign @ paramsctxt,expltype,deflev,inflev)::l))
       (env',[])
@@ -526,7 +527,9 @@ let ienv_push_inductive (env, n, ntypes, ra_env) ((mi,u),lrecparams) =
   let specif = (lookup_mind_specif env mi, u) in
   let ty = type_of_inductive env specif in
   let env' =
-    let decl = LocalAssum (Anonymous, hnf_prod_applist env ty lrecparams) in
+    let r = (snd (fst specif)).mind_relevant in
+    let anon = make_annot Anonymous r in
+    let decl = LocalAssum (anon, hnf_prod_applist env ty lrecparams) in
     push_rel decl env in
   let ra_env' =
     (Imbr mi,(Rtree.mk_rec_calls 1).(0)) ::
@@ -539,8 +542,8 @@ let rec ienv_decompose_prod (env,_,_,_ as ienv) n c =
   if Int.equal n 0 then (ienv,c) else
     let c' = whd_all env c in
     match kind c' with
-	Prod(na,a,b) ->
-	  let ienv' = ienv_push_var ienv (na,a,mk_norec) in
+        Prod(na,a,b) ->
+          let ienv' = ienv_push_var ienv (na,a,mk_norec) in
 	  ienv_decompose_prod ienv' (n-1) b
       | _ -> assert false
 
@@ -568,7 +571,7 @@ let check_positivity_one ~chkpos recursive (env,_,ntypes,_ as ienv) paramsctxt (
   let rec check_pos (env, n, ntypes, ra_env as ienv) nmr c =
     let x,largs = decompose_app (whd_all env c) in
       match kind x with
-	| Prod (na,b,d) ->
+        | Prod (na,b,d) ->
 	    let () = assert (List.is_empty largs) in
             (** If one of the inductives of the mutually inductive
                 block occurs in the left-hand side of a product, then
@@ -799,7 +802,7 @@ exception UndefinableExpansion
     build an expansion function.
     The term built is expecting to be substituted first by 
     a substitution of the form [params, x : ind params] *)
-let compute_projections ((kn, _ as ind), u as indu) n x nparamargs params
+let compute_projections ((kn, _ as ind), u as indu) mind_relevant n x nparamargs params
     mind_consnrealdecls mind_consnrealargs paramslet ctx =
   let mp, dp, l = MutInd.repr3 kn in
   (** We build a substitution smashing the lets in the record parameters so
@@ -818,24 +821,25 @@ let compute_projections ((kn, _ as ind), u as indu) n x nparamargs params
       mkRel 1 :: List.map (lift 1) subst in
       ty, subst
   in
-  let ci = 
+  let ci r =
     let print_info =
       { ind_tags = []; cstr_tags = [|Context.Rel.to_tags ctx|]; style = LetStyle } in
       { ci_ind     = ind;
 	ci_npar    = nparamargs;
 	ci_cstr_ndecls = mind_consnrealdecls;
-	ci_cstr_nargs = mind_consnrealargs;
+        ci_cstr_nargs = mind_consnrealargs;
+        ci_relevance = r;
 	ci_pp_info = print_info }
   in
   let len = List.length ctx in
-  let x = Name x in
-  let compat_body ccl i = 
+  let x = make_annot (Name x) mind_relevant in
+  let compat_body ccl r i =
     (* [ccl] is defined in context [params;x:indty] *)
     (* [ccl'] is defined in context [params;x:indty;x:indty] *)
     let ccl' = liftn 1 2 ccl in
     let p = mkLambda (x, lift 1 indty, ccl') in
     let branch = it_mkLambda_or_LetIn (mkRel (len - i)) ctx in
-    let body = mkCase (ci, p, mkRel 1, [|lift 1 branch|]) in
+    let body = mkCase (ci r, p, mkRel 1, [|lift 1 branch|]) in
       it_mkLambda_or_LetIn (mkLambda (x,indty,body)) params
   in
   let projections decl (i, j, kns, pbs, subst, letsubst) =
@@ -859,7 +863,7 @@ let compute_projections ((kn, _ as ind), u as indu) n x nparamargs params
         let letsubst = c2 :: letsubst in
         (i, j+1, kns, pbs, subst, letsubst)
     | LocalAssum (na,t) ->
-      match na with
+      match na.binder_name with
       | Name id ->
 	let kn = Constant.make1 (KerName.make mp dp (Label.of_id id)) in
         (* from [params, field1,..,fieldj |- t(params,field1,..,fieldj)]
@@ -873,12 +877,12 @@ let compute_projections ((kn, _ as ind), u as indu) n x nparamargs params
 	let ty = substl subst t in
 	let term = mkProj (Projection.make kn true, mkRel 1) in
 	let fterm = mkProj (Projection.make kn false, mkRel 1) in
-	let compat = compat_body ty (j - 1) in
-	let etab = it_mkLambda_or_LetIn (mkLambda (x, indty, term)) params in
-	let etat = it_mkProd_or_LetIn (mkProd (x, indty, ty)) params in
+        let compat = compat_body ty na.binder_relevance (j - 1) in
+        let etab = it_mkLambda_or_LetIn (mkLambda (x, indty, term)) params in
+        let etat = it_mkProd_or_LetIn (mkProd (x, indty, ty)) params in
 	let body = { proj_ind = fst ind; proj_npars = nparamargs;
 		     proj_arg = i; proj_type = projty; proj_eta = etab, etat; 
-		     proj_body = compat } in
+                     proj_body = compat; proj_relevance = na.binder_relevance; } in
 	  (i + 1, j + 1, kn :: kns, body :: pbs,
 	   fterm :: subst, fterm :: letsubst)
       | Anonymous -> raise UndefinableExpansion
@@ -927,18 +931,18 @@ let build_inductive env prv iu env_ar paramsctxt kn isrecord isfinite inds nmr r
       Array.map (fun (d,_) -> Context.Rel.nhyps d - nparamargs)
 	splayed_lc in
     (* Elimination sorts *)
-    let arkind,kelim = 
+    let arkind,kelim, mind_relevant =
       match ar_kind with
       | TemplateArity (paramlevs, lev) -> 
 	let ar = {template_param_levels = paramlevs; template_level = lev} in
-	  TemplateArity ar, all_sorts
+          TemplateArity ar, all_sorts, Sorts.relevance_of_sort (Sorts.sort_of_univ lev)
       | RegularArity (info,ar,defs) ->
         let s = Sorts.sort_of_univ defs in
 	let kelim = allowed_sorts info s in
 	let ar = RegularArity 
 	  { mind_user_arity = Vars.subst_univs_level_constr substunivs ar; 
             mind_sort = Sorts.sort_of_univ (Univ.subst_univs_level_universe substunivs defs); } in
-	  ar, kelim in
+          ar, kelim, Sorts.relevance_of_sort s in
     (* Assigning VM tags to constructors *)
     let nconst, nblock = ref 0, ref 0 in
     let transf num =
@@ -965,8 +969,9 @@ let build_inductive env prv iu env_ar paramsctxt kn isrecord isfinite inds nmr r
 	mind_consnrealargs = consnrealargs;
 	mind_user_lc = lc;
 	mind_nf_lc = nf_lc;
-	mind_recargs = recarg;
-	mind_nb_constant = !nconst;
+        mind_recargs = recarg;
+        mind_relevant;
+        mind_nb_constant = !nconst;
 	mind_nb_args = !nblock;
 	mind_reloc_tbl = rtbl;
       } in
@@ -989,7 +994,7 @@ let build_inductive env prv iu env_ar paramsctxt kn isrecord isfinite inds nmr r
 	(try 
 	   let fields, paramslet = List.chop pkt.mind_consnrealdecls.(0) rctx in
 	   let kns, projs = 
-	     compute_projections indsp pkt.mind_typename rid nparamargs paramsctxt
+             compute_projections indsp pkt.mind_relevant pkt.mind_typename rid nparamargs paramsctxt
 	       pkt.mind_consnrealdecls pkt.mind_consnrealargs paramslet fields
 	   in Some (Some (rid, kns, projs))
 	 with UndefinableExpansion -> Some None)

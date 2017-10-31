@@ -77,7 +77,7 @@ let constr_val_discr_st sigma (idpred,cpred) t =
     | Construct (cstr_sp,u) -> Label(GRLabel (ConstructRef cstr_sp),l)
     | Var id when not (Id.Pred.mem id idpred) -> Label(GRLabel (VarRef id),l)
     | Prod (n, d, c) -> Label(ProdLabel, [d; c])
-    | Lambda (n, d, c) -> 
+    | Lambda (n, d, c) ->
       if List.is_empty l then 
 	Label(LambdaLabel, [d; c] @ l)
       else Everything

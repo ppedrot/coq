@@ -22,6 +22,6 @@ val make_hyps :
     Goal.goal Evd.sigma ->
     EConstr.types list ->
     EConstr.named_context ->
-    (Names.Id.t * Proof_search.form) list
+    (Names.Id.t Constr.binder_annot * Proof_search.form) list
 
 val rtauto_tac : Tacmach.tactic

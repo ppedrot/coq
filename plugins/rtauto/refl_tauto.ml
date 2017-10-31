@@ -100,7 +100,7 @@ let rec make_form atom_env gls term =
   let cciterm=special_whd gls term  in
   let sigma = Tacmach.project gls in
     match EConstr.kind sigma cciterm with
-	Prod(_,a,b) ->
+        Prod(_,a,b) ->
 	  if noccurn sigma 1 b &&
 	    Retyping.get_sort_family_of
 	    (pf_env gls) sigma a == InProp
@@ -141,7 +141,7 @@ let rec make_hyps atom_env gls lenv = function
   | LocalAssum (id,typ)::rest ->
       let hrec=
 	make_hyps atom_env gls (typ::lenv) rest in
-	if List.exists (fun c -> Termops.local_occur_var Evd.empty (** FIXME *) id c) lenv ||
+        if List.exists (fun c -> Termops.local_occur_var Evd.empty (** FIXME *) id.binder_name c) lenv ||
 	  (Retyping.get_sort_family_of
 	     (pf_env gls) (Tacmach.project gls) typ != InProp)
 	then
@@ -303,7 +303,7 @@ let rtauto_tac gls=
 		      build_form formula;
 		      build_proof [] 0 prf|]) in
   let term=
-    applistc main (List.rev_map (fun (id,_) -> mkVar id) hyps) in
+    applistc main (List.rev_map (fun (id,_) -> mkVar id.binder_name) hyps) in
   let build_end_time=System.get_time () in
   let _ = if !verbose then
     begin

@@ -49,9 +49,9 @@ let rec complete_conclusion a cs = CAst.map_with_loc (fun ?loc -> function
   | c -> c
   )
 
-let push_types env idl tl =
-  List.fold_left2 (fun env id t -> EConstr.push_rel (LocalAssum (Name id,t)) env)
-    env idl tl
+let push_types env idl rl tl =
+  List.fold_left3 (fun env id r t -> EConstr.push_rel (LocalAssum (make_annot (Name id) r,t)) env)
+    env idl rl tl
 
 type structured_one_inductive_expr = {
   ind_name : Id.t;
@@ -93,8 +93,8 @@ let mk_mltype_data sigma env assums arity indname =
   (is_ml_type,indname,assums)
 
 let prepare_param = function
-  | LocalAssum (na,t) -> Name.get_id na, LocalAssumEntry t
-  | LocalDef (na,b,_) -> Name.get_id na, LocalDefEntry b
+  | LocalAssum (na,t) -> Name.get_id na.binder_name, LocalAssumEntry t
+  | LocalDef (na,b,_) -> Name.get_id na.binder_name, LocalDefEntry b
 
 (** Make the arity conclusion flexible to avoid generating an upper bound universe now,
     only if the universe does not appear anywhere else.
@@ -133,10 +133,11 @@ let interp_ind_arity env sigma ind =
   let impls = Implicit_quantifiers.implicits_of_glob_constr ~with_products:true c in
   let sigma,t = understand_tcc env sigma ~expected_type:IsType c in
   let pseudo_poly = check_anonymous_type c in
-  let () = if not (Reductionops.is_arity env sigma t) then
+  match Reductionops.find_conclusion env sigma t with
+  | Sort s ->
+    sigma, (t, Retyping.relevance_of_sort s, pseudo_poly, impls)
+  | _ ->
     user_err ?loc:(constr_loc ind.ind_arity) (str "Not an arity")
-  in
-  sigma, (t, pseudo_poly, impls)
 
 let interp_cstrs env sigma impls mldata arity ind =
   let cnames,ctyps = List.split ind.ind_lc in
@@ -168,7 +169,7 @@ let sup_list min = List.fold_left Univ.sup min
 let extract_level env evd min tys =
   let sorts = List.map (fun ty ->
     let ctx, concl = Reduction.dest_prod_assum env ty in
-      sign_level env evd (LocalAssum (Anonymous, concl) :: ctx)) tys
+      sign_level env evd (LocalAssum (make_annot Anonymous Sorts.Relevant, concl) :: ctx)) tys
   in sup_list min sorts
 
 let is_flexible_sort evd u =
@@ -344,15 +345,15 @@ let interp_mutual_inductive (paramsl,indl) notations cum poly prv finite =
 
   (* Interpret the arities *)
   let sigma, arities = List.fold_left_map (fun sigma -> interp_ind_arity env_params sigma) sigma indl in
+  let arities, relevances, aritypoly, indimpls = List.split4 arities in
 
-  let fullarities = List.map (fun (c, _, _) -> EConstr.it_mkProd_or_LetIn c ctx_params) arities in
-  let env_ar = push_types env0 indnames fullarities in
+  let fullarities = List.map (fun c -> EConstr.it_mkProd_or_LetIn c ctx_params) arities in
+  let env_ar = push_types env0 indnames relevances fullarities in
   let env_ar_params = EConstr.push_rel_context ctx_params env_ar in
 
   (* Compute interpretation metadatas *)
-  let indimpls = List.map (fun (_, _, impls) -> userimpls @
-    lift_implicits (Context.Rel.nhyps ctx_params) impls) arities in
-  let arities = List.map pi1 arities and aritypoly = List.map pi2 arities in
+  let indimpls = List.map (fun impls -> userimpls @
+    lift_implicits (Context.Rel.nhyps ctx_params) impls) indimpls in
   let impls = compute_internalization_env env0 sigma ~impls (Inductive (params,true)) indnames fullarities indimpls in
   let ntn_impls = compute_internalization_env env0 sigma (Inductive (params,true)) indnames fullarities indimpls in
   let mldatas = List.map2 (mk_mltype_data sigma env_params params) arities indnames in

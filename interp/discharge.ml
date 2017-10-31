@@ -24,8 +24,8 @@ open Context.Rel.Declaration
 
 let detype_param =
   function
-  | LocalAssum (Name id, p) -> id, LocalAssumEntry p
-  | LocalDef (Name id, p,_) -> id, LocalDefEntry p
+  | LocalAssum ({binder_name=Name id}, p) -> id, LocalAssumEntry p
+  | LocalDef ({binder_name=Name id}, p,_) -> id, LocalDefEntry p
   | _ -> anomaly (Pp.str "Unnamed inductive local variable.")
 
 (* Replace

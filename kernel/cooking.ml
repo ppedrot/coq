@@ -158,6 +158,7 @@ type result = {
   cook_type : types;
   cook_proj : bool;
   cook_universes : constant_universes;
+  cook_relevance : Sorts.relevance;
   cook_inline : inline;
   cook_context : Context.Named.t option;
 }
@@ -232,6 +233,7 @@ let cook_constant ~hcons env { from = cb; info } =
     cook_type = typ;
     cook_proj = cb.const_proj;
     cook_universes = univs;
+    cook_relevance = cb.const_relevance;
     cook_inline = cb.const_inline_code;
     cook_context = Some const_hyps;
   }

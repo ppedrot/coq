@@ -97,7 +97,7 @@ val error_number_branches :
 
 val error_ill_typed_rec_body :
   ?loc:Loc.t -> env -> Evd.evar_map ->
-      int -> Name.t array -> unsafe_judgment array -> types array -> 'b
+      int -> Name.t Constr.binder_annot array -> unsafe_judgment array -> types array -> 'b
 
 val error_elim_arity :
   ?loc:Loc.t -> env -> Evd.evar_map ->

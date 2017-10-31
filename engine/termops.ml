@@ -38,12 +38,14 @@ let pr_sort_family = function
 
 let pr_con sp = str(Constant.to_string sp)
 
+let pr_annot x = Name.print x.binder_name
+
 let pr_fix pr_constr ((t,i),(lna,tl,bl)) =
   let fixl = Array.mapi (fun i na -> (na,t.(i),tl.(i),bl.(i))) lna in
   hov 1
       (str"fix " ++ int i ++ spc() ++  str"{" ++
          v 0 (prlist_with_sep spc (fun (na,i,ty,bd) ->
-           Name.print na ++ str"/" ++ int i ++ str":" ++ pr_constr ty ++
+           pr_annot na ++ str"/" ++ int i ++ str":" ++ pr_constr ty ++
 	   cut() ++ str":=" ++ pr_constr bd) (Array.to_list fixl)) ++
          str"}")
 
@@ -59,17 +61,17 @@ let rec pr_constr c = match kind c with
   | Cast (c,_, t) -> hov 1
       (str"(" ++ pr_constr c ++ cut() ++
        str":" ++ pr_constr t ++ str")")
-  | Prod (Name(id),t,c) -> hov 1
+  | Prod ({binder_name=Name(id)},t,c) -> hov 1
       (str"forall " ++ Id.print id ++ str":" ++ pr_constr t ++ str"," ++
        spc() ++ pr_constr c)
-  | Prod (Anonymous,t,c) -> hov 0
+  | Prod ({binder_name=Anonymous},t,c) -> hov 0
       (str"(" ++ pr_constr t ++ str " ->" ++ spc() ++
        pr_constr c ++ str")")
   | Lambda (na,t,c) -> hov 1
-      (str"fun " ++ Name.print na ++ str":" ++
+      (str"fun " ++ pr_annot na ++ str":" ++
        pr_constr t ++ str" =>" ++ spc() ++ pr_constr c)
   | LetIn (na,b,t,c) -> hov 0
-      (str"let " ++ Name.print na ++ str":=" ++ pr_constr b ++
+      (str"let " ++ pr_annot na ++ str":=" ++ pr_constr b ++
        str":" ++ brk(1,2) ++ pr_constr t ++ cut() ++
        pr_constr c)
   | App (c,l) ->  hov 1
@@ -94,7 +96,7 @@ let rec pr_constr c = match kind c with
       hov 1
         (str"cofix " ++ int i ++ spc() ++  str"{" ++
          v 0 (prlist_with_sep spc (fun (na,ty,bd) ->
-           Name.print na ++ str":" ++ pr_constr ty ++
+           pr_annot na ++ str":" ++ pr_constr ty ++
            cut() ++ str":=" ++ pr_constr bd) (Array.to_list fixl)) ++
          str"}")
 
@@ -185,8 +187,8 @@ let pr_decl (decl,ok) =
   let open NamedDecl in
   let print_constr = print_kconstr in
   match decl with
-  | LocalAssum (id,_) -> if ok then Id.print id else (str "{" ++ Id.print id ++ str "}")
-  | LocalDef (id,c,_) -> str (if ok then "(" else "{") ++ Id.print id ++ str ":=" ++
+  | LocalAssum ({binder_name=id},_) -> if ok then Id.print id else (str "{" ++ Id.print id ++ str "}")
+  | LocalDef ({binder_name=id},c,_) -> str (if ok then "(" else "{") ++ Id.print id ++ str ":=" ++
                            print_constr c ++ str (if ok then ")" else "}")
 
 let pr_evar_source = function
@@ -318,8 +320,8 @@ let pr_evar_universe_context ctx =
 let print_env_short env =
   let print_constr = print_kconstr in
   let pr_rel_decl = function
-    | RelDecl.LocalAssum (n,_) -> Name.print n
-    | RelDecl.LocalDef (n,b,_) -> str "(" ++ Name.print n ++ str " := "
+    | RelDecl.LocalAssum ({binder_name=n},_) -> Name.print n
+    | RelDecl.LocalDef ({binder_name=n},b,_) -> str "(" ++ Name.print n ++ str " := "
                                   ++ print_constr (EConstr.of_constr b) ++ str ")"
   in
   let pr_named_decl = NamedDecl.to_rel_decl %> pr_rel_decl in
@@ -517,9 +519,10 @@ let push_named_rec_types (lna,typarray,_) env =
   let ctxt =
     Array.map2_i
       (fun i na t ->
-	 match na with
-	   | Name id -> LocalAssum (id, lift i t)
-	   | Anonymous -> anomaly (Pp.str "Fix declarations must be named."))
+         let id = map_annot (function
+             | Name id -> id
+             | Anonymous -> anomaly (Pp.str "Fix declarations must be named.")) na
+         in  LocalAssum (id, lift i t))
       lna typarray in
   Array.fold_left
     (fun e assum -> push_named assum e) env ctxt
@@ -527,14 +530,11 @@ let push_named_rec_types (lna,typarray,_) env =
 let lookup_rel_id id sign =
   let open RelDecl in
   let rec lookrec n = function
-    | [] ->
-        raise Not_found
-    | (LocalAssum (Anonymous, _) | LocalDef (Anonymous,_,_)) :: l ->
-        lookrec (n + 1) l
-    | LocalAssum (Name id', t) :: l  ->
-        if Names.Id.equal id' id then (n,None,t)  else lookrec (n + 1) l
-    | LocalDef (Name id', b, t) :: l  ->
-        if Names.Id.equal id' id then (n,Some b,t) else lookrec (n + 1) l
+    | [] -> raise Not_found
+    | decl :: l ->
+      if Names.Name.equal (Name id) (get_name decl)
+      then (n, get_value decl, get_type decl)
+      else lookrec (n+1) l
   in
   lookrec 1 sign
 
@@ -1419,7 +1419,7 @@ let compact_named_context sign =
 let clear_named_body id env =
   let open NamedDecl in
   let aux _ = function
-  | LocalDef (id',c,t) when Id.equal id id' -> push_named (LocalAssum (id,t))
+  | LocalDef (id',c,t) when Id.equal id id'.binder_name -> push_named (LocalAssum (id',t))
   | d -> push_named d in
   fold_named_context aux env ~init:(reset_context env)
 

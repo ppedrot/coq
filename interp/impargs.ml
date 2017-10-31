@@ -249,7 +249,7 @@ let compute_implicits_names_gen all env sigma t =
     let t = whd_all env sigma t in
     match kind sigma t with
     | Prod (na,a,b) ->
-       let na',avoid' = find_displayed_name_in sigma all avoid na (names,b) in
+       let na',avoid' = find_displayed_name_in sigma all avoid na.binder_name (names,b) in
        aux (push_rel (LocalAssum (na,a)) env) avoid' (na'::names) b
     | _ -> List.rev names
   in aux env Id.Set.empty [] t
@@ -450,8 +450,9 @@ let compute_mib_implicits flags kn =
       (Array.mapi  (* No need to lift, arities contain no de Bruijn *)
         (fun i mip ->
 	  (** No need to care about constraints here *)
-	  let ty, _ = Global.type_of_global_in_context env (IndRef (kn,i)) in
-	  Context.Rel.Declaration.LocalAssum (Name mip.mind_typename, ty))
+          let ty, _ = Global.type_of_global_in_context env (IndRef (kn,i)) in
+          let r = Inductive.relevance_of_inductive env (kn,i) in
+          Context.Rel.Declaration.LocalAssum (make_annot (Name mip.mind_typename) r, ty))
         mib.mind_packets) in
   let env_ar = Environ.push_rel_context ar env in
   let imps_one_inductive i mip =

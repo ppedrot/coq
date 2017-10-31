@@ -387,14 +387,16 @@ let safe_push_named d env =
 
 
 let push_named_def (id,de) senv =
-  let c, typ = Term_typing.translate_local_def senv.env id de in
-  let env'' = safe_push_named (LocalDef (id, c, typ)) senv.env in
+  let c, r, typ = Term_typing.translate_local_def senv.env id de in
+  let x = Constr.make_annot id r in
+  let env'' = safe_push_named (LocalDef (x, c, typ)) senv.env in
   { senv with env = env'' }
 
 let push_named_assum ((id,t,poly),ctx) senv =
   let senv' = push_context_set poly ctx senv in
-  let t = Term_typing.translate_local_assum senv'.env t in
-  let env'' = safe_push_named (LocalAssum (id,t)) senv'.env in
+  let t, r = Term_typing.translate_local_assum senv'.env t in
+  let x = Constr.make_annot id r in
+  let env'' = safe_push_named (LocalAssum (x,t)) senv'.env in
     {senv' with env=env''}
 
 

@@ -65,12 +65,7 @@ let adjust_guardness_conditions const = function
         Future.chain const.const_entry_body
         (fun ((body, ctx), eff) ->
           match Constr.kind body with
-          | Fix ((nv,0),(_,_,fixdefs as fixdecls)) ->
-(*      let possible_indexes =
-	List.map2 (fun i c -> match i with Some i -> i | None ->
-	  List.interval 0 (List.length ((lam_assum c))))
-	  lemma_guard (Array.to_list fixdefs) in
-*)
+          | Fix ((nv,0),fixdecls) ->
               let add c cb e =
                 let exists c e =
                   try ignore(Environ.lookup_constant c e); true

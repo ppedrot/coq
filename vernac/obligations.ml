@@ -126,11 +126,11 @@ let etype_of_evar evs hyps concl =
             | LocalDef (id,c,_) ->
 		let c', s'', trans'' = subst_evar_constr evs n mkVar c in
 		let c' = subst_vars acc 0 c' in
-		  mkNamedProd_or_LetIn (LocalDef (id, c', t'')) rest,
+                  mkNamedProd_or_LetIn (LocalDef (id, c', t'')) rest,
 		Int.Set.union s'' s',
 		Id.Set.union trans'' trans'
-	    | LocalAssum (id,_) ->
-		mkNamedProd_or_LetIn (LocalAssum (id, t'')) rest, s', trans')
+            | LocalAssum (id,_) ->
+                mkNamedProd_or_LetIn (LocalAssum (id, t'')) rest, s', trans')
     | [] ->
 	let t', s, trans = subst_evar_constr evs n mkVar concl in
 	  subst_vars acc 0 t', s, trans
@@ -495,7 +495,7 @@ let declare_definition prg =
 
 let rec lam_index n t acc =
   match Constr.kind t with
-    | Lambda (Name n', _, _) when Id.equal n n' ->
+    | Lambda ({binder_name=Name n'}, _, _) when Id.equal n n' ->
       acc
     | Lambda (_, _, b) ->
 	lam_index n b (succ acc)
@@ -519,22 +519,25 @@ let mk_proof c = ((c, Univ.ContextSet.empty), Safe_typing.empty_private_constant
 let declare_mutual_definition l =
   let len = List.length l in
   let first = List.hd l in
-  let fixdefs, fixtypes, fiximps =
-    List.split3
+  let fixdefs, fixrs, fixtypes, fiximps =
+    let env = Global.env () in
+    let sigma = Evd.from_env env in
+    List.split4
       (List.map (fun x -> 
-	let subs, typ = (subst_body true x) in
-        let env = Global.env () in
-        let sigma = Evd.from_env env in
+        let subs, typ = (subst_body true x) in
+        let r = Retyping.relevance_of_type env (Evd.from_env env) (EConstr.of_constr typ) in
         let term = snd (Reductionops.splay_lam_n env sigma len (EConstr.of_constr subs)) in
         let typ = snd (Reductionops.splay_prod_n env sigma len (EConstr.of_constr typ)) in
 	let term = EConstr.Unsafe.to_constr term in
 	let typ = EConstr.Unsafe.to_constr typ in
-	  x.prg_reduce term, x.prg_reduce typ, x.prg_implicits) l)
+          x.prg_reduce term, r, x.prg_reduce typ, x.prg_implicits) l)
   in
 (*   let fixdefs = List.map reduce_fix fixdefs in *)
   let fixkind = Option.get first.prg_fixkind in
   let arrrec, recvec = Array.of_list fixtypes, Array.of_list fixdefs in
-  let fixdecls = (Array.of_list (List.map (fun x -> Name x.prg_name) l), arrrec, recvec) in
+  let rvec = Array.of_list fixrs in
+  let namevec = Array.of_list (List.map (fun x -> Name x.prg_name) l) in
+  let fixdecls = (Array.map2 make_annot namevec rvec, arrrec, recvec) in
   let (local,poly,kind) = first.prg_kind in
   let fixnames = first.prg_deps in
   let opaque = first.prg_opaque in

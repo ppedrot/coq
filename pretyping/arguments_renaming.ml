@@ -74,7 +74,7 @@ let rec rename_prod c = function
   | [] -> c
   | (Name _ as n) :: tl -> 
       (match kind_of_type c with
-      | ProdType (_, s, t) -> mkProd (n, s, rename_prod t tl)
+      | ProdType (n', s, t) -> mkProd ({n' with binder_name=n}, s, rename_prod t tl)
       | _ -> c)
   | _ :: tl -> 
       match kind_of_type c with

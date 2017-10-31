@@ -13,8 +13,10 @@ let pr_con sp = str(Names.Label.to_string (Constant.label sp))
 
 (** Printing **)
 
+let pr_annot x = Name.print x.binder_name
+
 let pp_names ids =
-  prlist_with_sep (fun _ -> brk(1,1)) Name.print (Array.to_list ids)
+  prlist_with_sep (fun _ -> brk(1,1)) pr_annot (Array.to_list ids)
 
 let pp_rel name n =
   Name.print name ++  str "##" ++ int n
@@ -48,7 +50,7 @@ let rec pp_lam lam =
                          str ")")
   | Llet(id,def,body) -> hov 0
                            (str "let " ++
-                            Name.print id ++
+                            pr_annot id ++
                             str ":=" ++
                             pp_lam def  ++
                             str " in" ++
@@ -84,7 +86,7 @@ let rec pp_lam lam =
        v 0
          (prlist_with_sep spc
             (fun (na,i,ty,bd) ->
-               Name.print na ++ str"/" ++ int i ++ str":" ++
+               pr_annot na ++ str"/" ++ int i ++ str":" ++
                pp_lam ty ++ cut() ++ str":=" ++
                pp_lam bd) (Array.to_list fixl)) ++
        str"}")
@@ -96,7 +98,7 @@ let rec pp_lam lam =
        v 0
          (prlist_with_sep spc
             (fun (na,ty,bd) ->
-               Name.print na ++ str":" ++ pp_lam ty ++
+               pr_annot na ++ str":" ++ pp_lam ty ++
                cut() ++ str":=" ++ pp_lam bd) (Array.to_list fixl)) ++
        str"}")
   | Lmakeblock(tag, args) ->
@@ -330,8 +332,8 @@ and reduce_lapp substf lids body substa largs =
       Llet(id, a, body)
   | [], [] -> simplify substf body
   | _::_, _ ->
-    Llam(Array.of_list lids,  simplify (liftn (List.length lids) substf) body)
-  | [], _::_ -> simplify_app substf body substa (Array.of_list largs)
+    Llam(Array.of_list lids, simplify (liftn (List.length lids) substf) body)
+  | [], _ -> simplify_app substf body substa (Array.of_list largs)
 
 
 
@@ -452,7 +454,8 @@ let make_args start _end =
 
 (* Translation of constructors *)
 let expand_constructor tag nparams arity =
-  let ids = Array.make (nparams + arity) Anonymous in
+  let anon = make_annot Anonymous Sorts.Relevant in (* TODO relevance *)
+  let ids = Array.make (nparams + arity) anon in
   if arity = 0 then mkLlam ids (mkConst_b0 tag)
   else
     let args = make_args arity 1 in
@@ -577,7 +580,7 @@ struct
     construct_tbl = Hashtbl.create 111
   }
 
-  let push_rel env id = Vect.push env.name_rel id
+  let push_rel env id = Vect.push env.name_rel id.binder_name
 
   let push_rels env ids =
     Array.iter (push_rel env) ids
@@ -627,7 +630,7 @@ let rec lambda_of_constr env c =
     Renv.push_rel env id;
     let lc = lambda_of_constr env codom in
     Renv.pop env;
-    Lprod(ld,  Llam([|id|], lc))
+    Lprod(ld, Llam([|id|], lc))
 
   | Lambda _ ->
     let params, body = decompose_lam c in
@@ -681,7 +684,8 @@ let rec lambda_of_constr env c =
           match b with
           | Llam(ids, body) when Array.length ids = arity -> (ids, body)
           | _ ->
-            let ids = Array.make arity Anonymous in
+            let anon = make_annot Anonymous Sorts.Relevant in (* TODO relevance *)
+            let ids = Array.make arity anon in
             let args = make_args arity 1 in
             let ll = lam_lift arity b in
             (ids, mkLapp  ll args)
@@ -815,7 +819,7 @@ let optimize_lambda lam =
 
 let lambda_of_constr ~optimize genv c =
   let env = Renv.make genv in
-  let ids = List.rev_map Context.Rel.Declaration.get_name genv.env_rel_context.env_rel_ctx in
+  let ids = List.rev_map Context.Rel.Declaration.get_annot genv.env_rel_context.env_rel_ctx in
   Renv.push_rels env (Array.of_list ids);
   let lam = lambda_of_constr env c in
   let lam = if optimize then optimize_lambda lam else lam in

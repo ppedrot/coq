@@ -367,9 +367,9 @@ and fterm =
   | FFix of fixpoint * fconstr subs
   | FCoFix of cofixpoint * fconstr subs
   | FCaseT of case_info * constr * fconstr * constr array * fconstr subs (* predicate and branches are closures *)
-  | FLambda of int * (Name.t * constr) list * constr * fconstr subs
-  | FProd of Name.t * fconstr * fconstr
-  | FLetIn of Name.t * fconstr * fconstr * constr * fconstr subs
+  | FLambda of int * (Name.t Constr.binder_annot * constr) list * constr * fconstr subs
+  | FProd of Name.t Constr.binder_annot * fconstr * fconstr
+  | FLetIn of Name.t Constr.binder_annot * fconstr * fconstr * constr * fconstr subs
   | FEvar of existential * fconstr subs
   | FLIFT of int * fconstr
   | FCLOS of constr * fconstr subs
@@ -576,10 +576,10 @@ let mk_clos_deep clos_fun env t =
         { norm = Cstr; term = mk_lambda env t }
     | Prod (n,t,c)   ->
         { norm = Whnf;
-	  term = FProd (n, clos_fun env t, clos_fun (subs_lift env) c) }
+          term = FProd (n, clos_fun env t, clos_fun (subs_lift env) c) }
     | LetIn (n,b,t,c) ->
         { norm = Red;
-	  term = FLetIn (n, clos_fun env b, clos_fun env t, c, env) }
+          term = FLetIn (n, clos_fun env b, clos_fun env t, c, env) }
     | Evar ev ->
 	{ norm = Red; term = FEvar(ev,env) }
 
@@ -601,21 +601,21 @@ let rec to_constr constr_fun lfts v =
     | FCaseT (ci,p,c,ve,env) ->
 	mkCase (ci, constr_fun lfts (mk_clos env p),
                 constr_fun lfts c,
-		Array.map (fun b -> constr_fun lfts (mk_clos env b)) ve)
+                Array.map (fun b -> constr_fun lfts (mk_clos env b)) ve)
     | FFix ((op,(lna,tys,bds)),e) ->
         let n = Array.length bds in
         let ftys = Array.Fun1.map mk_clos e tys in
         let fbds = Array.Fun1.map mk_clos (subs_liftn n e) bds in
 	let lfts' = el_liftn n lfts in
         mkFix (op, (lna, Array.Fun1.map constr_fun lfts ftys,
-                         Array.Fun1.map constr_fun lfts' fbds))
+                    Array.Fun1.map constr_fun lfts' fbds))
     | FCoFix ((op,(lna,tys,bds)),e) ->
         let n = Array.length bds in
         let ftys = Array.Fun1.map mk_clos e tys in
         let fbds = Array.Fun1.map mk_clos (subs_liftn n e) bds in
 	let lfts' = el_liftn (Array.length bds) lfts in
         mkCoFix (op, (lna, Array.Fun1.map constr_fun lfts ftys,
-                           Array.Fun1.map constr_fun lfts' fbds))
+                      Array.Fun1.map constr_fun lfts' fbds))
     | FApp (f,ve) ->
 	mkApp (constr_fun lfts f,
                Array.Fun1.map constr_fun lfts ve)
@@ -624,14 +624,14 @@ let rec to_constr constr_fun lfts v =
 
     | FLambda _ ->
         let (na,ty,bd) = destFLambda mk_clos2 v in
-	mkLambda (na, constr_fun lfts ty,
+        mkLambda (na, constr_fun lfts ty,
 	              constr_fun (el_lift lfts) bd)
     | FProd (n,t,c)   ->
-	mkProd (n, constr_fun lfts t,
+        mkProd (n, constr_fun lfts t,
 	           constr_fun (el_lift lfts) c)
     | FLetIn (n,b,t,f,e) ->
         let fc = mk_clos2 (subs_lift e) f in
-	mkLetIn (n, constr_fun lfts b,
+        mkLetIn (n, constr_fun lfts b,
 	            constr_fun lfts t,
 	            constr_fun (el_lift lfts) fc)
     | FEvar ((ev,args),env) ->
@@ -873,7 +873,7 @@ let rec knh info m stk =
     | FLOCKED -> assert false
     | FApp(a,b) -> knh info a (append_stack b (zupdate m stk))
     | FCaseT(ci,p,t,br,e) -> knh info t (ZcaseT(ci,p,br,e)::zupdate m stk)
-    | FFix(((ri,n),(_,_,_)),_) ->
+    | FFix(((ri,n),_),_) ->
         (match get_nth_arg m ri.(n) stk with
              (Some(pars,arg),stk') -> knh info arg (Zfix(m,pars)::stk')
            | (None, stk') -> (m,stk'))

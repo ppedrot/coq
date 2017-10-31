@@ -59,10 +59,11 @@ type ('constr, 'types) ptype_error =
   | CantApplyBadType of
       (int * 'constr * 'constr) * ('constr, 'types) punsafe_judgment * ('constr, 'types) punsafe_judgment array
   | CantApplyNonFunctional of ('constr, 'types) punsafe_judgment * ('constr, 'types) punsafe_judgment array
-  | IllFormedRecBody of 'constr pguard_error * Name.t array * int * env * ('constr, 'types) punsafe_judgment array
+  | IllFormedRecBody of 'constr pguard_error * Name.t binder_annot array * int * env * ('constr, 'types) punsafe_judgment array
   | IllTypedRecBody of
-      int * Name.t array * ('constr, 'types) punsafe_judgment array * 'types array
+      int * Name.t binder_annot array * ('constr, 'types) punsafe_judgment array * 'types array
   | UnsatisfiedConstraints of Univ.Constraint.t
+  | BadRelevance
 
 type type_error = (constr, types) ptype_error
 
@@ -100,11 +101,13 @@ val error_cant_apply_bad_type :
       unsafe_judgment -> unsafe_judgment array -> 'a
 
 val error_ill_formed_rec_body :
-  env -> guard_error -> Name.t array -> int -> env -> unsafe_judgment array -> 'a
+  env -> guard_error -> Name.t binder_annot array -> int -> env -> unsafe_judgment array -> 'a
 
 val error_ill_typed_rec_body  :
-  env -> int -> Name.t array -> unsafe_judgment array -> types array -> 'a
+  env -> int -> Name.t binder_annot array -> unsafe_judgment array -> types array -> 'a
 
 val error_elim_explain : Sorts.family -> Sorts.family -> arity_error
 
 val error_unsatisfied_constraints : env -> Univ.Constraint.t -> 'a
+
+val error_bad_relevance : env -> 'a

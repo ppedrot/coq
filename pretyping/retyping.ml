@@ -79,7 +79,8 @@ let rec subst_type env sigma typ = function
 let sort_of_atomic_type env sigma ft args =
   let rec concl_of_arity env n ar args =
     match EConstr.kind sigma (whd_all env sigma ar), args with
-    | Prod (na, t, b), h::l -> concl_of_arity (push_rel (LocalDef (na, lift n h, t)) env) (n + 1) b l
+    | Prod (na, t, b), h::l ->
+      concl_of_arity (push_rel (LocalDef (na, lift n h, t)) env) (n + 1) b l
     | Sort s, [] -> ESorts.kind sigma s
     | _ -> retype_error NotASort
   in concl_of_arity env 0 ft (Array.to_list args)
@@ -187,7 +188,7 @@ let get_sort_family_of ?(truncation_style=false) ?(polyprop=true) env sigma t =
     | Cast (c,_, s) when isSort sigma s -> Sorts.family (destSort sigma s)
     | Sort _ -> InType
     | Prod (name,t,c2) ->
-	let s2 = sort_family_of (push_rel (LocalAssum (name,t)) env) c2 in
+        let s2 = sort_family_of (push_rel (LocalAssum (name,t)) env) c2 in
 	if not (is_impredicative_set env) &&
 	   s2 == InSet && sort_family_of env t == InType then InType else s2
     | App(f,args) when is_template_polymorphic env sigma f ->
@@ -255,3 +256,15 @@ let expand_projection env sigma pr c args =
   in
     mkApp (mkConstU (Projection.constant pr,u), 
 	   Array.of_list (ind_args @ (c :: args)))
+
+let relevance_of_term env sigma c =
+  let s = get_sort_family_of env sigma (get_type_of env sigma c) in
+  Sorts.relevance_of_sort_family s
+
+let relevance_of_type env sigma t =
+  let s = get_sort_family_of env sigma t in
+  Sorts.relevance_of_sort_family s
+
+let relevance_of_sort s = Sorts.relevance_of_sort (EConstr.Unsafe.to_sorts s)
+
+let relevance_of_sort_family f =  Sorts.relevance_of_sort_family f

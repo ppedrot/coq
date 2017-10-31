@@ -21,9 +21,9 @@ type _ trust =
 | SideEffects : structure_body -> side_effects trust
 
 val translate_local_def : env -> Id.t -> section_def_entry ->
-  constr * types
+  constr * Sorts.relevance * types
 
-val translate_local_assum : env -> types -> types
+val translate_local_assum : env -> types -> types * Sorts.relevance
 
 val mk_pure_proof : constr -> side_effects proof_output
 
