@@ -125,9 +125,6 @@ let make_conclusion_flexible sigma ty poly =
       | _ -> sigma
   else sigma
 
-let is_impredicative env u =
-  Sorts.is_prop u || (is_impredicative_set env && Sorts.is_set u)
-
 let interp_ind_arity env sigma ind =
   let c = intern_gen IsType env sigma ind.ind_arity in
   let impls = Implicit_quantifiers.implicits_of_glob_constr ~with_products:true c in
@@ -162,7 +159,7 @@ let sign_level env evd sign =
         in
         let u = univ_of_sort s in
           (Univ.sup u lev, push_rel d env))
-    sign (Univ.type0m_univ,env))
+    sign (Univ.Universe.sprop,env))
 
 let sup_list min = List.fold_left Univ.sup min
 
@@ -246,7 +243,7 @@ let solve_constraints_system levels level_bounds =
 let inductive_levels env evd poly arities inds =
   let destarities = List.map (fun x -> x, Reduction.dest_arity env x) arities in
   let levels = List.map (fun (x,(ctx,a)) ->
-    if Sorts.is_prop a then None
+    if Sorts.is_prop a || Sorts.is_sprop a then None
     else Some (univ_of_sort a)) destarities
   in
   let cstrs_levels, min_levels, sizes =
@@ -255,7 +252,7 @@ let inductive_levels env evd poly arities inds =
         let len = List.length tys in
         let minlev = Sorts.univ_of_sort du in
         let minlev =
-          if len > 1 && not (is_impredicative env du) then
+          if len > 1 && not (Environ.is_impredicative_sort env du) then
             Univ.sup minlev Univ.type0_univ
           else minlev
         in
@@ -276,7 +273,7 @@ let inductive_levels env evd poly arities inds =
   in
   let evd, arities =
     CList.fold_left3 (fun (evd, arities) cu (arity,(ctx,du)) len ->
-      if is_impredicative env du then
+      if Environ.is_impredicative_sort env du then
         (** Any product is allowed here. *)
         evd, arity :: arities
       else (** If in a predicative sort, or asked to infer the type,

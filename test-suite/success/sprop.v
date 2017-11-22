@@ -6,34 +6,24 @@ Definition itt : iUnit := fun A a => a.
 Definition iUnit_irr (P : iUnit -> Type) (x y : iUnit) : P x -> P y
   := fun v => v.
 
-Definition iSquash (A:Type) : SProp
-  := forall P : SProp, (A -> P) -> P.
-Definition isquash A : A -> iSquash A
-  := fun a P f => f a.
-Definition iSquash_rect A (P : iSquash A -> SProp) (H : forall x : A, P (isquash A x))
-  : forall x : iSquash A, P x
-  := fun x => x (P x) (H : A -> P x).
+Definition iSquash (A:Type) : SProp := forall P : SProp, (A -> P) -> P.
+Definition isquash A : A -> iSquash A := fun a P f => f a.
+Definition iSquash_rect A (P : iSquash A -> SProp) (H : forall x, P (isquash A x))
+  : forall x : iSquash A, P x := fun x => x (P x) H.
 
-Fail Check (fun A : SProp => A : Type).
-
-Inductive sBox (A:SProp) : Prop
-  := sbox : A -> sBox A.
+Inductive sBox (A:SProp) : Prop := sbox : A -> sBox A.
 
 Definition uBox := sBox iUnit.
 
 Definition sBox_irr A (x y : sBox A) : x = y.
 Proof.
-  Fail reflexivity.
   destruct x as [x], y as [y].
   reflexivity.
 Defined.
 
 Set Primitive Projections.
 (* Primitive record with all fields in SProp has the eta property of SProp so must be SProp. *)
-Record rBox (A:SProp) : Prop
-  := rmkbox { relem : A }.
-
-Check relem.
+Record rBox (A:SProp) : Prop := rmkbox { relem : A }.
 
 (* Check that it doesn't have eta *)
 Fail Check (fun (A : SProp) (x : rBox A) => eq_refl : x = @rmkbox _ (@relem _ x)).
@@ -62,126 +52,25 @@ Defined.
 Fail Definition big_pb (b:BIG) : pb :=
   match b return pb with foo => pt | bar => pf end.
 
-Inductive which_pb : pb -> SProp :=
-| is_pt : which_pb pt
-| is_pf : which_pb pf.
-
-Fail Definition pb_which b (w:which_pb b) : bool
-  := match w with
-     | is_pt => true
-     | is_pf => false
-     end.
-
-Inductive sNZ : nat -> SProp
-  := snz : forall n, sNZ (S n).
+Inductive sNZ : nat -> SProp := snz : forall n, sNZ (S n).
 
 Definition sPred (n:nat) (s:sNZ n) : nat :=
   match s with snz k => k end.
 
-Definition spred1 n (s : sNZ (S n))
-  : sPred (S n) s = sPred (S n) (snz n)
-  := eq_refl.
-Definition spred2 n (s : sNZ (S n))
-  : sPred (S n) (snz n) = n
-  := eq_refl.
-Definition spred3 n (s:sNZ (S n))
-  : sPred (S n) s = n
-  := eq_trans (spred1 n s) (spred2 n s).
+Definition spred1 n (s : sNZ (S n)) : sPred _ s = sPred _ (snz n) := eq_refl.
+Definition spred2 n (s : sNZ (S n)) : sPred _ (snz n) = n := eq_refl.
+Definition spred3 n (s:sNZ _) : sPred _ s = n := eq_trans (spred1 n s) (spred2 n s).
 
-Definition sPred_S n (s:sNZ (S n))
-  : sPred (S n) s = n
-  := eq_refl.
+Inductive Ispair (A:Type) (B:A -> Type) : sigT B -> SProp :=
+  ispair : forall x y, Ispair A B (existT B x y).
 
-Module IsPair.
+Definition p1 A B p (i : Ispair A B p) : A :=
+  match i with ispair _ _ x _ => x end.
 
-  Inductive IsPair (A:Type) (B:A -> Type) : sigT B -> SProp :=
-    ispair : forall x y, IsPair A B (existT B x y).
-
-  Definition p1 A B p (i : IsPair A B p) : A :=
-    match i with ispair _ _ x _ => x end.
-
-  Definition p1_comp A B (x:A) (y:B x) (i : IsPair A B (existT B x y))
-    : p1 A B _ i = x
-    := eq_refl.
-
-  (** There used to be a debruijn bug such that it reduced to [fun ... => y].
-      The kernel checks after the reduction so this tests that bug is properly gone. *)
-  Definition p1_lazy
-    : forall A B x y (_:IsPair _ _ _), A
-    := Eval lazy in fun A B (x:A) (y:B x) => p1 A B (existT B x y).
-
-End IsPair.
-
-Module IsPair_sec.
-
-  Section Sec.
-    Variables (A : Type) (B: A -> Type).
-    Inductive IsPair : sigT B -> SProp :=
-      ispair : forall x y, IsPair (existT B x y).
-
-    Definition p1 p (i: IsPair p) : A :=
-      match i with ispair x _ => x end.
-
-    Section Comp.
-      Variables (x:A) (y:B x) (i : IsPair (existT B x y)).
-
-      Eval lazy in p1 _ i.
-    End Comp.
-    Definition p1_compute_insec x y (i:IsPair (existT B x y)) : p1 (existT B x y) i = x
-      := eq_refl.
-  End Sec.
-
-  Eval lazy in fun A B (x:A) (y:B x) => p1 A B (existT B x y).
-
-  Definition p1_comp_nosec A B (x:A) (y:B x) (i : IsPair A B (existT B x y))
-    : p1 A B _ i = x
-    := eq_refl.
-
-End IsPair_sec.
-
-(* Non primitive because no arguments, but maybe we should allow it for sprops? *)
-Record UnitRecord : SProp := {}.
-
-Scheme Induction for UnitRecord Sort Set.
-
-Record sProd (A B : SProp) : SProp := sPair { sFst : A; sSnd : B }.
-
-Scheme Induction for sProd Sort Set.
-
-Unset Primitive Projections.
-Record sProd' (A B : SProp) : SProp := sPair' { sFst' : A; sSnd' : B }.
-Set Primitive Projections.
-
-Fail Scheme Induction for sProd' Sort Set.
-
-Record NZpack := nzpack { nzval :> nat; nzprop : sNZ nzval }.
-
-Definition NZpack_eta (x : NZpack) (i : sNZ x) : x = nzpack x i := @eq_refl NZpack x.
-
-(** Fixpoints on SProp values are only allowed to produce SProp results *)
-Inductive sAcc (x:nat) : SProp := sAcc_in : (forall y, y < x -> sAcc y) -> sAcc x.
-
-Definition sAcc_inv x (s:sAcc x) : forall y, y < x -> sAcc y.
-Proof.
-  destruct s as [H]. exact H.
-Defined.
-
-Section sFix_fail.
-  Variable P : nat -> Type.
-  Variable F : forall x:nat, (forall y:nat, y < x -> P y) -> P x.
-
-  Fail Fixpoint sFix (x:nat) (a:sAcc x) {struct a} : P x :=
-    F x (fun (y:nat) (h: y < x) => sFix y (sAcc_inv x a y h)).
-End sFix_fail.
-
-Section sFix.
-  Variable P : nat -> SProp.
-  Variable F : forall x:nat, (forall y:nat, y < x -> P y) -> P x.
-
-  Fixpoint sFix (x:nat) (a:sAcc x) {struct a} : P x :=
-    F x (fun (y:nat) (h: y < x) => sFix y (sAcc_inv x a y h)).
-
-End sFix.
+(* TODO
+Definition spred3' n (s:sNZ _) : sPred n s = n := eq_refl.
 
 
-Class emptyclass : SProp := emptyinstance : forall A:SProp, A.
+Inductive sprod (A B : SProp) : SProp := spair : A -> B -> sprod A B.
+
+and the reduction stuff *)

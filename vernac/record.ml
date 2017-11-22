@@ -159,8 +159,7 @@ let typecheck_params_and_fields finite def id poly pl t ps nots fs =
     Pretyping.solve_remaining_evars Pretyping.all_and_fail_flags env_ar sigma (Evd.from_env env_ar) in
   let sigma, typ =
     let _, univ = compute_constructor_level sigma env_ar newfs in
-      if not def && (Sorts.is_prop sort ||
-	(Sorts.is_set sort && is_impredicative_set env0)) then
+      if not def && (Environ.is_impredicative_sort env0 sort) then
         sigma, typ
       else
         let sigma = Evd.set_leq_sort env_ar sigma (Sorts.sort_of_univ univ) sort in
