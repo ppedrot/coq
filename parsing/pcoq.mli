@@ -311,3 +311,9 @@ type any_entry = AnyEntry : 'a Gram.entry -> any_entry
 
 val register_grammars_by_name : string -> any_entry list -> unit
 val find_grammars_by_name : string -> any_entry list
+
+(** Create a custom entry of some name *)
+
+val create_custom_entries : string -> unit
+val find_custom_entries : string -> (Constrexpr.constr_expr Gram.entry * Constrexpr.cases_pattern_expr Gram.entry)
+

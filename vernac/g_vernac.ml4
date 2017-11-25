@@ -1046,6 +1046,11 @@ GEXTEND Gram
          r = red_expr ->
 	   VernacDeclareReduction (s,r)
 
+(* factorized here, though relevant for syntax extensions *)
+
+      | IDENT "Declare"; IDENT "Custom"; IDENT "Entry"; s = IDENT ->
+           VernacDeclareCustomEntry s
+
  ] ];
     END
 ;;
@@ -1113,6 +1118,9 @@ GEXTEND Gram
   ;
   syntax_modifier:
     [ [ "at"; IDENT "level"; n = natural -> SetLevel n
+      | "in"; IDENT "custom"; x = IDENT -> SetCustomEntry (x,None)
+      | "in"; IDENT "custom"; x = IDENT; "at"; IDENT "level"; n = natural ->
+         SetCustomEntry (x,Some n)
       | IDENT "left"; IDENT "associativity" -> SetAssoc LeftA
       | IDENT "right"; IDENT "associativity" -> SetAssoc RightA
       | IDENT "no"; IDENT "associativity" -> SetAssoc NonA
@@ -1137,12 +1145,17 @@ GEXTEND Gram
     [ [ IDENT "ident" -> ETName | IDENT "global" -> ETReference
       | IDENT "bigint" -> ETBigint
       | IDENT "binder" -> ETBinder true
-      | IDENT "constr"; n = OPT at_level; b = constr_as_binder_kind -> ETConstrAsBinder (b,n)
+      | IDENT "constr" -> ETConstr (InConstrEntry,None)
+      | IDENT "constr"; n = OPT at_level -> ETConstr (InConstrEntry,n)
+      | IDENT "constr"; n = OPT at_level; b = constr_as_binder_kind -> ETConstrAsBinder (InConstrEntry,b,n)
       | IDENT "pattern" -> ETPattern (false,None)
       | IDENT "pattern"; "at"; IDENT "level"; n = natural -> ETPattern (false,Some n)
       | IDENT "strict"; IDENT "pattern" -> ETPattern (true,None)
       | IDENT "strict"; IDENT "pattern"; "at"; IDENT "level"; n = natural -> ETPattern (true,Some n)
       | IDENT "closed"; IDENT "binder" -> ETBinder false
+      | IDENT "custom"; x = IDENT; n = OPT at_level -> ETConstr (InCustomEntry x,n)
+      | IDENT "custom"; x = IDENT; n = OPT at_level; b = constr_as_binder_kind ->
+           ETConstrAsBinder (InCustomEntry x,b,n)
     ] ]
   ;
   at_level:
