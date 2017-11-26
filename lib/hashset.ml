@@ -174,24 +174,22 @@ module Make (E : EqType) =
     in
     loop 0
 
-  let find_or h t d ifnotfound =
+  let rec repr_loop i sz bucket hashes index h d t =
+    if i >= sz then
+      let () = add_aux t Weak.set (Some d) h index in
+      d
+    else if Int.equal h hashes.(i) then begin
+      match Weak.get bucket i with
+      | Some v when E.eq v d -> v
+      | _ -> repr_loop (i + 1) sz bucket hashes index h d t
+    end else repr_loop (i + 1) sz bucket hashes index h d t
+
+  let repr h d t =
     let index = get_index t h in
     let bucket = t.table.(index) in
     let hashes = t.hashes.(index) in
     let sz = Weak.length bucket in
-    let rec loop i =
-      if i >= sz then ifnotfound index
-      else if Int.equal h hashes.(i) then begin
-        match Weak.get bucket i with
-        | Some v when E.eq v d -> v
-        | _ -> loop (i + 1)
-      end else loop (i + 1)
-    in
-    loop 0
-
-  let repr h d t =
-    let ifnotfound index = add_aux t Weak.set (Some d) h index; d in
-    find_or h t d ifnotfound
+    repr_loop 0 sz bucket hashes index h d t
 
   let stats t =
     let fold accu bucket = max (count_bucket 0 bucket 0) accu in
