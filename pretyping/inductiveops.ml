@@ -355,12 +355,16 @@ let get_projections env (ind,params) =
     | Some (Some (id, projs, pbs)) -> Some projs
     | _ -> None
 
-let make_case_or_project env sigma indf ci pred c branches =
+let make_case_or_project env sigma indty ci pred c branches =
   let open EConstr in
-  let projs = get_projections env indf in
-  match projs with
-  | None -> (mkCase (ci, pred, c, branches))
-  | Some ps ->
+  let IndType ((ind,params) as indf, _) = indty in
+  let (mib,mip) = Inductive.lookup_mind_specif env (fst ind) in
+  match mib.mind_record with
+  | None | Some None ->
+    let with_is = ci.ci_relevance == Sorts.Relevant && mip.mind_relevant == Sorts.Irrelevant in
+    let is = if with_is then Some (mkAppliedInd indty) else None in
+    (mkCase (ci, pred, is, c, branches))
+  | Some (Some (_,ps,_)) ->
      assert(Array.length branches == 1);
      let () =
        let _, _, t = destLambda sigma pred in

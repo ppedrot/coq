@@ -58,7 +58,10 @@ type pretype_error =
   | TypingError of type_error
   | CannotUnifyOccurrences of subterm_unification_error
   | UnsatisfiableConstraints of
-    (Evar.t * Evar_kinds.t) option * Evar.Set.t option
+      (Evar.t * Evar_kinds.t) option * Evar.Set.t option
+  | SPropMissingAnnot
+  | SPropUnexpectedAnnot
+  | SPropIncorrectAnnot of constr * constr
 
 exception PretypeError of env * Evd.evar_map * pretype_error
 
@@ -183,3 +186,9 @@ let unsatisfiable_exception exn =
   match exn with
   | PretypeError (_, _, UnsatisfiableConstraints _) -> true
   | _ -> false
+
+let error_sprop_missing_annot env sigma = raise (PretypeError (env, sigma, SPropMissingAnnot))
+
+let error_sprop_unexpected_annot env sigma = raise (PretypeError (env, sigma, SPropUnexpectedAnnot))
+
+let error_sprop_incorrect_annot env sigma a b = raise (PretypeError (env, sigma, SPropIncorrectAnnot (a,b)))

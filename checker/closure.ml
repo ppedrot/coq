@@ -247,6 +247,7 @@ and fterm =
   | FFix of fixpoint * fconstr subs
   | FCoFix of cofixpoint * fconstr subs
   | FCaseT of case_info * constr * fconstr * constr array * fconstr subs (* predicate and branches are closures *)
+  | FCaseInvert of case_info * constr * finvert * fconstr * constr array * fconstr subs
   | FLambda of int * (Name.t * constr) list * constr * fconstr subs
   | FProd of Name.t * fconstr * fconstr
   | FLetIn of Name.t * fconstr * fconstr * constr * fconstr subs
@@ -254,6 +255,8 @@ and fterm =
   | FLIFT of int * fconstr
   | FCLOS of constr * fconstr subs
   | FLOCKED
+
+and finvert = Univ.Instance.t * fconstr array * fconstr array
 
 let fterm_of v = v.term
 let set_norm v = v.norm <- Norm
@@ -389,8 +392,18 @@ let mk_clos_deep clos_fun env t =
     | Proj (p,c) ->
 	{ norm = Red;
 	  term = FProj (p, clos_fun env c) }
-    | Case (ci,p,c,v) ->
-        { norm = Red; term = FCaseT (ci, p, clos_fun env c, v, env) }
+    | Case (ci,p,None,c,v) ->
+      { norm = Red; term = FCaseT (ci, p, clos_fun env c, v, env) }
+    | Case (ci,p,Some is,c,v) ->
+      let ind, args = match is with App (f,args) -> f, args | _ -> is, [||] in
+      let args = Array.map (clos_fun env) args in
+      let params, is = Array.chop ci.ci_npar args in
+      let inv = match ind with
+        | Ind (_,u) -> u, params, is
+        | _ -> assert false
+      in
+      { norm = Red;
+        term = FCaseInvert (ci, p, inv, clos_fun env c, v, env) }
     | Fix fx ->
         { norm = Cstr; term = FFix (fx, env) }
     | CoFix cfx ->
@@ -424,7 +437,14 @@ let rec to_constr constr_fun lfts v =
     | FCaseT (ci,p,c,ve,e) ->
        let fp = mk_clos2 e p in
        let fve = mk_clos_vect e ve in
-       Case (ci, constr_fun lfts fp, constr_fun lfts c, Array.map (constr_fun lfts) fve)
+       Case (ci, constr_fun lfts fp, None, constr_fun lfts c, Array.map (constr_fun lfts) fve)
+    | FCaseInvert (ci, p, (u,params,is), c, ve, env) ->
+      let args =  Array.map (constr_fun lfts) (Array.append params is) in
+      let ind = Ind (ci.ci_ind, u) in
+      let is = if Array.is_empty args then ind else App (ind, args) in
+      Case (ci, constr_fun lfts (mk_clos env p), Some is,
+              constr_fun lfts c,
+              Array.map (fun b -> constr_fun lfts (mk_clos env b)) ve)
     | FFix ((op,(lna,tys,bds)),e) ->
         let n = Array.length bds in
         let ftys = Array.map (mk_clos e) tys in
@@ -475,7 +495,7 @@ let term_of_fconstr =
       | FLambda(_,tys,f,e) when is_subs_id e && is_lift_id lfts ->
           compose_lam (List.rev tys) f
       | FCaseT(ci,p,c,b,env) when is_subs_id env && is_lift_id lfts ->
-          Case(ci,p,term_of_fconstr_lift lfts c,b)
+          Case(ci,p,None,term_of_fconstr_lift lfts c,b)
       | FFix(fx,e) when is_subs_id e && is_lift_id lfts -> Fix fx
       | FCoFix(cfx,e) when is_subs_id e && is_lift_id lfts -> CoFix cfx
       | _ -> to_constr term_of_fconstr_lift lfts v in
@@ -696,7 +716,7 @@ let rec knh info m stk =
       else (m,stk)
 
 (* cases where knh stops *)
-    | (FFlex _|FLetIn _|FConstruct _|FEvar _|
+    | (FFlex _|FLetIn _|FConstruct _|FEvar _|FCaseInvert _|
        FCoFix _|FLambda _|FRel _|FAtom _|FInd _|FProd _) ->
         (m, stk)
 
@@ -705,12 +725,12 @@ and knht info e t stk =
   match t with
     | App(a,b) ->
         knht info e a (append_stack (mk_clos_vect e b) stk)
-    | Case(ci,p,t,br) -> knht info e t (ZcaseT(ci, p, br, e)::stk)
+    | Case(ci,p,None,t,br) -> knht info e t (ZcaseT(ci, p, br, e)::stk)
     | Fix _ -> knh info (mk_clos2 e t) stk (* laziness *)
     | Cast(a,_,_) -> knht info  e a stk
     | Rel n -> knh info (clos_rel e n) stk
     | Proj (p,c) -> knh info (mk_clos2 e t) stk (* laziness *)
-    | (Lambda _|Prod _|Construct _|CoFix _|Ind _|
+    | (Lambda _|Prod _|Construct _|CoFix _|Ind _|Case (_,_,Some _,_,_)|
        LetIn _|Const _|Var _|Evar _|Meta _|Sort _) ->
         (mk_clos2 e t, stk)
 

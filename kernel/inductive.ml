@@ -738,7 +738,7 @@ let rec subterm_specif renv stack t =
   let f,l = decompose_app (whd_all renv.env t) in
     match kind f with
     | Rel k -> subterm_var k renv
-    | Case (ci,p,c,lbr) ->
+    | Case (ci,p,is,c,lbr) ->(* TODO can we just ignore is here?*)
        let stack' = push_stack_closures renv l stack in
        let cases_spec =
 	 branches_specif renv (lazy_subterm_specif renv [] c) ci
@@ -934,7 +934,7 @@ let check_one_fix renv recpos trees def =
                       check_rec_call renv stack (Term.applist(lift p c,l))
               end
 		
-        | Case (ci,p,c_0,lrest) ->
+        | Case (ci,p,is,c_0,lrest) -> (* TODO just ignore the is? *)
             List.iter (check_rec_call renv []) (c_0::p::l);
             (* compute the recarg information for the arguments of
                each branch *)
@@ -1179,7 +1179,7 @@ let check_one_cofix env nbfix def deftype =
 	    else
 	      raise (CoFixGuardError (env,UnguardedRecursiveCall c))
 
-	| Case (_,p,tm,vrest) ->
+        | Case (_,p,_,tm,vrest) ->
 	   begin
 	     let tree = match restrict_spec env (Subterm (Strict, tree)) p with
 	     | Dead_code -> assert false

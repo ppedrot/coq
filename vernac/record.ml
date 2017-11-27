@@ -333,11 +333,11 @@ let declare_projections indsp ctx ?(kind=StructureComponent) binder_name coers u
 		    let branch = it_mkLambda_or_LetIn (mkRel nfi) lifted_fields in
                     let ci = Inductiveops.make_case_info env indsp rci LetStyle in
                     (* Record projections have no is *)
-                    mkCase (ci, p, mkRel 1, [|branch|])
+                    mkCase (ci, p, None, mkRel 1, [|branch|])
                 in
-		let proj =
+                let proj =
                   it_mkLambda_or_LetIn (mkLambda (x,rp,body)) paramdecls in
-		let projtyp =
+                let projtyp =
                   it_mkProd_or_LetIn (mkProd (x,rp,ccl)) paramdecls in
 	        try
 		  let entry = {

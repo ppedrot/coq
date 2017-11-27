@@ -76,7 +76,7 @@ let iter_constr_with_binders g f n c = match c with
   | LetIn (_,b,t,c) -> f n b; f n t; f (g n) c
   | App (c,l) -> f n c; Array.iter (f n) l
   | Evar (_,l) -> Array.iter (f n) l
-  | Case (_,p,c,bl) -> f n p; f n c; Array.iter (f n) bl
+  | Case (_,p,is,c,bl) -> f n p; Option.iter (f n) is; f n c; Array.iter (f n) bl
   | Fix (_,(_,tl,bl)) ->
       Array.iter (f n) tl;
       Array.iter (f (iterate g (Array.length tl) n)) bl
@@ -153,7 +153,7 @@ let map_constr_with_binders g f l c = match c with
   | LetIn (na,b,t,c) -> LetIn (na, f l b, f l t, f (g l) c)
   | App (c,al) -> App (f l c, Array.map (f l) al)
   | Evar (e,al) -> Evar (e, Array.map (f l) al)
-  | Case (ci,p,c,bl) -> Case (ci, f l p, f l c, Array.map (f l) bl)
+  | Case (ci,p,is,c,bl) -> Case (ci, f l p, Option.map (f l) is, f l c, Array.map (f l) bl)
   | Fix (ln,(lna,tl,bl)) ->
       let l' = iterate g (Array.length tl) l in
       Fix (ln,(lna,Array.map (f l) tl,Array.map (f l') bl))
@@ -389,8 +389,8 @@ let compare_constr f t1 t2 =
   | Ind c1, Ind c2 -> eq_puniverses eq_ind_chk c1 c2
   | Construct ((c1,i1),u1), Construct ((c2,i2),u2) -> Int.equal i1 i2 && eq_ind_chk c1 c2
     && Univ.Instance.equal u1 u2
-  | Case (_,p1,c1,bl1), Case (_,p2,c2,bl2) ->
-      f p1 p2 && f c1 c2 && Array.equal f bl1 bl2
+  | Case (_,p1,is1,c1,bl1), Case (_,p2,is2,c2,bl2) ->
+      f p1 p2 && Option.equal f is1 is2 && f c1 c2 && Array.equal f bl1 bl2
   | Fix ((ln1, i1),(_,tl1,bl1)), Fix ((ln2, i2),(_,tl2,bl2)) ->
       Int.equal i1 i2 && Array.equal Int.equal ln1 ln2 &&
       Array.equal f tl1 tl2 && Array.equal f bl1 bl2

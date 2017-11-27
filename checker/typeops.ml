@@ -186,15 +186,6 @@ let check_branch_types env (c,cj) (lfj,explft) =
     | Invalid_argument _ ->
         error_number_branches env (c,cj) (Array.length explft)
 
-let judge_of_case env ci pj (c,cj) lfj =
-  let indspec =
-    try find_rectype env cj
-    with Not_found -> error_case_not_inductive env (c,cj) in
-  let _ = check_case_info env (fst (fst indspec)) ci in
-  let (bty,rslty) = type_case_branches env indspec pj c in
-  check_branch_types env (c,cj) (lfj,bty);
-  rslty
-
 (* Projection. *)
 
 let judge_of_projection env p c ct =
@@ -305,11 +296,11 @@ let rec execute env cstr =
 
     | Construct c -> judge_of_constructor env c
 
-    | Case (ci,p,c,lf) ->
+    | Case (ci,p,is,c,lf) ->
         let cj = execute env c in
         let pj = execute env p in
         let lfj = execute_array env lf in
-        judge_of_case env ci (p,pj) (c,cj) lfj
+        judge_of_case env ci (p,pj) is (c,cj) lfj
     | Fix ((_,i as vni),recdef) ->
         let fix_ty = execute_recdef env recdef i in
         let fix = (vni,recdef) in
@@ -343,6 +334,16 @@ and execute_recdef env (names,lar,vdef) i =
   lara.(i)
 
 and execute_array env = Array.map (execute env)
+
+and judge_of_case env ci pj is (c,cj) lfj =
+  let pind, pis as indspec =
+    try find_rectype env cj
+    with Not_found -> error_case_not_inductive env (c,cj) in
+  let _ = check_case_info env (fst (fst indspec)) ci in
+  let (bty,rslty) = type_case_branches env indspec pj c in
+  check_branch_types env (c,cj) (lfj,bty);
+  rslty
+
 
 (* Derived functions *)
 let infer env constr = execute env constr

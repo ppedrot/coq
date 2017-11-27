@@ -71,6 +71,7 @@ val create: ('a infos -> constr -> 'a) -> reds -> env -> 'a infos
 (* [fconstr] is the type of frozen constr *)
 
 type fconstr
+type finvert
 
 (* [fconstr] can be accessed by using the function [fterm_of] and by
    matching on type [fterm] *)
@@ -87,6 +88,7 @@ type fterm =
   | FFix of fixpoint * fconstr subs
   | FCoFix of cofixpoint * fconstr subs
   | FCaseT of case_info * constr * fconstr * constr array * fconstr subs (* predicate and branches are closures *)
+  | FCaseInvert of case_info * constr * finvert * fconstr * constr array * fconstr subs
   | FLambda of int * (Name.t * constr) list * constr * fconstr subs
   | FProd of Name.t * fconstr * fconstr
   | FLetIn of Name.t * fconstr * fconstr * constr * fconstr subs

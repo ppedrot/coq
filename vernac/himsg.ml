@@ -684,6 +684,17 @@ let explain_unsatisfied_constraints env sigma cst =
 let explain_bad_relevance env =
   strbrk "Bad relevance (maybe a bugged tactic)."
 
+let explain_sprop_missing_annot env sigma =
+  strbrk "Missing annotation while eliminating SProp inductive"
+
+let explain_sprop_unexpected_annot env sigma =
+  strbrk "Unexpected annotation on match"
+
+let explain_sprop_incorrect_annot env sigma pi index =
+  strbrk "Incorrect annotation on SProp match: " ++
+  pr_leconstr_env env sigma pi ++ str " should be convertible with " ++
+  pr_leconstr_env env sigma index
+
 let explain_type_error env sigma err =
   let env = make_all_name_different env sigma in
   match err with
@@ -722,6 +733,12 @@ let explain_type_error env sigma err =
   | UnsatisfiedConstraints cst ->
       explain_unsatisfied_constraints env sigma cst
   | BadRelevance -> explain_bad_relevance env
+  | SPropMissingAnnot ->
+    explain_sprop_missing_annot env sigma
+  | SPropUnexpectedAnnot ->
+    explain_sprop_unexpected_annot env sigma
+  | SPropIncorrectAnnot (pi,index) ->
+    explain_sprop_incorrect_annot env sigma pi index
 
 let pr_position (cl,pos) =
   let clpos = match cl with
@@ -833,6 +850,9 @@ let explain_pretype_error env sigma err =
   | TypingError t -> explain_type_error env sigma t
   | CannotUnifyOccurrences (b,c1,c2,e) -> explain_cannot_unify_occurrences env sigma b c1 c2 e
   | UnsatisfiableConstraints (c,comp) -> explain_unsatisfiable_constraints env sigma c comp
+  | SPropMissingAnnot -> explain_sprop_missing_annot env sigma
+  | SPropUnexpectedAnnot -> explain_sprop_unexpected_annot env sigma
+  | SPropIncorrectAnnot (pi,index) -> explain_sprop_incorrect_annot env sigma pi index
 (* Module errors *)
 
 open Modops
@@ -1314,6 +1334,9 @@ let map_ptype_error f = function
   IllTypedRecBody (n, na, Array.map (on_judgment f) jv, Array.map f t)
 | UnsatisfiedConstraints g -> UnsatisfiedConstraints g
 | BadRelevance -> BadRelevance
+| SPropMissingAnnot -> SPropMissingAnnot
+| SPropUnexpectedAnnot -> SPropUnexpectedAnnot
+| SPropIncorrectAnnot (pi,index) -> SPropIncorrectAnnot (f pi, f index)
 
 let explain_reduction_tactic_error = function
   | Tacred.InvalidAbstraction (env,sigma,c,(env',e)) ->

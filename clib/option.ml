@@ -181,6 +181,10 @@ struct
     | Some y as x -> let y' = f y in if y' == y then x else Some y'
     | _ -> None
 
+  let fold_map f acc = function
+    | Some y as x -> let acc, y' = f acc y in acc, if y' == y then x else Some y'
+    | None -> acc, None
+
 end
 
 let smartmap = Smart.map

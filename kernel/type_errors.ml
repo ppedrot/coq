@@ -63,6 +63,9 @@ type ('constr, 'types) ptype_error =
       int * Name.t binder_annot array * ('constr, 'types) punsafe_judgment array * 'types array
   | UnsatisfiedConstraints of Univ.Constraint.t
   | BadRelevance
+  | SPropMissingAnnot
+  | SPropUnexpectedAnnot
+  | SPropIncorrectAnnot of 'constr * 'constr
 
 type type_error = (constr, types) ptype_error
 
@@ -116,6 +119,12 @@ let error_ill_formed_rec_body env why lna i fixenv vdefj =
 
 let error_ill_typed_rec_body env i lna vdefj vargs =
   raise (TypeError (env, IllTypedRecBody (i,lna,vdefj,vargs)))
+
+let error_sprop_missing_annot env = raise (TypeError (env, SPropMissingAnnot))
+
+let error_sprop_unexpected_annot env = raise (TypeError (env, SPropUnexpectedAnnot))
+
+let error_sprop_incorrect_annot env a b = raise (TypeError (env, SPropIncorrectAnnot (a,b)))
 
 let error_elim_explain kp ki =
   let open Sorts in

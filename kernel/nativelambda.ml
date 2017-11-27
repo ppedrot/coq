@@ -525,7 +525,7 @@ let rec lambda_of_constr env sigma c =
     let prefix = get_mind_prefix !global_env (fst ind) in
     mkLapp (Lproj (prefix, ind, pb.proj_arg)) [|lambda_of_constr env sigma c|]
 
-  | Case(ci,t,a,branches) ->  
+  | Case(ci,t,is,a,branches) -> (* TODO non None is *)
       let (mind,i as ind) = ci.ci_ind in
       let mib = lookup_mind mind !global_env in
       let oib = mib.mind_packets.(i) in

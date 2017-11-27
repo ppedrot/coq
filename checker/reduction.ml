@@ -263,7 +263,7 @@ let rec no_case_available = function
 
 let in_whnf (t,stk) =
   match fterm_of t with
-    | (FLetIn _ | FCaseT _ | FApp _ | FCLOS _ | FLIFT _ | FCast _) -> false
+    | (FLetIn _ | FCaseT _ | FCaseInvert _ | FApp _ | FCLOS _ | FLIFT _ | FCast _) -> false
     | FLambda _ -> no_arg_available stk
     | FConstruct _ -> no_case_available stk
     | FCoFix _ -> no_case_available stk

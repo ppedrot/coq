@@ -42,7 +42,7 @@ let print_pure_constr fmt csr =
     fprintf fmt "Ind(@[%a,%d,%a@])" sp_display sp i pp_instance u
   | Construct (((sp,i),j),u) ->
     fprintf fmt "Constr(%a,%d,%d,%a)" sp_display sp i j pp_instance u
-  | Case (ci,p,c,bl) ->
+  | Case (ci,p,_,c,bl) ->
     let pp_match fmt (_,mc) = fprintf fmt " @[%a@]" pp_term mc in
     fprintf fmt "@[<v><@[%a@]>@,Case@ @[%a@]@ of@[<v>%a@]@,end@]" pp_term p pp_term c (pp_arrayi pp_match) bl
   | Fix ((t,i),(lna,tl,bl)) ->

@@ -205,7 +205,6 @@ let instantiate_universes env ctx ar argsorts =
     (ctx, ty)
 
 (* Type of an inductive type *)
-
 let type_of_inductive_gen env ((mib,mip),u) paramtyps =
   match mip.mind_arity with
   | RegularArity a ->
@@ -744,7 +743,7 @@ let rec subterm_specif renv stack t =
     match f with
       | Rel k -> subterm_var k renv
 
-    | Case (ci,p,c,lbr) ->
+    | Case (ci,p,is,c,lbr) ->
        let stack' = push_stack_closures renv l stack in
        let cases_spec =
 	 branches_specif renv (lazy_subterm_specif renv [] c) ci
@@ -920,7 +919,7 @@ let check_one_fix renv recpos trees def =
                       check_rec_call renv stack (applist(lift p c,l))
               end
 		
-        | Case (ci,p,c_0,lrest) ->
+        | Case (ci,p,is,c_0,lrest) ->
             List.iter (check_rec_call renv []) (c_0::p::l);
             (* compute the recarg information for the arguments of
                each branch *)
@@ -1143,7 +1142,7 @@ let check_one_cofix env nbfix def deftype =
 	    else
 	      raise (CoFixGuardError (env,UnguardedRecursiveCall c))
 
-	| Case (_,p,tm,vrest) ->
+        | Case (_,p,is,tm,vrest) ->
 	   begin
 	     let tree = match restrict_spec env (Subterm (Strict, tree)) p with
 	     | Dead_code -> assert false

@@ -2054,7 +2054,7 @@ let compile_deps env sigma prefix ~interactive init t =
     let pb = lookup_projection p env in
     let init = compile_mind_deps env prefix ~interactive init pb.proj_ind in
     aux env lvl init c
-  | Case (ci, p, c, ac) ->
+  | Case (ci, p, is, c, ac) ->(*TODO something with is?*)
       let mind = fst ci.ci_ind in
       let init = compile_mind_deps env prefix ~interactive init mind in
       fold_constr_with_binders succ (aux env) lvl init t
