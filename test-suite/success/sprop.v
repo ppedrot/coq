@@ -6,24 +6,32 @@ Definition itt : iUnit := fun A a => a.
 Definition iUnit_irr (P : iUnit -> Type) (x y : iUnit) : P x -> P y
   := fun v => v.
 
-Definition iSquash (A:Type) : SProp := forall P : SProp, (A -> P) -> P.
-Definition isquash A : A -> iSquash A := fun a P f => f a.
-Definition iSquash_rect A (P : iSquash A -> SProp) (H : forall x, P (isquash A x))
-  : forall x : iSquash A, P x := fun x => x (P x) H.
+Definition iSquash (A:Type) : SProp
+  := forall P : SProp, (A -> P) -> P.
+Definition isquash A : A -> iSquash A
+  := fun a P f => f a.
+Definition iSquash_rect A (P : iSquash A -> SProp) (H : forall x : A, P (isquash A x))
+  : forall x : iSquash A, P x
+  := fun x => x (P x) (H : A -> P x).
 
-Inductive sBox (A:SProp) : Prop := sbox : A -> sBox A.
+Fail Check (fun A : SProp => A : Type).
+
+Inductive sBox (A:SProp) : Prop
+  := sbox : A -> sBox A.
 
 Definition uBox := sBox iUnit.
 
 Definition sBox_irr A (x y : sBox A) : x = y.
 Proof.
+  Fail reflexivity.
   destruct x as [x], y as [y].
   reflexivity.
 Defined.
 
 Set Primitive Projections.
 (* Primitive record with all fields in SProp has the eta property of SProp so must be SProp. *)
-Record rBox (A:SProp) : Prop := rmkbox { relem : A }.
+Record rBox (A:SProp) : Prop
+  := rmkbox { relem : A }.
 
 (* Check that it doesn't have eta *)
 Fail Check (fun (A : SProp) (x : rBox A) => eq_refl : x = @rmkbox _ (@relem _ x)).
@@ -64,7 +72,8 @@ Fail Definition pb_which b (w:which_pb b) : bool
      | is_pf => false
      end.
 
-Inductive sNZ : nat -> SProp := snz : forall n, sNZ (S n).
+Inductive sNZ : nat -> SProp
+  := snz : forall n, sNZ (S n).
 
 Definition sPred (n:nat) (s:sNZ n) : nat :=
   match s with snz k => k end.
@@ -83,7 +92,7 @@ Definition sPred_S n (s:sNZ (S n))
   : sPred (S n) s = n
   := eq_refl.
 
-Module IsPair.
+Module IsPair_nosec.
 
   Inductive IsPair (A:Type) (B:A -> Type) : sigT B -> SProp :=
     ispair : forall x y, IsPair A B (existT B x y).
@@ -101,13 +110,14 @@ Module IsPair.
     : forall A B x y (_:IsPair _ _ _), A
     := Eval lazy in fun A B (x:A) (y:B x) => p1 A B (existT B x y).
 
-End IsPair.
+End IsPair_nosec.
 
-Inductive Ispair (A:Type) (B:A -> Type) : sigT B -> SProp :=
-  ispair : forall x y, Ispair A B (existT B x y).
+Module IsPair_sec.
 
-Definition p1 A B p (i : Ispair A B p) : A :=
-  match i with ispair _ _ x _ => x end.
+  Section Sec.
+    Variables (A : Type) (B: A -> Type).
+    Inductive IsPair : sigT B -> SProp :=
+      ispair : forall x y, IsPair (existT B x y).
 
     Definition p1 p (i: IsPair p) : A :=
       match i with ispair x _ => x end.
@@ -121,11 +131,10 @@ Definition p1 A B p (i : Ispair A B p) : A :=
       := eq_refl.
   End Sec.
 
-  Eval lazy in fun A B (x:A) (y:B x) => p1 A B (existT B x y).
-
   Definition p1_comp_nosec A B (x:A) (y:B x) (i : IsPair A B (existT B x y))
     : p1 A B _ i = x
     := eq_refl.
 
+  Eval lazy in fun A B (x:A) (y:B x) => p1 A B (existT B x y).
 
-Inductive sprod (A B : SProp) : SProp := spair : A -> B -> sprod A B.
+End IsPair_sec.
