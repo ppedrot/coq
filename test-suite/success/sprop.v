@@ -36,8 +36,6 @@ Record rBox (A:SProp) : Prop
 (* Check that it doesn't have eta *)
 Fail Check (fun (A : SProp) (x : rBox A) => eq_refl : x = @rmkbox _ (@relem _ x)).
 
-Unset Elimination Schemes.
-
 Inductive sEmpty : SProp := .
 
 Inductive sUnit : SProp := stt.
