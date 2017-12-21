@@ -130,7 +130,7 @@ let ctor_invert_info env ((mi,ind),ctor) =
   | Some infos -> mib.mind_nparams, infos.ctor_arg_infos
   | None -> raise BadTree
 
-let make_infos env nparams levels t =
+let make_infos_gen env nparams levels t =
   let rec fold forced arg =
     match kind arg with (* TODO reduce? *)
     | Cast (arg,_,_) -> fold forced arg
@@ -186,7 +186,26 @@ let make_infos env nparams levels t =
   with BadTree ->
     None
 
-let infos_and_sort env nparams t =
+let make_infos env ~isrecord nparams levels t =
+  match isrecord with
+  | None ->
+    make_infos_gen env nparams levels t
+  | Some isrecord ->
+    (* Records have no indices, so every argument is MatchArg. *)
+    let ctor_arg_infos = Array.make (List.length levels) MatchArg in
+    (* The out_tree is trivial. In the non primitive case we are not
+       allowed to have projections so set it None when there are
+       arguments. *)
+    let ctor_out_tree = match isrecord with
+      | Some _ -> Some [||]
+      | None ->
+        (* In fact I'm not sure the empty list case is possible but it should be OK *)
+        if List.is_empty levels then Some [||] else None
+    in
+    Some { ctor_arg_infos; ctor_out_tree }
+
+
+let infos_and_sort env ~isrecord nparams t =
   let rec aux env t onlysprop levels =
     let t = whd_all env t in
       match kind t with
@@ -199,9 +218,9 @@ let infos_and_sort env nparams t =
           | OnlySProp, false | NotOnlySProp, _ -> NotOnlySProp
         in
         aux env1 c2 onlysprop ((Sorts.univ_of_sort sj)::levels)
-    | _ when is_constructor_head t -> onlysprop,levels,make_infos env nparams levels t
+    | _ when is_constructor_head t -> onlysprop,levels,make_infos env ~isrecord nparams levels t
     | _ -> (* don't fail if not positive, it is tested later *)
-      onlysprop,levels,make_infos env nparams levels t
+      onlysprop,levels,make_infos env ~isrecord nparams levels t
   in aux env t OnlySProp []
 
 let sup_unforced_args info levels max =
@@ -255,7 +274,7 @@ let finish_infos level infos =
 (* This (re)computes informations relevant to extraction and the sort of an
    arity or type constructor; we do not to recompute universes constraints *)
 
-let infer_constructor_packet env_ar_par params defu lc =
+let infer_constructor_packet env_ar_par ~isrecord params defu lc =
   (* type-check the constructors *)
   let jlc = List.map (infer_type env_ar_par) lc in
   let jlc = Array.of_list jlc in
@@ -270,7 +289,7 @@ let infer_constructor_packet env_ar_par params defu lc =
   (* compute the max of the sorts of the products of the constructors types *)
   let nparams = Context.Rel.nhyps params in
   let osprop, infos, level = List.fold_left (fun (osprop,infos,max) c ->
-      let osprop', levels, info = infos_and_sort env_ar_par nparams c in
+      let osprop', levels, info = infos_and_sort env_ar_par ~isrecord nparams c in
       (* We only care about onlysprop for records, so exactly 1 constructor *)
       osprop', info::infos, sup_unforced_args info levels max) (OnlySProp,[],min) lc in
   let level, infos = finish_infos level infos in
@@ -436,7 +455,9 @@ let typecheck_inductive env mie =
     List.fold_right2
       (fun ind ((_, _, _, _, defu, _) as arity_data) inds ->
          let (lc',osprop,infos,cstrs_univ) =
-           infer_constructor_packet env_ar_par paramsctxt defu ind.mind_entry_lc in
+           infer_constructor_packet env_ar_par ~isrecord:mie.mind_entry_record
+             paramsctxt defu ind.mind_entry_lc
+         in
 	 let consnames = ind.mind_entry_consnames in
          let ind' = (arity_data,consnames,lc',osprop,infos,cstrs_univ) in
 	   ind'::inds)

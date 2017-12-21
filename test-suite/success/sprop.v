@@ -136,3 +136,22 @@ Module IsPair_sec.
   Eval lazy in fun A B (x:A) (y:B x) => p1 A B (existT B x y).
 
 End IsPair_sec.
+
+(* Non primitive because no arguments, but maybe we should allow it for sprops? *)
+Record UnitRecord : SProp := {}.
+
+Scheme Induction for UnitRecord Sort Set.
+
+Record sProd (A B : SProp) : SProp := sPair { sFst : A; sSnd : B }.
+
+Scheme Induction for sProd Sort Set.
+
+Unset Primitive Projections.
+Record sProd' (A B : SProp) : SProp := sPair' { sFst' : A; sSnd' : B }.
+Set Primitive Projections.
+
+Fail Scheme Induction for sProd' Sort Set.
+
+Record NZpack := nzpack { nzval :> nat; nzprop : sNZ nzval }.
+
+Definition NZpack_eta (x : NZpack) (i : sNZ x) : x = nzpack x i := @eq_refl NZpack x.
