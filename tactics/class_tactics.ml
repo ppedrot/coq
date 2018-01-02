@@ -1569,7 +1569,9 @@ let _ =
   Hook.set Typeclasses.solve_all_instances_hook solve_inst
 
 let resolve_one_typeclass env ?(sigma=Evd.empty) gl unique =
-  let nc, gl, subst, _ = Evarutil.push_rel_context_to_named_context env sigma gl in
+  let nc, subst = Evarutil.push_rel_context_to_named_context env sigma in
+  let inst = Evarutil.identity_instance env in
+  let gl = Evarutil.csubst_subst subst gl in
   let (gl,t,sigma) =
     Goal.V82.mk_goal sigma nc gl Store.empty in
   let (ev, _) = destEvar sigma t in
@@ -1587,7 +1589,7 @@ let resolve_one_typeclass env ?(sigma=Evd.empty) gl unique =
       with Refiner.FailError _ -> raise Not_found
   in
   let evd = sig_sig gls' in
-  let t' = mkEvar (ev, Array.of_list subst) in
+  let t' = mkEvar (ev, Array.of_list inst) in
   let term = Evarutil.nf_evar evd t' in
     evd, term
 

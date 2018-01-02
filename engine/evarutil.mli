@@ -84,6 +84,9 @@ val new_evar_instance :
   ?principal:bool ->
   constr list -> evar_map * constr
 
+val identity_instance : Environ.env -> EConstr.t list
+(** Constructs [Rel(n - 1); ...; Rel 0; Var (m - 1); ... Var (0)] *)
+
 val make_pure_subst : evar_info -> 'a array -> (Id.t * 'a) list
 
 val safe_evar_value : evar_map -> Constr.existential -> Constr.constr option
@@ -227,8 +230,8 @@ type ext_named_context =
 val push_rel_decl_to_named_context :
   evar_map -> rel_declaration -> ext_named_context -> ext_named_context
 
-val push_rel_context_to_named_context : Environ.env -> evar_map -> types ->
-  named_context_val * types * constr list * csubst
+val push_rel_context_to_named_context : Environ.env -> evar_map ->
+  named_context_val * csubst
 
 val generalize_evar_over_rels : evar_map -> existential -> types * constr list
 

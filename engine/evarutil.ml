@@ -224,6 +224,10 @@ let make_pure_subst evi args =
         | _ -> anomaly (Pp.str "Instance does not match its signature."))
     (evar_filtered_context evi) (Array.rev_to_list args,[]))
 
+let identity_instance env =
+  let inst_vars = List.map (NamedDecl.get_id %> EConstr.mkVar) (EConstr.named_context env) in
+  List.rev_append (rel_list 0 (nb_rel env)) inst_vars
+
 (*------------------------------------*
  * functional operations on evar sets *
  *------------------------------------*)
@@ -386,24 +390,21 @@ let push_rel_decl_to_named_context sigma decl (subst, avoid, nc) =
       let d = decl |> NamedDecl.of_rel_decl (fun _ -> id) |> map_decl (csubst_subst subst) in
       (push_var id subst, Id.Set.add id avoid, d :: nc)
 
-let push_rel_context_to_named_context env sigma typ =
+let push_rel_context_to_named_context env sigma =
   (* compute the instances relative to the named context and rel_context *)
-  let open Context.Named.Declaration in
   let open EConstr in
-  let ids = List.map get_id (named_context env) in
-  let inst_vars = List.map mkVar ids in
   if List.is_empty (Environ.rel_context env) then
-    (named_context_val env, typ, inst_vars, empty_csubst)
+    (named_context_val env, empty_csubst)
   else
-    let avoid = List.fold_right Id.Set.add ids Id.Set.empty in
-    let inst_rels = List.rev (rel_list 0 (nb_rel env)) in
+    let fold accu decl = Id.Set.add (NamedDecl.get_id decl) accu in
+    let avoid = List.fold_left fold Id.Set.empty (named_context env) in
     (* move the rel context to a named context and extend the named instance *)
     (* with vars of the rel context *)
     (* We do keep the instances corresponding to local definition (see above) *)
     let (subst, _, env) =
       Context.Rel.fold_outside (fun d acc -> push_rel_decl_to_named_context sigma d acc)
         (rel_context env) ~init:(empty_csubst, avoid, named_context env) in
-    (val_of_named_context env, csubst_subst subst typ, inst_rels@inst_vars, subst)
+    (val_of_named_context env, subst)
 
 (*------------------------------------*
  * Entry points to define new evars   *
@@ -468,7 +469,9 @@ let new_evar_from_context sign evd ?src ?filter ?candidates ?store ?naming ?prin
 (* [new_evar] declares a new existential in an env env with type typ *)
 (* Converting the env into the sign of the evar to define *)
 let new_evar env evd ?src ?filter ?candidates ?store ?naming ?principal typ =
-  let sign,typ',instance,subst = push_rel_context_to_named_context env evd typ in
+  let sign, subst = push_rel_context_to_named_context env evd in
+  let instance = identity_instance env in
+  let typ' = csubst_subst subst typ in
   let map c = csubst_subst subst c in
   let candidates = Option.map (fun l -> List.map map l) candidates in
   let instance =
