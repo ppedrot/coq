@@ -155,3 +155,28 @@ Fail Scheme Induction for sProd' Sort Set.
 Record NZpack := nzpack { nzval :> nat; nzprop : sNZ nzval }.
 
 Definition NZpack_eta (x : NZpack) (i : sNZ x) : x = nzpack x i := @eq_refl NZpack x.
+
+(** Fixpoints on SProp values are only allowed to produce SProp results *)
+Inductive sAcc (x:nat) : SProp := sAcc_in : (forall y, y < x -> sAcc y) -> sAcc x.
+
+Definition sAcc_inv x (s:sAcc x) : forall y, y < x -> sAcc y.
+Proof.
+  destruct s as [H]. exact H.
+Defined.
+
+Section sFix_fail.
+  Variable P : nat -> Type.
+  Variable F : forall x:nat, (forall y:nat, y < x -> P y) -> P x.
+
+  Fail Fixpoint sFix (x:nat) (a:sAcc x) {struct a} : P x :=
+    F x (fun (y:nat) (h: y < x) => sFix y (sAcc_inv x a y h)).
+End sFix_fail.
+
+Section sFix.
+  Variable P : nat -> SProp.
+  Variable F : forall x:nat, (forall y:nat, y < x -> P y) -> P x.
+
+  Fixpoint sFix (x:nat) (a:sAcc x) {struct a} : P x :=
+    F x (fun (y:nat) (h: y < x) => sFix y (sAcc_inv x a y h)).
+
+End sFix.
