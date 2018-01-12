@@ -66,11 +66,9 @@ type t = {
 }
 
 let get_extra env sigma =
-  let open Context.Named.Declaration in
-  let ids = List.map get_id (named_context env) in
-  let avoid = List.fold_right Id.Set.add ids Id.Set.empty in
-  Context.Rel.fold_outside (fun d acc -> push_rel_decl_to_named_context sigma d acc)
-    (rel_context env) ~init:(empty_csubst, avoid, named_context env)
+  let nctx = Environ.named_context_val env in
+  let avoid = Environ.ids_of_named_context_val nctx in
+  push_rel_context_to_named_context sigma (rel_context env) (empty_csubst, avoid, nctx)
 
 let make_env env sigma = { env = env; extra = lazy (get_extra env sigma) }
 let rel_context env = rel_context env.env
@@ -84,16 +82,15 @@ let pop_rel_context n env sigma = make_env (pop_rel_context n env.env) sigma
 
 let push_rel_context sigma ctx env = {
   env = push_rel_context ctx env.env;
-  extra = lazy (List.fold_right (fun d acc -> push_rel_decl_to_named_context sigma d acc) ctx (Lazy.force env.extra));
+  extra = lazy (push_rel_context_to_named_context sigma ctx (Lazy.force env.extra));
 }
 
 let lookup_named id env = lookup_named id env.env
 
 let e_new_evar env evdref ?src ?naming typ =
   let instance = identity_instance env.env in
-  let (subst, _, nc) = Lazy.force env.extra in
+  let (subst, _, sign) = Lazy.force env.extra in
   let typ' = csubst_subst subst typ in
-  let sign = val_of_named_context nc in
   let sigma = !evdref in
   let (sigma, e) = new_evar_instance sign sigma typ' ?src ?naming instance in
   evdref := sigma;

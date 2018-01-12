@@ -225,13 +225,13 @@ val empty_csubst : csubst
 val csubst_subst : csubst -> constr -> constr
 
 type ext_named_context =
-  csubst * Id.Set.t * named_context
+  csubst * Id.Set.t * named_context_val
 
 val push_rel_decl_to_named_context :
   evar_map -> rel_declaration -> ext_named_context -> ext_named_context
 
-val push_rel_context_to_named_context : Environ.env -> evar_map ->
-  named_context_val * csubst
+val push_rel_context_to_named_context : evar_map -> rel_context ->
+  ext_named_context -> ext_named_context
 
 val generalize_evar_over_rels : evar_map -> existential -> types * constr list
 

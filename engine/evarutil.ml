@@ -313,7 +313,7 @@ let csubst_subst { csubst_len = k; csubst_var = v; csubst_rel = s } c =
   EConstr.of_constr c
 
 type ext_named_context =
-  csubst * Id.Set.t * EConstr.named_context
+  csubst * Id.Set.t * Environ.named_context_val
 
 let push_var id { csubst_len = n; csubst_var = v; csubst_rel = s; csubst_rev = r } =
   let s = Int.Map.add n (Constr.mkVar id) s in
@@ -380,31 +380,23 @@ let push_rel_decl_to_named_context sigma decl (subst, avoid, nc) =
           context. Unless [id] is a section variable. *)
       let subst = update_var id0 id subst in
       let d = decl |> NamedDecl.of_rel_decl (fun _ -> id0) |> map_decl (csubst_subst subst) in
+      let nc = named_context_of_val nc in
       let nc = List.map (replace_var_named_declaration id0 id) nc in
-      (push_var id0 subst, Id.Set.add id avoid, d :: nc)
+      (push_var id0 subst, Id.Set.add id avoid, val_of_named_context (d :: nc))
   | _ ->
       (* spiwack: if [id0] is a section variable renaming it is
           incorrect. We revert to a less robust behaviour where
           the new binder has name [id]. Which amounts to the same
           behaviour than when [id=id0]. *)
       let d = decl |> NamedDecl.of_rel_decl (fun _ -> id) |> map_decl (csubst_subst subst) in
-      (push_var id subst, Id.Set.add id avoid, d :: nc)
+      (push_var id subst, Id.Set.add id avoid, push_named_context_val d nc)
 
-let push_rel_context_to_named_context env sigma =
-  (* compute the instances relative to the named context and rel_context *)
-  let open EConstr in
-  if List.is_empty (Environ.rel_context env) then
-    (named_context_val env, empty_csubst)
-  else
-    let fold accu decl = Id.Set.add (NamedDecl.get_id decl) accu in
-    let avoid = List.fold_left fold Id.Set.empty (named_context env) in
-    (* move the rel context to a named context and extend the named instance *)
-    (* with vars of the rel context *)
-    (* We do keep the instances corresponding to local definition (see above) *)
-    let (subst, _, env) =
-      Context.Rel.fold_outside (fun d acc -> push_rel_decl_to_named_context sigma d acc)
-        (rel_context env) ~init:(empty_csubst, avoid, named_context env) in
-    (val_of_named_context env, subst)
+let push_rel_context_to_named_context sigma rctx (subst, avoid, nctx) =
+  (* move the rel context to a named context and extend the named instance *)
+  (* with vars of the rel context *)
+  (* We do keep the instances corresponding to local definition (see above) *)
+  Context.Rel.fold_outside (fun d acc -> push_rel_decl_to_named_context sigma d acc)
+    rctx ~init:(subst, avoid, nctx)
 
 (*------------------------------------*
  * Entry points to define new evars   *
@@ -469,7 +461,10 @@ let new_evar_from_context sign evd ?src ?filter ?candidates ?store ?naming ?prin
 (* [new_evar] declares a new existential in an env env with type typ *)
 (* Converting the env into the sign of the evar to define *)
 let new_evar env evd ?src ?filter ?candidates ?store ?naming ?principal typ =
-  let sign, subst = push_rel_context_to_named_context env evd in
+  let rctx = EConstr.rel_context env in
+  let nctx = named_context_val env in
+  let nctx = (empty_csubst, ids_of_named_context_val nctx, nctx) in
+  let subst, _, sign = push_rel_context_to_named_context evd rctx nctx in
   let instance = identity_instance env in
   let typ' = csubst_subst subst typ in
   let map c = csubst_subst subst c in

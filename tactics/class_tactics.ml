@@ -1569,7 +1569,10 @@ let _ =
   Hook.set Typeclasses.solve_all_instances_hook solve_inst
 
 let resolve_one_typeclass env ?(sigma=Evd.empty) gl unique =
-  let nc, subst = Evarutil.push_rel_context_to_named_context env sigma in
+  let rctx = rel_context env in
+  let nctx = Environ.named_context_val env in
+  let nctx = (Evarutil.empty_csubst, Environ.ids_of_named_context_val nctx, nctx) in
+  let subst, _, nc = Evarutil.push_rel_context_to_named_context sigma rctx nctx in
   let inst = Evarutil.identity_instance env in
   let gl = Evarutil.csubst_subst subst gl in
   let (gl,t,sigma) =
