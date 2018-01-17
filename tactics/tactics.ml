@@ -143,7 +143,7 @@ let unsafe_intro env store decl b =
     let ctx = named_context_val env in
     let nctx = push_named_context_val decl ctx in
     let inst = List.map (NamedDecl.get_id %> mkVar) (named_context env) in
-    let ninst = mkRel 1 :: inst in
+    let ninst = Array.of_list (mkRel 1 :: inst) in
     let nb = subst1 (mkVar (NamedDecl.get_id decl)) b in
     let (sigma, ev) = new_evar_instance nctx sigma nb ~principal:true ~store ninst in
     (sigma, mkNamedLambda_or_LetIn decl ev)
@@ -354,7 +354,7 @@ let rename_hyp repl =
       let nhyps = List.map map hyps in
       let nconcl = subst concl in
       let nctx = val_of_named_context nhyps in
-      let instance = List.map (NamedDecl.get_id %> mkVar) hyps in
+      let instance = Evarutil.identity_instance_val (Environ.named_context_val env) in
       Refine.refine ~typecheck:false begin fun sigma ->
         Evarutil.new_evar_instance nctx sigma nconcl ~principal:true ~store instance
       end

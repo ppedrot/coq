@@ -224,9 +224,12 @@ let make_pure_subst evi args =
         | _ -> anomaly (Pp.str "Instance does not match its signature."))
     (evar_filtered_context evi) (Array.rev_to_list args,[]))
 
+let identity_instance_val ctx =
+  Array.map_of_list (NamedDecl.get_id %> EConstr.mkVar) (EConstr.named_context_of_val ctx)
+
 let identity_instance env =
   let inst_vars = List.map (NamedDecl.get_id %> EConstr.mkVar) (EConstr.named_context env) in
-  List.rev_append (rel_list 0 (nb_rel env)) inst_vars
+  Array.of_list (List.rev_append (rel_list 0 (nb_rel env)) inst_vars)
 
 (*------------------------------------*
  * functional operations on evar sets *
@@ -448,14 +451,14 @@ let new_evar_instance sign evd typ ?src ?filter ?candidates ?store ?naming ?prin
   assert (not !Flags.debug ||
             List.distinct (ids_of_named_context (named_context_of_val sign)));
   let (evd, newevk) = new_pure_evar sign evd ?src ?filter ?candidates ?store ?naming ?principal typ in
-  evd, mkEvar (newevk,Array.of_list instance)
+  evd, mkEvar (newevk, instance)
 
 let new_evar_from_context sign evd ?src ?filter ?candidates ?store ?naming ?principal typ =
-  let instance = List.map (NamedDecl.get_id %> EConstr.mkVar) (named_context_of_val sign) in
+  let instance = identity_instance_val sign in
   let instance =
     match filter with
     | None -> instance
-    | Some filter -> Filter.filter_list filter instance in
+    | Some filter -> Filter.filter_array filter instance in
   new_evar_instance sign evd typ ?src ?filter ?candidates ?store ?naming ?principal instance
 
 (* [new_evar] declares a new existential in an env env with type typ *)
@@ -472,7 +475,7 @@ let new_evar env evd ?src ?filter ?candidates ?store ?naming ?principal typ =
   let instance =
     match filter with
     | None -> instance
-    | Some filter -> Filter.filter_list filter instance in
+    | Some filter -> Filter.filter_array filter instance in
   new_evar_instance sign evd typ' ?src ?filter ?candidates ?store ?naming ?principal instance
 
 let new_type_evar env evd ?src ?filter ?naming ?principal rigid =

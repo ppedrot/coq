@@ -1205,7 +1205,7 @@ let second_order_matching ts env_rhs evd (evk,args) argoccs rhs =
         let evty = set_holes evdref cty subst in
         let instance = Filter.filter_list filter instance in
         let evd = !evdref in
-        let (evd, ev) = new_evar_instance sign evd evty ~filter instance in
+        let (evd, ev) = new_evar_instance sign evd evty ~filter (Array.of_list instance) in
         evdref := evd;
         evsref := (fst (destEvar !evdref ev),evty)::!evsref;
         ev in

@@ -1592,7 +1592,7 @@ let resolve_one_typeclass env ?(sigma=Evd.empty) gl unique =
       with Refiner.FailError _ -> raise Not_found
   in
   let evd = sig_sig gls' in
-  let t' = mkEvar (ev, Array.of_list inst) in
+  let t' = mkEvar (ev, inst) in
   let term = Evarutil.nf_evar evd t' in
     evd, term
 

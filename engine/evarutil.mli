@@ -82,9 +82,12 @@ val new_evar_instance :
   ?src:Evar_kinds.t Loc.located -> ?filter:Filter.t -> ?candidates:constr list ->
   ?store:Store.t -> ?naming:Misctypes.intro_pattern_naming_expr ->
   ?principal:bool ->
-  constr list -> evar_map * constr
+  constr array -> evar_map * constr
 
-val identity_instance : Environ.env -> EConstr.t list
+val identity_instance_val : named_context_val -> EConstr.t array
+(** Constructs [Var (m - 1); ... Var (0)] *)
+
+val identity_instance : Environ.env -> EConstr.t array
 (** Constructs [Rel(n - 1); ...; Rel 0; Var (m - 1); ... Var (0)] *)
 
 val make_pure_subst : evar_info -> 'a array -> (Id.t * 'a) list
