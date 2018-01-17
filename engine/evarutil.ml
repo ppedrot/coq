@@ -224,12 +224,24 @@ let make_pure_subst evi args =
         | _ -> anomaly (Pp.str "Instance does not match its signature."))
     (evar_filtered_context evi) (Array.rev_to_list args,[]))
 
-let identity_instance_val ctx =
-  Array.map_of_list (NamedDecl.get_id %> EConstr.mkVar) (EConstr.named_context_of_val ctx)
+let identity_instance_val =
+  let cache = ref (empty_named_context_val, [||]) in
+  fun ctx ->
+    let (old, cached) = !cache in
+    if old == ctx then cached
+    else
+      let map decl = EConstr.mkVar (NamedDecl.get_id decl) in
+      let ans = Array.map_of_list map (EConstr.named_context_of_val ctx) in
+      (** Thread-safe: this is a logically atomic store *)
+      let () = cache := (ctx, ans) in
+      ans
 
 let identity_instance env =
-  let inst_vars = List.map (NamedDecl.get_id %> EConstr.mkVar) (EConstr.named_context env) in
-  Array.of_list (List.rev_append (rel_list 0 (nb_rel env)) inst_vars)
+  if Int.equal (nb_rel env) 0 then
+    identity_instance_val (Environ.named_context_val env)
+  else
+    let inst_vars = List.map (NamedDecl.get_id %> EConstr.mkVar) (EConstr.named_context env) in
+    Array.of_list (List.rev_append (rel_list 0 (nb_rel env)) inst_vars)
 
 (*------------------------------------*
  * functional operations on evar sets *
