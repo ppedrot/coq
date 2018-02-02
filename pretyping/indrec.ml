@@ -148,7 +148,7 @@ let mis_make_case_com dep env sigma (ind, u as pind) (mib,mip as specif) kind =
   let typP = EConstr.Unsafe.to_constr typP in
   let c = 
     it_mkLambda_or_LetIn_name env
-    (mkLambda_string "P" relevance typP
+    (mkLambda_string "P" Sorts.Relevant typP
      (add_branch (push_rel (LocalAssum (make_annot Anonymous Sorts.Relevant,typP)) env') 0)) lnamespar
   in
   (sigma, c)
@@ -222,13 +222,14 @@ let type_rec_branch is_rec dep env sigma (vargs,depPvect,decP) tyi cs recargs =
              | Some(dep',p) ->
 		 let nP = lift (i+1+decP) p in
                  let env' = push_rel (LocalAssum (n,t)) env in
-		 let t_0 = process_pos env' dep' nP (lift 1 t) in
-		 make_prod_dep (dep || dep') env
+                 let t_0 = process_pos env' dep' nP (lift 1 t) in
+                 let r_0 = Retyping.relevance_of_type env' sigma (EConstr.of_constr t_0) in
+                 make_prod_dep (dep || dep') env
                    (n,t,
-                    mkArrow t_0 n.binder_relevance (* TODO check if t_0 has same relevance as t *)
-		      (process_constr
-                        (push_rel (LocalAssum (make_annot Anonymous n.binder_relevance,t_0)) env')
-			 (i+2) (lift 1 c_0) rest (nhyps-1) (i::li))))
+                    mkArrow t_0 r_0
+                      (process_constr
+                        (push_rel (LocalAssum (make_annot Anonymous r_0,t_0)) env')
+                         (i+2) (lift 1 c_0) rest (nhyps-1) (i::li))))
       | LetIn (n,b,t,c_0) ->
           mkLetIn (n,b,t,
 		   process_constr
@@ -475,9 +476,8 @@ let mis_make_indrec env sigma listdepkind mib u =
 	  in
 	  let typP = make_arity env !evdref dep indf s in
           let typP = EConstr.Unsafe.to_constr typP in
-          let rP = Sorts.relevance_of_sort_family kinds in
-            mkLambda_string "P" rP typP
-              (put_arity (push_rel (LocalAssum (make_annot Anonymous rP,typP)) env) (i+1) rest)
+            mkLambda_string "P" Sorts.Relevant typP
+              (put_arity (push_rel (LocalAssum (make_annot Anonymous Sorts.Relevant,typP)) env) (i+1) rest)
       | [] ->
 	  make_branch env 0 listdepkind
     in
