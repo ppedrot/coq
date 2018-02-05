@@ -180,3 +180,6 @@ Section sFix.
     F x (fun (y:nat) (h: y < x) => sFix y (sAcc_inv x a y h)).
 
 End sFix.
+
+
+Class emptyclass : SProp := emptyinstance : forall A:SProp, A.
