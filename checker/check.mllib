@@ -56,6 +56,7 @@ Print
 Declarations
 Environ
 Closure
+Retypeops
 Reduction
 Type_errors
 Modops

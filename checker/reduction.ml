@@ -302,11 +302,14 @@ let eq_table_key univ =
       Univ.Instance.check_eq univ u1 u2)
 
 (* Conversion between  [lft1]term1 and [lft2]term2 *)
-let rec ccnv univ cv_pb infos lft1 lft2 term1 term2 =
-  eqappr univ cv_pb infos (lft1, (term1,[])) (lft2, (term2,[]))
+let rec ccnv univ cv_pb infos relevances lft1 lft2 term1 term2 =
+  if Retypeops.relevance_of_fterm (infos_env infos) relevances lft1 term1 == Irrelevant
+  then ()
+  else
+    eqappr univ cv_pb infos relevances (lft1, (term1,[])) (lft2, (term2,[]))
 
 (* Conversion between [lft1](hd1 v1) and [lft2](hd2 v2) *)
-and eqappr univ cv_pb infos (lft1,st1) (lft2,st2) =
+and eqappr univ cv_pb infos relevances (lft1,st1) (lft2,st2) =
   Control.check_for_interrupt ();
   (* First head reduce both terms *)
   let rec whd_both (t1,stk1) (t2,stk2) =
@@ -329,26 +332,26 @@ and eqappr univ cv_pb infos (lft1,st1) (lft2,st2) =
 	       sort_cmp (infos_env infos) univ cv_pb s1 s2
 	   | (Meta n, Meta m) ->
                if n=m
-	       then convert_stacks univ infos lft1 lft2 v1 v2
+               then convert_stacks univ infos relevances lft1 lft2 v1 v2
                else raise NotConvertible
 	   | _ -> raise NotConvertible)
     | (FEvar (ev1,args1), FEvar (ev2,args2)) ->
         if ev1=ev2 then
-          (convert_stacks univ infos lft1 lft2 v1 v2;
-           convert_vect univ infos el1 el2 args1 args2)
+          (convert_stacks univ infos relevances lft1 lft2 v1 v2;
+           convert_vect univ infos relevances el1 el2 args1 args2)
         else raise NotConvertible
 
     (* 2 index known to be bound to no constant *)
     | (FRel n, FRel m) ->
         if reloc_rel n el1 = reloc_rel m el2
-        then convert_stacks univ infos lft1 lft2 v1 v2
+        then convert_stacks univ infos relevances lft1 lft2 v1 v2
         else raise NotConvertible
 
     (* 2 constants, 2 local defined vars or 2 defined rels *)
     | (FFlex fl1, FFlex fl2) ->
 	(try (* try first intensional equality *)
           if eq_table_key univ fl1 fl2
-          then convert_stacks univ infos lft1 lft2 v1 v2
+          then convert_stacks univ infos relevances lft1 lft2 v1 v2
           else raise NotConvertible
         with NotConvertible ->
           (* else the oracle tells which constant is to be expanded *)
@@ -367,71 +370,71 @@ and eqappr univ cv_pb infos (lft1,st1) (lft2,st2) =
                 (match unfold_reference infos fl1 with
                 | Some def1 -> ((lft1, whd_stack infos def1 v1), appr2)
 		| None -> raise NotConvertible) in
-            eqappr univ cv_pb infos app1 app2)
+            eqappr univ cv_pb infos relevances app1 app2)
 	  
     | (FProj (p1,c1), _) ->
       let s1 = unfold_projection (infos_env infos) p1 in
-        eqappr univ cv_pb infos (lft1, whd_stack infos c1 (s1 :: v1)) appr2
-	  
+        eqappr univ cv_pb infos relevances (lft1, whd_stack infos c1 (s1 :: v1)) appr2
+
     | (_, FProj (p2,c2)) ->
       let s2 = unfold_projection (infos_env infos) p2 in
-        eqappr univ cv_pb infos appr1 (lft2, whd_stack infos c2 (s2 :: v2))
+        eqappr univ cv_pb infos relevances appr1 (lft2, whd_stack infos c2 (s2 :: v2))
 
     (* other constructors *)
     | (FLambda _, FLambda _) ->
         (* Inconsistency: we tolerate that v1, v2 contain shift and update but
            we throw them away *)
         assert (is_empty_stack v1 && is_empty_stack v2);
-        let (_,ty1,bd1) = destFLambda mk_clos hd1 in
+        let (x1,ty1,bd1) = destFLambda mk_clos hd1 in
         let (_,ty2,bd2) = destFLambda mk_clos hd2 in
-        ccnv univ CONV infos el1 el2 ty1 ty2;
-        ccnv univ CONV infos (el_lift el1) (el_lift el2) bd1 bd2
+        ccnv univ CONV infos relevances el1 el2 ty1 ty2;
+        ccnv univ CONV infos (x1.binder_relevance::relevances) (el_lift el1) (el_lift el2) bd1 bd2
 
-    | (FProd (_,c1,c2), FProd (_,c'1,c'2)) ->
+    | (FProd (x1,c1,c2), FProd (_,c'1,c'2)) ->
         assert (is_empty_stack v1 && is_empty_stack v2);
 	(* Luo's system *)
-        ccnv univ CONV infos el1 el2 c1 c'1;
-        ccnv univ cv_pb infos (el_lift el1) (el_lift el2) c2 c'2
+        ccnv univ CONV infos relevances el1 el2 c1 c'1;
+        ccnv univ cv_pb infos (x1.binder_relevance::relevances) (el_lift el1) (el_lift el2) c2 c'2
 
     (* Eta-expansion on the fly *)
     | (FLambda _, _) ->
         if v1 <> [] then
           anomaly (Pp.str "conversion was given unreduced term (FLambda).");
-        let (_,ty1,bd1) = destFLambda mk_clos hd1 in
-        eqappr univ CONV infos
+        let (x1,ty1,bd1) = destFLambda mk_clos hd1 in
+        eqappr univ CONV infos (x1.binder_relevance::relevances)
           (el_lift lft1,(bd1,[])) (el_lift lft2,(hd2,eta_expand_stack v2))
     | (_, FLambda _) ->
         if v2 <> [] then
           anomaly (Pp.str "conversion was given unreduced term (FLambda).");
-        let (_,ty2,bd2) = destFLambda mk_clos hd2 in
-        eqappr univ CONV infos
+        let (x2,ty2,bd2) = destFLambda mk_clos hd2 in
+        eqappr univ CONV infos (x2.binder_relevance::relevances)
           (el_lift lft1,(hd1,eta_expand_stack v1)) (el_lift lft2,(bd2,[]))
 
     (* only one constant, defined var or defined rel *)
     | (FFlex fl1, c2)      ->
         (match unfold_reference infos fl1 with
            | Some def1 ->
-	       eqappr univ cv_pb infos (lft1, whd_stack infos def1 v1) appr2
+               eqappr univ cv_pb infos relevances (lft1, whd_stack infos def1 v1) appr2
            | None -> 
 	     match c2 with 
 	     | FConstruct ((ind2,j2),u2) ->
 	       (try
  	     	  let v2, v1 = 
  		    eta_expand_ind_stack (infos_env infos) ind2 hd2 v2 (snd appr1)
- 		  in convert_stacks univ infos lft1 lft2 v1 v2
+                  in convert_stacks univ infos relevances lft1 lft2 v1 v2
  	     	with Not_found -> raise NotConvertible)
 	     | _ -> raise NotConvertible)
 
     | (c1, FFlex fl2)      ->
         (match unfold_reference infos fl2 with
            | Some def2 ->
-	       eqappr univ cv_pb infos appr1 (lft2, whd_stack infos def2 v2)
+               eqappr univ cv_pb infos relevances appr1 (lft2, whd_stack infos def2 v2)
            | None -> 
 	     match c1 with 
 	     | FConstruct ((ind1,j1),u1) ->
  	       (try let v1, v2 = 
 		      eta_expand_ind_stack (infos_env infos) ind1 hd1 v1 (snd appr2)
-		    in convert_stacks univ infos lft1 lft2 v1 v2
+                    in convert_stacks univ infos relevances lft1 lft2 v1 v2
 		with Not_found -> raise NotConvertible)
 	     | _ -> raise NotConvertible)
 
@@ -442,7 +445,7 @@ and eqappr univ cv_pb infos (lft1,st1) (lft2,st2) =
         if Univ.Instance.length u1 = 0 || Univ.Instance.length u2 = 0 then
           begin
             convert_universes univ u1 u2;
-            convert_stacks univ infos lft1 lft2 v1 v2
+            convert_stacks univ infos relevances lft1 lft2 v1 v2
           end
         else
           let mind = Environ.lookup_mind (fst ind1) (infos_env infos) in
@@ -450,7 +453,7 @@ and eqappr univ cv_pb infos (lft1,st1) (lft2,st2) =
             convert_inductives cv_pb (mind, snd ind1) u1 (stack_args_size v1)
               u2 (stack_args_size v2) univ
           in
-          convert_stacks univ infos lft1 lft2 v1 v2
+          convert_stacks univ infos relevances lft1 lft2 v1 v2
       else raise NotConvertible
 
     | (FConstruct ((ind1,j1),u1), FConstruct ((ind2,j2),u2)) ->
@@ -458,7 +461,7 @@ and eqappr univ cv_pb infos (lft1,st1) (lft2,st2) =
         if Univ.Instance.length u1 = 0 || Univ.Instance.length u2 = 0 then
           begin
             convert_universes univ u1 u2;
-            convert_stacks univ infos lft1 lft2 v1 v2
+            convert_stacks univ infos relevances lft1 lft2 v1 v2
           end
         else
           let mind = Environ.lookup_mind (fst ind1) (infos_env infos) in
@@ -467,7 +470,7 @@ and eqappr univ cv_pb infos (lft1,st1) (lft2,st2) =
               (mind, snd ind1, j1) u1 (stack_args_size v1)
               u2 (stack_args_size v2) univ
           in
-          convert_stacks univ infos lft1 lft2 v1 v2
+          convert_stacks univ infos relevances lft1 lft2 v1 v2
       else raise NotConvertible
 
      (* Eta expansion of records *)
@@ -475,31 +478,36 @@ and eqappr univ cv_pb infos (lft1,st1) (lft2,st2) =
        (try
     	  let v1, v2 =
     	    eta_expand_ind_stack (infos_env infos) ind1 hd1 v1 (snd appr2)
-    	  in convert_stacks univ infos lft1 lft2 v1 v2
+          in convert_stacks univ infos relevances lft1 lft2 v1 v2
 	with Not_found -> raise NotConvertible)
 	 
      | (_, FConstruct ((ind2,j2),u2)) ->
        (try
     	  let v2, v1 =
     	    eta_expand_ind_stack (infos_env infos) ind2 hd2 v2 (snd appr1)
-    	  in convert_stacks univ infos lft1 lft2 v1 v2
+          in convert_stacks univ infos relevances lft1 lft2 v1 v2
 	with Not_found -> raise NotConvertible)
 
-     | (FFix ((op1,(_,tys1,cl1)),e1), FFix((op2,(_,tys2,cl2)),e2)) ->
-	 if op1 = op2
+     | (FFix ((op1,(x1,tys1,cl1)),e1), FFix((op2,(_,tys2,cl2)),e2)) ->
+         if op1 = op2
 	 then
 	   let n = Array.length cl1 in
            let fty1 = Array.map (mk_clos e1) tys1 in
            let fty2 = Array.map (mk_clos e2) tys2 in
            let fcl1 = Array.map (mk_clos (subs_liftn n e1)) cl1 in
            let fcl2 = Array.map (mk_clos (subs_liftn n e2)) cl2 in
-           convert_vect univ infos el1 el2 fty1 fty2;
-           convert_vect univ infos
-	     (el_liftn n el1) (el_liftn n el2) fcl1 fcl2;
-           convert_stacks univ infos lft1 lft2 v1 v2
+           convert_vect univ infos relevances el1 el2 fty1 fty2;
+           (let relevances = List.append (List.rev_map
+                                            (fun x -> x.binder_relevance)
+                                            (Array.to_list x1))
+                relevances
+            in
+            convert_vect univ infos relevances
+              (el_liftn n el1) (el_liftn n el2) fcl1 fcl2);
+           convert_stacks univ infos relevances lft1 lft2 v1 v2
          else raise NotConvertible
 
-     | (FCoFix ((op1,(_,tys1,cl1)),e1), FCoFix((op2,(_,tys2,cl2)),e2)) ->
+     | (FCoFix ((op1,(x1,tys1,cl1)),e1), FCoFix((op2,(_,tys2,cl2)),e2)) ->
          if op1 = op2
          then
 	   let n = Array.length cl1 in
@@ -507,10 +515,15 @@ and eqappr univ cv_pb infos (lft1,st1) (lft2,st2) =
            let fty2 = Array.map (mk_clos e2) tys2 in
            let fcl1 = Array.map (mk_clos (subs_liftn n e1)) cl1 in
            let fcl2 = Array.map (mk_clos (subs_liftn n e2)) cl2 in
-           convert_vect univ infos el1 el2 fty1 fty2;
-	   convert_vect univ infos
-	     (el_liftn n el1) (el_liftn n el2) fcl1 fcl2;
-           convert_stacks univ infos lft1 lft2 v1 v2
+           convert_vect univ infos relevances el1 el2 fty1 fty2;
+           (let relevances = List.append (List.rev_map
+                                            (fun x -> x.binder_relevance)
+                                            (Array.to_list x1))
+                relevances
+            in
+            convert_vect univ infos relevances
+              (el_liftn n el1) (el_liftn n el2) fcl1 fcl2);
+           convert_stacks univ infos relevances lft1 lft2 v1 v2
          else raise NotConvertible
 
      (* Should not happen because both (hd1,v1) and (hd2,v2) are in whnf *)
@@ -521,21 +534,21 @@ and eqappr univ cv_pb infos (lft1,st1) (lft2,st2) =
      (* In all other cases, terms are not convertible *)
      | _ -> raise NotConvertible
 
-and convert_stacks univ infos lft1 lft2 stk1 stk2 =
+and convert_stacks univ infos relevances lft1 lft2 stk1 stk2 =
   compare_stacks
-    (fun (l1,t1) (l2,t2) -> ccnv univ CONV infos l1 l2 t1 t2)
+    (fun (l1,t1) (l2,t2) -> ccnv univ CONV infos relevances l1 l2 t1 t2)
     (mind_equiv_infos infos)
     lft1 stk1 lft2 stk2
 
-and convert_vect univ infos lft1 lft2 v1 v2 =
-  Array.iter2 (fun t1 t2 -> ccnv univ CONV infos lft1 lft2 t1 t2) v1 v2
+and convert_vect univ infos relevances lft1 lft2 v1 v2 =
+  Array.iter2 (fun t1 t2 -> ccnv univ CONV infos relevances lft1 lft2 t1 t2) v1 v2
 
 let clos_fconv cv_pb eager_delta env t1 t2 =
   let infos =
     create_clos_infos
       (if eager_delta then betadeltaiota else betaiotazeta) env in
   let univ = universes env in
-  ccnv univ cv_pb infos el_id el_id (inject t1) (inject t2)
+  ccnv univ cv_pb infos [] el_id el_id (inject t1) (inject t2)
 
 let fconv cv_pb eager_delta env t1 t2 =
   if eq_constr t1 t2 then ()
