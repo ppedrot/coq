@@ -264,7 +264,7 @@ let typecheck_one_inductive env params mib mip =
     compute_elim_sorts env params mib mip.mind_arity mip.mind_nf_lc in
   let reject_sort s = not (List.mem_f family_equal s sorts) in
   if List.exists reject_sort mip.mind_kelim then
-    failwith "elimination not allowed";
+    failwith ("elimination not allowed for "^(Id.to_string mip.mind_typename));
   (* mind_recargs: checked by positivity criterion *)
   ()
 

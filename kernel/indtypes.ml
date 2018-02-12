@@ -227,7 +227,9 @@ let sup_unforced_args info levels max =
   List.fold_left_i (fun i max lvl -> match info with
       | None -> Universe.sup lvl max
       | Some info -> begin match info.ctor_arg_infos.(i) with
-          | ForcedArg -> max
+          | ForcedArg ->
+            (* This is just to ba compatible with the checker until it catches up *)
+            if Universe.is_type0m max then Universe.sup lvl max else max
           | MatchArg -> Universe.sup lvl max
         end) 0 max levels
 
