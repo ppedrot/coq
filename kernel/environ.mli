@@ -265,6 +265,7 @@ val push_constraints_to_env : 'a Univ.constrained -> env -> env
 
 val set_engagement : engagement -> env -> env
 val set_typing_flags : typing_flags -> env -> env
+val make_sprop_cumulative : env -> env
 
 (** {6 Sets of referred section variables }
    [global_vars_set env c] returns the list of [id]'s occurring either

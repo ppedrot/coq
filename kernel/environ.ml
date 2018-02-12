@@ -388,6 +388,8 @@ let set_engagement c env = (* Unsafe *)
 let set_typing_flags c env = (* Unsafe *)
   { env with env_typing_flags = c }
 
+let make_sprop_cumulative = map_universes UGraph.make_sprop_cumulative
+
 (* Global constants *)
 
 let no_link_info = NotLinked

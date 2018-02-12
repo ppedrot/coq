@@ -30,6 +30,7 @@ val named_context : unit -> Context.Named.t
 (** Changing the (im)predicativity of the system *)
 val set_engagement : Declarations.engagement -> unit
 val set_typing_flags : Declarations.typing_flags -> unit
+val make_sprop_cumulative : unit -> unit
 
 (** Variables, Local definitions, constants, inductive types *)
 

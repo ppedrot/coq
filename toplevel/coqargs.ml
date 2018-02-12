@@ -66,6 +66,7 @@ type coq_cmdopts = {
   color : color;
 
   impredicative_set : Declarations.set_predicativity;
+  cumulative_sprop : bool;
   stm_flags   : Stm.AsyncOpts.stm_opt;
   debug       : bool;
   time        : bool;
@@ -115,6 +116,7 @@ let init_args = {
   color = `AUTO;
 
   impredicative_set = Declarations.PredicativeSet;
+  cumulative_sprop = false;
   stm_flags    = Stm.AsyncOpts.default_opts;
   debug        = false;
   time         = false;
@@ -531,6 +533,7 @@ let parse_args arglist : coq_cmdopts * string list =
     |"-filteropts" -> { oval with filter_opts = true }
     |"-impredicative-set" ->
       { oval with impredicative_set = Declarations.ImpredicativeSet }
+    |"-sprop-cumulative" -> { oval with cumulative_sprop = true }
     |"-indices-matter" -> Indtypes.enforce_indices_matter (); oval
     |"-m"|"--memory" -> { oval with memory_stat = true }
     |"-noinit"|"-nois" -> { oval with load_init = false }

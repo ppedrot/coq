@@ -77,6 +77,7 @@ let print_usage_channel co command =
 \n  -noglob                do not dump globalizations\
 \n  -dump-glob f           dump globalizations in file f (to be used by coqdoc)\
 \n  -impredicative-set     set sort Set impredicative\
+\n  -sprop-cumulative      make sort SProp cumulative with the rest of the hierarchy\
 \n  -indices-matter        levels of indices (and nonuniform parameters) contribute to the level of inductives\
 \n  -type-in-type          disable universe consistency checking\
 \n  -mangle-names x        mangle auto-generated names using prefix x\
