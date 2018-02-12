@@ -68,6 +68,15 @@ For le_n: Argument scope is [nat_scope]
 For le_S: Argument scopes are [nat_scope nat_scope _]
 comparison : Set
 
+For comparison:
+not natural sprop
+ctor Eq is invertible
+!forced, ?match arguments: 
+ctor Lt is invertible
+!forced, ?match arguments: 
+ctor Gt is invertible
+!forced, ?match arguments: 
+
 Expands to: Inductive Coq.Init.Datatypes.comparison
 Inductive comparison : Set :=
     Eq : comparison | Lt : comparison | Gt : comparison
