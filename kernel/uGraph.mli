@@ -15,6 +15,9 @@ type t
 type universes = t
 [@@ocaml.deprecated "Use UGraph.t"]
 
+val make_sprop_cumulative : t -> t
+(** Don't use this in the kernel, it makes the system incomplete. *)
+
 type 'a check_function = t -> 'a -> 'a -> bool
 
 val check_leq : Universe.t check_function

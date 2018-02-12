@@ -74,9 +74,12 @@ type univ_entry =
 type universes =
   { entries : univ_entry UMap.t;
     index : int;
-    n_nodes : int; n_edges : int }
+    n_nodes : int; n_edges : int;
+    sprop_cumulative : bool; }
 
 type t = universes
+
+let make_sprop_cumulative g = {g with sprop_cumulative = true }
 
 (** Used to cleanup universes if a traversal function is interrupted before it
     has the opportunity to do it itself. *)
@@ -111,7 +114,8 @@ let enter_equiv g u v =
         | _ -> assert false) g.entries;
     index = g.index;
     n_nodes = g.n_nodes - 1;
-    n_edges = g.n_edges }
+    n_edges = g.n_edges;
+    sprop_cumulative = g.sprop_cumulative; }
 
 (* Low-level function : changes data associated with a canonical node.
    Resets the mutable fields in the old record, in order to avoid breaking
@@ -523,7 +527,7 @@ let add_universe_gen vlev g =
     }
     in
     let entries = UMap.add vlev (Canonical v) g.entries in
-    { entries; index = g.index - 1; n_nodes = g.n_nodes + 1; n_edges = g.n_edges }, v
+    { entries; index = g.index - 1; n_nodes = g.n_nodes + 1; n_edges = g.n_edges; sprop_cumulative = g.sprop_cumulative; }, v
 
 let add_universe vlev strict g =
   let g, v = add_universe_gen vlev g in
@@ -668,8 +672,8 @@ let real_check_leq g u v =
   Universe.for_all (fun ul -> exists_bigger g ul v) u
 
 let check_leq g u v =
-  Universe.equal u v ||
-  (not (is_sprop u || is_sprop v) &&
+  Universe.equal u v || (g.sprop_cumulative && is_sprop u) ||
+  (not (is_sprop u) && not (is_sprop v) &&
     (is_type0m_univ u ||
      real_check_leq g u v))
 
@@ -710,7 +714,7 @@ let enforce_univ_lt u v g =
     error_inconsistency Lt u v (get_explanation false v u g)
 
 let empty_universes =
-  { entries = UMap.empty; index = 0; n_nodes = 0; n_edges = 0 }
+  { entries = UMap.empty; index = 0; n_nodes = 0; n_edges = 0; sprop_cumulative = false }
 
 let initial_universes =
   let set_arc = Canonical {
@@ -732,7 +736,7 @@ let initial_universes =
     status = NoMark;
   } in
   let entries = UMap.add Level.set set_arc (UMap.singleton Level.prop prop_arc) in
-  let empty = { entries; index = (-2); n_nodes = 2; n_edges = 0 } in
+  let empty = { entries; index = (-2); n_nodes = 2; n_edges = 0; sprop_cumulative = false; } in
   enforce_univ_lt Level.prop Level.set empty
 
 let is_initial_universes g = UMap.equal (==) g.entries initial_universes.entries
@@ -748,6 +752,7 @@ let enforce_constraint (u,d,v as c) g =
   match Level.is_sprop u, d, Level.is_sprop v with
   | false, _, false -> enforce_constraint c g
   | true, (Eq | Le), true -> g
+  | true, Le, false when g.sprop_cumulative -> g
   | true, Lt, true | false, _, true | true, _, false ->
     error_inconsistency Lt u v None
 
@@ -765,6 +770,7 @@ let check_constraint g (u,d,v as c) =
   match Level.is_sprop u, d, Level.is_sprop v with
   | false, _, false -> check_constraint g c
   | true, (Eq | Le), true -> true
+  | true, Le, false -> g.sprop_cumulative
   | true, Lt, true | false, _, true | true, _, false ->
     false
 
