@@ -32,6 +32,8 @@ let sort_of_univ u =
   else if Univ.is_type0_univ u then Set
   else Type u
 
+let is_sprop = function SProp -> true | _ -> false
+
 (********************************************************************)
 (*       Constructions as implemented                               *)
 (********************************************************************)
@@ -359,10 +361,19 @@ let rec isArity c =
 let compare_sorts s1 s2 = match s1, s2 with
 | SProp, SProp | Prop, Prop | Set, Set -> true
 | Type u1, Type u2 -> Univ.Universe.equal u1 u2
-| (SProp | Prop | Set | Type _), _ -> false
+| SProp, (Prop | Set | Type _) | (Prop | Set | Type _), SProp -> false
+| Prop, Set | Set, Prop -> false
+| (Prop | Set), Type _ -> false
+| Type _, (Prop | Set) -> false
 
 let eq_puniverses f (c1,u1) (c2,u2) =
   Univ.Instance.equal u1 u2 && f c1 c2
+
+let compare_relevance (a:relevance) b = a == b
+
+let compare_annot eq x y =
+  eq x.binder_name y.binder_name &&
+  compare_relevance x.binder_relevance y.binder_relevance
 
 let compare_constr f t1 t2 =
   match t1, t2 with

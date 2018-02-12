@@ -59,10 +59,14 @@ type type_error =
   | CantApplyBadType of
       (int * constr * constr) * unsafe_judgment * unsafe_judgment array
   | CantApplyNonFunctional of unsafe_judgment * unsafe_judgment array
-  | IllFormedRecBody of guard_error * Name.t array * int
+  | IllFormedRecBody of guard_error * Name.t binder_annot array * int
   | IllTypedRecBody of
-      int * Name.t array * unsafe_judgment array * constr array
+      int * Name.t binder_annot array * unsafe_judgment array * constr array
   | UnsatisfiedConstraints of Univ.constraints
+  | SPropMissingAnnot
+  | SPropUnexpectedAnnot
+  | SPropMismatchAnnot
+  | SPropIncorrectAnnot of int * constr * constr
 
 exception TypeError of env * type_error
 
@@ -113,3 +117,11 @@ let error_ill_typed_rec_body env i lna vdefj vargs =
 
 let error_unsatisfied_constraints env c =
   raise (TypeError (env, UnsatisfiedConstraints c))
+
+let error_sprop_missing_annot env = raise (TypeError (env, SPropMissingAnnot))
+
+let error_sprop_unexpected_annot env = raise (TypeError (env, SPropUnexpectedAnnot))
+
+let error_sprop_mismatch_annot env = raise (TypeError (env, SPropMismatchAnnot))
+
+let error_sprop_incorrect_annot env i a b = raise (TypeError (env, SPropIncorrectAnnot (i,a,b)))

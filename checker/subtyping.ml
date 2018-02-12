@@ -241,7 +241,7 @@ let check_inductive  env mp1 l info1 mib2 spec2 subst1 subst2=
     assert (Array.length mib1.mind_packets.(0).mind_user_lc = 1);
     assert (Array.length mib2.mind_packets.(0).mind_user_lc = 1);
     check
-      (fun l1 l2 -> List.equal Name.equal l1 l2)
+      (fun l1 l2 -> List.equal (compare_annot Name.equal) l1 l2)
       (fun mib -> names_prod_letin mib.mind_packets.(0).mind_user_lc.(0));
   end;
   (* we first check simple things *)

@@ -40,7 +40,7 @@ val rel_context : env -> rel_context
 val lookup_rel : int -> env -> rel_declaration
 val push_rel : rel_declaration -> env -> env
 val push_rel_context : rel_context -> env -> env
-val push_rec_types : Name.t array * constr array * 'a -> env -> env
+val push_rec_types : rec_declaration -> env -> env
 
 (* Universes *)
 val universes : env -> Univ.universes

@@ -1,6 +1,11 @@
 open Names
 open Cic
 
+val compare_relevance : relevance -> relevance -> bool
+val compare_annot : ('a -> 'a -> bool) -> 'a binder_annot -> 'a binder_annot -> bool
+
+val is_sprop : sorts -> bool
+
 val family_of_sort : sorts -> sorts_family
 val family_equal : sorts_family -> sorts_family -> bool
 
@@ -38,8 +43,8 @@ val fold_rel_context_outside :
 val map_rel_decl : (constr -> constr) -> rel_declaration -> rel_declaration
 val map_rel_context : (constr -> constr) -> rel_context -> rel_context
 val extended_rel_list : int -> rel_context -> constr list
-val compose_lam : (Name.t * constr) list -> constr -> constr
-val decompose_lam : constr -> (Name.t * constr) list * constr
+val compose_lam : (Name.t binder_annot * constr) list -> constr -> constr
+val decompose_lam : constr -> (Name.t binder_annot * constr) list * constr
 val decompose_lam_n_assum : int -> constr -> rel_context * constr
 val mkProd_or_LetIn : rel_declaration -> constr -> constr
 val it_mkProd_or_LetIn : constr -> rel_context -> constr

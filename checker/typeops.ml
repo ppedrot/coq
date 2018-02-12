@@ -41,10 +41,19 @@ let type_judgment env (c,ty as j) =
 
 (* This should be a type intended to be assumed. The error message is *)
 (* not as useful as for [type_judgment]. *)
-let assumption_of_judgment env j =
-  try fst(type_judgment env j)
+
+let infer_assumption env t ty =
+  try
+    let _, s = type_judgment env (t, ty) in
+    t, (match s with SProp -> Irrelevant | _ -> Relevant)
   with TypeError _ ->
-    error_assumption env j
+    error_assumption env (t, ty)
+
+let check_assumption env x (t, ty) =
+  let r = x.binder_relevance in
+  let t, r' = infer_assumption env t ty in
+  assert (r == r');
+  t
 
 (************************************************)
 (* Incremental typing rules: builds a typing judgement given the *)
@@ -103,7 +112,7 @@ let judge_of_apply env (f,funj) argjv =
 let sort_of_product env domsort rangsort =
   match (domsort, rangsort) with
     (* Product rule (s,Prop,Prop) *)
-    | _,       (SProp|Prop)  -> rangsort
+    | _,       (Prop|SProp)  -> rangsort
     (* Product rule (Prop/Set,Set,Set) *)
     | (SProp | Prop | Set),  Set -> rangsort
     (* Product rule (Type,Set,?) *)
@@ -117,7 +126,7 @@ let sort_of_product env domsort rangsort =
     (* Product rule (Prop,Type_i,Type_i) *)
     | Set,  Type u2  -> Type (Univ.sup Univ.type0_univ u2)
     (* Product rule (Prop,Type_i,Type_i) *)
-    | (SProp|Prop), Type _  -> rangsort
+    | (SProp | Prop), Type _  -> rangsort
     (* Product rule (Type_i,Type_i,Type_i) *)
     | Type u1, Type u2 -> Type (Univ.sup u1 u2)
 
@@ -224,7 +233,10 @@ let type_fixpoint env lna lar lbody vdefj =
 (*         let env' = add_constraints (enforce_leq u u' empty_constraint) env in *)
 (*         env', mkArity (ctxt,Type u') *)
 (*     | _ -> env, ar *)
+let relevance_of_sort = function
+  | SProp -> Irrelevant | _ -> Relevant
 
+let check_relevance s x = assert (relevance_of_sort s == x.binder_relevance)
 
 (* The typing machine. *)
 let rec execute env cstr =
@@ -262,16 +274,18 @@ let rec execute env cstr =
           judge_of_projection env p c ct
 
     | Lambda (name,c1,c2) ->
-        let _ = execute_type env c1 in
-	let env1 = push_rel (LocalAssum (name,c1)) env in
-        let j' = execute env1 c2 in
-        Prod(name,c1,j')
+      let s1 = execute_type env c1 in
+      check_relevance s1 name;
+      let env1 = push_rel (LocalAssum (name,c1)) env in
+      let j' = execute env1 c2 in
+      Prod(name,c1,j')
 
     | Prod (name,c1,c2) ->
-        let varj = execute_type env c1 in
-	let env1 = push_rel (LocalAssum (name,c1)) env in
-        let varj' = execute_type env1 c2 in
-	Sort (sort_of_product env varj varj')
+      let varj = execute_type env c1 in
+      check_relevance varj name;
+      let env1 = push_rel (LocalAssum (name,c1)) env in
+      let varj' = execute_type env1 c2 in
+      Sort (sort_of_product env varj varj')
 
     | LetIn (name,c1,c2,c3) ->
         let j1 = execute env c1 in
@@ -279,7 +293,8 @@ let rec execute env cstr =
            (but the pushed type is still c2) *)
         let _ =
           let env',c2' = (* refresh_arity env *) env, c2 in
-          let _ = execute_type env' c2' in
+          let s2 = execute_type env' c2' in
+          check_relevance s2 name;
           judge_of_cast env' (c1,j1) DEFAULTcast c2' in
         let env1 = push_rel (LocalDef (name,c1,c2)) env in
         let j' = execute env1 c3 in
@@ -327,7 +342,7 @@ and execute_type env constr =
 and execute_recdef env (names,lar,vdef) i =
   let larj = execute_array env lar in
   let larj = Array.map2 (fun c ty -> c,ty) lar larj in
-  let lara = Array.map (assumption_of_judgment env) larj in
+  let lara = Array.map2 (check_assumption env) names larj in
   let env1 = push_rec_types (names,lara,vdef) env in
   let vdefj = execute_array env1 vdef in
   type_fixpoint env1 names lara vdef vdefj;
@@ -342,7 +357,20 @@ and judge_of_case env ci pj is (c,cj) lfj =
   let _ = check_case_info env (fst (fst indspec)) ci in
   let (bty,rslty) = type_case_branches env indspec pj c in
   check_branch_types env (c,cj) (lfj,bty);
+  let _, sp = dest_arity env (snd pj) in
+  let rp = relevance_of_sort sp in
+  let () = check_case_is env cj (Inductive.relevance_of_inductive env (fst pind)) rp is in
   rslty
+
+and check_case_is env ct rt rp is =
+  match (rt, rp), is with
+  | (Relevant, Relevant | Relevant, Irrelevant | Irrelevant, Irrelevant), None -> ()
+  | (Relevant, Relevant | Relevant, Irrelevant | Irrelevant, Irrelevant), Some _ ->
+    error_sprop_unexpected_annot env
+  | (Irrelevant, Relevant), None -> error_sprop_missing_annot env
+  | (Irrelevant, Relevant), Some is ->
+    let _ = execute_type env is in
+    conv env ct is
 
 
 (* Derived functions *)
@@ -354,12 +382,14 @@ let infer_type env constr = execute_type env constr
 let check_ctxt env rels =
   fold_rel_context (fun d env ->
     match d with
-      | LocalAssum (_,ty) ->
-          let _ = infer_type env ty in
-          push_rel d env
-      | LocalDef (_,bd,ty) ->
+      | LocalAssum (x,ty) ->
+        let s = infer_type env ty in
+        check_relevance s x;
+        push_rel d env
+      | LocalDef (x,bd,ty) ->
           let j1 = infer env bd in
-          let _ = infer env ty in
+          let s = infer_type env ty in
+          check_relevance s x;
           conv_leq env j1 ty;
           push_rel d env)
     rels ~init:env

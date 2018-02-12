@@ -55,8 +55,8 @@ struct
 
   let compare u v =
     match u, v with
-    | SProp,SProp -> 0
-    | SProp,_ -> -1
+    | SProp, SProp -> 0
+    | SProp , _ -> -1
     | _, SProp -> 1
     | Prop,Prop -> 0
     | Prop, _ -> -1
@@ -87,11 +87,11 @@ module Level = struct
   open Names
 
   type raw_level = RawLevel.t =
-  | SProp
-  | Prop
-  | Set
-  | Level of int * DirPath.t
-  | Var of int
+    | SProp
+    | Prop
+    | Set
+    | Level of int * DirPath.t
+    | Var of int
 
   (** Embed levels with their hash value *)
   type t = { 
@@ -191,7 +191,7 @@ struct
 	
     let make l = (l, 0)
 
-    let sprop = (Level.sprop, 0)
+    let sprop = Level.sprop, 0
     let prop = (Level.prop, 0)
     let set = (Level.set, 0)
     let type1 = (Level.set, 1)
@@ -212,7 +212,7 @@ struct
 	else false
 
     let successor (u,n) =
-      if Level.is_prop u || Level.is_sprop u then type1
+      if Level.is_prop u then type1
       else (u, n + 1)
 
     let addn k (u,n as x) = 
@@ -409,6 +409,7 @@ let get_set_arc g = repr g Level.set
 exception AlreadyDeclared
 	    
 let add_universe vlev strict g =
+  assert (not (Level.is_sprop vlev));
   try
     let _arcv = UMap.find vlev g in
       raise AlreadyDeclared

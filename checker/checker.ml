@@ -292,7 +292,11 @@ let explain_exn = function
       | CantApplyNonFunctional _ -> str"CantApplyNonFunctional"
       | IllFormedRecBody _ -> str"IllFormedRecBody"
       | IllTypedRecBody _ -> str"IllTypedRecBody"
-      | UnsatisfiedConstraints _ -> str"UnsatisfiedConstraints"))
+      | UnsatisfiedConstraints _ -> str"UnsatisfiedConstraints"
+      | SPropMissingAnnot -> str "SPropMissingAnnot"
+      | SPropUnexpectedAnnot -> str "SPropUnexpectedAnnot"
+      | SPropMismatchAnnot -> str "SPropMismatchAnnot"
+      | SPropIncorrectAnnot _ -> str "SPropIncorrectAnnot"))
 
   | Indtypes.InductiveError e ->
       hov 0 (str "Error related to inductive types")

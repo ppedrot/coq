@@ -211,6 +211,7 @@ let convert_constructors
 let sort_cmp env univ pb s0 s1 =
   match (s0,s1) with
   | SProp, SProp | Prop, Prop | Set, Set -> ()
+  | SProp, _ | _, SProp -> raise NotConvertible
   | Prop, (Set | Type _) | Set, Type _ ->
     if not (pb = CUMUL) then raise NotConvertible
   | Type u1, Type u2 ->
@@ -229,7 +230,7 @@ let sort_cmp env univ pb s0 s1 =
       end;
       raise NotConvertible
     end
-  | SProp, _ | _, SProp | Set, Prop | Type _, (Prop | Set) -> raise NotConvertible
+  | Set, Prop | Type _, (Prop | Set) -> raise NotConvertible
 
 let rec no_arg_available = function
   | [] -> true
@@ -263,12 +264,12 @@ let rec no_case_available = function
 
 let in_whnf (t,stk) =
   match fterm_of t with
-    | (FLetIn _ | FCaseT _ | FCaseInvert _ | FApp _ | FCLOS _ | FLIFT _ | FCast _) -> false
+    | (FLetIn _ | FCaseT _ | FApp _ | FCLOS _ | FLIFT _ | FCast _) -> false
     | FLambda _ -> no_arg_available stk
     | FConstruct _ -> no_case_available stk
     | FCoFix _ -> no_case_available stk
     | FFix(((ri,n),(_,_,_)),_) -> no_nth_arg_available ri.(n) stk
-    | (FFlex _ | FProd _ | FEvar _ | FInd _ | FAtom _ | FRel _ | FProj _) -> true
+    | (FFlex _ | FProd _ | FEvar _ | FInd _ | FAtom _ | FRel _ | FProj _ | FCaseInvert _) -> true
     | FLOCKED -> assert false
 
 let default_level = Level 0
@@ -396,13 +397,13 @@ and eqappr univ cv_pb infos (lft1,st1) (lft2,st2) =
     | (FLambda _, _) ->
         if v1 <> [] then
           anomaly (Pp.str "conversion was given unreduced term (FLambda).");
-        let (_,_ty1,bd1) = destFLambda mk_clos hd1 in
+        let (_,ty1,bd1) = destFLambda mk_clos hd1 in
         eqappr univ CONV infos
           (el_lift lft1,(bd1,[])) (el_lift lft2,(hd2,eta_expand_stack v2))
     | (_, FLambda _) ->
         if v2 <> [] then
           anomaly (Pp.str "conversion was given unreduced term (FLambda).");
-        let (_,_ty2,bd2) = destFLambda mk_clos hd2 in
+        let (_,ty2,bd2) = destFLambda mk_clos hd2 in
         eqappr univ CONV infos
           (el_lift lft1,(hd1,eta_expand_stack v1)) (el_lift lft2,(bd2,[]))
 

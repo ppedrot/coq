@@ -28,6 +28,8 @@ val inductive_is_polymorphic : mutual_inductive_body -> bool
 
 val inductive_is_cumulative : mutual_inductive_body -> bool
 
+val relevance_of_inductive : env -> inductive -> relevance
+
 val type_of_inductive : env -> mind_specif puniverses -> constr
 
 (* Return type as quoted by the user *)

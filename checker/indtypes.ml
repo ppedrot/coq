@@ -96,7 +96,7 @@ let rec sorts_of_constr_args env t =
   match t with
     | Prod (name,c1,c2) ->
         let varj = infer_type env c1 in
-	let env1 = push_rel (LocalAssum (name,c1)) env in
+        let env1 = push_rel (LocalAssum (name,c1)) env in
 	varj :: sorts_of_constr_args env1 c2
     | LetIn (name,def,ty,c) ->
         let env1 = push_rel (LocalDef (name,def,ty)) env in
@@ -168,8 +168,10 @@ let typecheck_arity env params inds =
 	   later, after the validation of the inductive definition,
 	   full_arity is used as argument or subject to cast, an
 	   upper universe will be generated *)
-	let id = ind.mind_typename in
-	let env_ar' = push_rel (LocalAssum (Name id, arity)) env_ar in
+        let id = ind.mind_typename in
+        let r = Typeops.relevance_of_sort (snd (dest_arity env arity)) in
+        let x = {binder_name=Name id;binder_relevance=r} in
+        let env_ar' = push_rel (LocalAssum (x, arity)) env_ar in
         env_ar')
       env
       inds in
@@ -189,7 +191,7 @@ let check_predicativity env s small level =
     | Set, ImpredicativeSet -> ()
     | Set, _ ->
         if not small then failwith "impredicative Set inductive type"
-    | SProp, _ | Prop, _ -> ()
+    | (SProp|Prop),_ -> ()
 
 
 let sort_of_ind = function
@@ -220,8 +222,9 @@ let allowed_sorts issmall isunit s =
   | InProp -> logical_sorts
 
   | InSProp when isunit -> all_sorts
-
   | InSProp -> [InSProp]
+
+
 
 let compute_elim_sorts env_ar params mib arity lc =
   let inst = extended_rel_list 0 params in
@@ -352,7 +355,7 @@ let check_rec_par (env,n,_,_) hyps nrecp largs =
   in find (n-1) (lpar,List.rev hyps)
 
 let lambda_implicit_lift n a =
-  let lambda_implicit a = Lambda(Anonymous,Evar(0,[||]),a) in
+  let lambda_implicit a = Lambda({binder_name=Anonymous;binder_relevance=Relevant},Evar(0,[||]),a) in
   iterate lambda_implicit n (lift n a)
 
 (* This removes global parameters of the inductive types in lc (for
@@ -380,7 +383,7 @@ let ienv_push_inductive (env, n, ntypes, ra_env) ((mi,u),lpar) =
   let auxntyp = 1 in
   let specif = lookup_mind_specif env mi in
   let env' =
-    let decl = LocalAssum (Anonymous,
+    let decl = LocalAssum ({binder_name=Anonymous;binder_relevance=(snd specif).mind_relevant},
                            hnf_prod_applist env (type_of_inductive env (specif,u)) lpar) in
     push_rel decl env in
   let ra_env' =
@@ -394,8 +397,8 @@ let rec ienv_decompose_prod (env,_,_,_ as ienv) n c =
   if n=0 then (ienv,c) else
     let c' = whd_all env c in
     match c' with
-	Prod(na,a,b) ->
-	  let ienv' = ienv_push_var ienv (na,a,mk_norec) in
+        Prod(na,a,b) ->
+          let ienv' = ienv_push_var ienv (na,a,mk_norec) in
 	  ienv_decompose_prod ienv' (n-1) b
       | _ -> assert false
 
@@ -407,12 +410,12 @@ let check_positivity_one (env, _,ntypes,_ as ienv) hyps nrecp (_,i as ind) indlc
   let rec check_pos (env, n, ntypes, ra_env as ienv) c =
     let x,largs = decompose_app (whd_all env c) in
       match x with
-	| Prod (na,b,d) ->
+        | Prod (na,b,d) ->
 	    assert (List.is_empty largs);
             (match weaker_noccur_between env n ntypes b with
 		None -> failwith_non_pos_list n ntypes [b]
               | Some b ->
-	          check_pos (ienv_push_var ienv (na, b, mk_norec)) d)
+                  check_pos (ienv_push_var ienv (na, b, mk_norec)) d)
 	| Rel k ->
             (try
               let (ra,rarg) = List.nth ra_env (k-1) in

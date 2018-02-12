@@ -15,6 +15,8 @@ open Environ
 
 (*s Typing functions (not yet tagged as safe) *)
 
+val relevance_of_sort : sorts -> relevance
+
 val infer      : env -> constr      -> constr
 val infer_type : env -> constr      -> sorts
 val check_ctxt : env -> rel_context -> env

@@ -25,13 +25,13 @@ let print_pure_constr fmt csr =
   | Sort s -> pp_sort fmt s
   | Cast (c,_, t) ->
     fprintf fmt "@[<hov 1>(%a@;::%a)@]" pp_term c pp_term t
-  | Prod (Name(id),t,c) ->
+  | Prod ({binder_name=Name(id)},t,c) ->
     fprintf fmt "@[<hov 1>(%a:%a)@;@[%a@]@]" pp_id id pp_term t pp_term c
-  | Prod (Anonymous,t,c) ->
+  | Prod ({binder_name=Anonymous},t,c) ->
     fprintf fmt "(%a@,->@[%a@])" pp_term t pp_term c
-  | Lambda (na,t,c) ->
+  | Lambda ({binder_name=na},t,c) ->
     fprintf fmt "[%a:@[%a@]]@,@[%a@]" pp_name na pp_term t pp_term c
-  | LetIn (na,b,t,c) ->
+  | LetIn ({binder_name=na},b,t,c) ->
     fprintf fmt "[%a=@[%a@]@,:@[%a@]]@,@[%a@]" pp_name na pp_term b pp_term t pp_term c
   | App (c,l) ->
     fprintf fmt "(@[%a@]@, @[<hov 1>%a@])" pp_term c (pp_arrayi (fun _ (_,s) -> fprintf fmt "@[%a@]@," pp_term s)) l;
@@ -47,11 +47,11 @@ let print_pure_constr fmt csr =
     fprintf fmt "@[<v><@[%a@]>@,Case@ @[%a@]@ of@[<v>%a@]@,end@]" pp_term p pp_term c (pp_arrayi pp_match) bl
   | Fix ((t,i),(lna,tl,bl)) ->
     let pp_fixc fmt (k,_) =
-      fprintf fmt "@[<v 0> %a/%d@,:@[%a@]@,:=@[%a@]@]@," pp_name lna.(k) t.(k) pp_term tl.(k) pp_term bl.(k) in
+      fprintf fmt "@[<v 0> %a/%d@,:@[%a@]@,:=@[%a@]@]@," pp_name lna.(k).binder_name t.(k) pp_term tl.(k) pp_term bl.(k) in
     fprintf fmt "Fix(%d)@,@[<v>{%a}@]" i (pp_arrayi pp_fixc) tl
   | CoFix(i,(lna,tl,bl)) ->
     let pp_fixc fmt (k,_) =
-      fprintf fmt "@[<v 0> %a@,:@[%a@]@,:=@[%a@]@]@," pp_name lna.(k) pp_term tl.(k) pp_term bl.(k) in
+      fprintf fmt "@[<v 0> %a@,:@[%a@]@,:=@[%a@]@]@," pp_name lna.(k).binder_name pp_term tl.(k) pp_term bl.(k) in
     fprintf fmt "CoFix(%d)@,@[<v>{%a}@]" i (pp_arrayi pp_fixc) tl
   | Proj (p, c) ->
     fprintf fmt "Proj(%a,@,@[%a@])" sp_con_display (Projection.constant p) pp_term c
