@@ -130,11 +130,34 @@ let ctor_invert_info env ((mi,ind),ctor) =
   | Some infos -> mib.mind_nparams, infos.ctor_arg_infos
   | None -> raise BadTree
 
-let make_infos_gen env nparams levels t =
+(** MatchArg variables not allowed in OutEqn.
+    eg [Im : forall x, im (f x)] f non ctor *)
+let rec check_eqns forced = function
+  | OutVariable _ -> ()
+  | OutInvert (_, args) -> Array.iter (Option.iter (check_eqns forced)) args
+  | OutEqn c ->
+    let rec check_occurs k c =
+      match kind c with
+      | Rel i when i > k ->
+        let i = i - k in
+        if i <= Array.length forced
+        then
+          begin match forced.(i-1) with
+            | ForcedArg -> ()
+            | MatchArg -> raise BadTree
+          end
+        else () (** parameter *)
+      | _ -> iter_with_binders succ check_occurs k c
+    in
+    check_occurs 0 c
+
+let make_infos_gen env nparams k levels t =
   let rec fold forced arg =
+    try aux forced arg with BadTree -> forced, OutEqn arg
+  and aux forced arg =
     match kind arg with (* TODO reduce? *)
     | Cast (arg,_,_) -> fold forced arg
-    | Rel i ->
+    | Rel i when i <= k ->
       let i = i-1 in
       if Int.Set.mem i forced
       then raise BadTree
@@ -175,6 +198,7 @@ let make_infos_gen env nparams levels t =
     let forced = Array.init (List.length levels)
         (fun i -> if Int.Set.mem i forced then ForcedArg else MatchArg)
     in
+    let () = Array.iter (check_eqns forced) trees in
     let trees =
       (* All arguments must be forced, no projections *)
       if List.for_all_i (fun i lvl -> forced.(i) == ForcedArg) 0 levels
@@ -186,10 +210,10 @@ let make_infos_gen env nparams levels t =
   with BadTree ->
     None
 
-let make_infos env ~isrecord nparams levels t =
+let make_infos env ~isrecord nparams k levels t =
   match isrecord with
   | None ->
-    make_infos_gen env nparams levels t
+    make_infos_gen env nparams k levels t
   | Some isrecord ->
     (* Records have no indices, so every argument is MatchArg. *)
     let ctor_arg_infos = Array.make (List.length levels) MatchArg in
@@ -206,7 +230,7 @@ let make_infos env ~isrecord nparams levels t =
 
 
 let infos_and_sort env ~isrecord nparams t =
-  let rec aux env t onlysprop levels =
+  let rec aux env k t onlysprop levels =
     let t = whd_all env t in
       match kind t with
       | Prod (name,c1,c2) ->
@@ -217,11 +241,11 @@ let infos_and_sort env ~isrecord nparams t =
           | OnlySProp, true -> OnlySProp
           | OnlySProp, false | NotOnlySProp, _ -> NotOnlySProp
         in
-        aux env1 c2 onlysprop ((Sorts.univ_of_sort sj)::levels)
-    | _ when is_constructor_head t -> onlysprop,levels,make_infos env ~isrecord nparams levels t
+        aux env1 (k+1) c2 onlysprop ((Sorts.univ_of_sort sj)::levels)
+    | _ when is_constructor_head t -> onlysprop,levels,make_infos env ~isrecord nparams k levels t
     | _ -> (* don't fail if not positive, it is tested later *)
-      onlysprop,levels,make_infos env ~isrecord nparams levels t
-  in aux env t OnlySProp []
+      onlysprop,levels,make_infos env ~isrecord nparams k levels t
+  in aux env 0 t OnlySProp []
 
 let sup_unforced_args info levels max =
   List.fold_left_i (fun i max lvl -> match info with

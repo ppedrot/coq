@@ -139,7 +139,7 @@ type ctor_arg_info = ForcedArg | MatchArg
 type ctor_out_tree =
   | OutInvert of Names.constructor * ctor_out_tree option array (* We only look at the MathArg locations, parameters do not appear not even as None. *)
   | OutVariable of int
-  (* | OutEqn of Constr.t (* eg eq_refl, needs uip mode. TODO consider if allowed to be non variable. *) *)
+  | OutEqn of constr
 
 type ctor_info = {
   ctor_arg_infos : ctor_arg_info array; (* no parameters *)

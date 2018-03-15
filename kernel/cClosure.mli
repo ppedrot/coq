@@ -232,6 +232,8 @@ val unfold_reference : clos_infos -> fconstr infos_tab -> table_key -> fconstr o
 
 val eq_table_key : table_key -> table_key -> bool
 
+val set_conv : (fconstr infos -> fconstr infos_tab -> fconstr -> fconstr -> bool) -> unit
+
 (***********************************************************************
   i This is for lazy debug *)
 

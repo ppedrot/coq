@@ -183,3 +183,22 @@ End sFix.
 
 
 Class emptyclass : SProp := emptyinstance : forall A:SProp, A.
+
+(** Identity! Currently we have UIP. *)
+Inductive seq {A} (a:A) : A -> SProp :=
+  srefl : seq a a.
+
+Definition transport {A} (P:A -> Type) {x y} (e:seq x y) (v:P x) : P y :=
+  match e with
+    srefl _ => v
+  end.
+
+Definition transport_refl {A} (P:A -> Type) {x} (e:seq x x) v
+  : transport P e v = v
+  := @eq_refl (P x) v.
+
+(** We don't ALWAYS reduce (this uses a constant transport so that the
+    equation is well-typed) *)
+Fail Definition transport_block A B (x y:A) (e:seq x y) v
+  : transport (fun _ => B) e v = v
+  := @eq_refl B v.
