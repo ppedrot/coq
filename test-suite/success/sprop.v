@@ -202,3 +202,18 @@ Definition transport_refl {A} (P:A -> Type) {x} (e:seq x x) v
 Fail Definition transport_block A B (x y:A) (e:seq x y) v
   : transport (fun _ => B) e v = v
   := @eq_refl B v.
+
+Definition transport_refl_box (A:SProp) P (x y:A) (e:seq (sbox A x) (sbox A y)) v
+  : transport P e v = v
+  := eq_refl.
+
+(** TODO add tests for binders which aren't lambda. *)
+Definition transport_box :=
+  Eval lazy in (fun (A:SProp) P (x y:A) (e:seq (sbox A x) (sbox A y)) v =>
+                  transport P e v).
+
+Lemma transport_box_ok : transport_box = fun A P x y e v => v.
+Proof.
+  unfold transport_box.
+  match goal with |- ?x = ?x => reflexivity end.
+Qed.
