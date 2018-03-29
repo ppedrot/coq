@@ -1073,6 +1073,20 @@ let abstract_inductive_universes iu =
     let inst = Univ.make_instance_subst inst in
     (inst, Cumulative_ind acumi)
 
+let rec subst_univs_out_tree subst = function
+  | OutInvert (c, args) -> OutInvert (c, Array.map (Option.map (subst_univs_out_tree subst)) args)
+  | OutVariable _ as x -> x
+  | OutEqn c -> OutEqn (subst_univs_level_constr subst c)
+
+let subst_univs_ctor_info subst {ctor_arg_infos; ctor_out_tree=tree} =
+  let tree = Option.map (Array.map (subst_univs_out_tree subst)) tree in
+  {ctor_arg_infos; ctor_out_tree=tree}
+
+let subst_univs_lc_info subst info =
+  if Univ.is_empty_level_subst subst then info
+  else
+    Array.map (Option.map (subst_univs_ctor_info subst)) info
+
 let build_inductive env prv iu env_ar paramsctxt kn isrecord isfinite inds nmr recargs =
   let ntypes = Array.length inds in
   (* Compute the set of used section variables *)
@@ -1141,7 +1155,7 @@ let build_inductive env prv iu env_ar paramsctxt kn isrecord isfinite inds nmr r
 	mind_nf_lc = nf_lc;
         mind_recargs = recarg;
         mind_relevant;
-        mind_lc_info = snd ctorinfos;
+        mind_lc_info = subst_univs_lc_info substunivs (snd ctorinfos);
         mind_natural_sprop = fst ctorinfos;
         mind_nb_constant = !nconst;
         mind_nb_args = !nblock;

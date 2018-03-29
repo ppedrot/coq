@@ -265,6 +265,7 @@ type 'a infos_cache = {
   i_repr : 'a infos -> 'a infos_tab -> constr -> 'a;
   i_env : env;
   i_sigma : existential -> constr option;
+  i_univs : UGraph.t;
   i_rels : (Context.Rel.Declaration.t * lazy_val) Range.t;
 }
 
@@ -275,6 +276,7 @@ and 'a infos = {
 
 let info_flags info = info.i_flags
 let info_env info = info.i_cache.i_env
+let info_univs info = info.i_cache.i_univs
 
 open Context.Named.Declaration
 
@@ -314,11 +316,12 @@ let ref_value_cache ({i_cache = cache} as infos) tab ref =
 let evar_value cache ev =
   cache.i_sigma ev
 
-let create mk_cl flgs env evars =
+let create mk_cl flgs env univs evars =
   let cache =
     { i_repr = mk_cl;
       i_env = env;
       i_sigma = evars;
+      i_univs = univs;
       i_rels = env.env_rel_context.env_rel_map;
     }
   in { i_flags = flgs; i_relevances = []; i_cache = cache }
@@ -952,14 +955,14 @@ let conv : (fconstr infos -> fconstr infos_tab -> fconstr -> fconstr -> bool) re
 
 let set_conv f = conv := f
 
-let check_eqn info tab e (c,f) =
-  let fc = mk_clos e c in
+let check_eqn info tab univs e (c,f) =
+  let fc = mk_clos e (subst_instance_constr univs c) in
   if not (!conv info tab fc f) then raise InvertFail
 
-let check_eqns info tab args eqns =
+let check_eqns info tab univs args eqns =
   (** FIXME incorrect **)
   let e = subs_cons (args, subs_id 0) in
-  List.iter (check_eqn info tab e) eqns
+  List.iter (check_eqn info tab univs e) eqns
 
 (* Computes a weak head normal form from the result of knh. *)
 let rec knr info tab m stk =
@@ -1052,7 +1055,7 @@ and invert_match_one_index info tab ci args eqns reali =
       end
     | OutEqn c -> eqns := (c,reali) :: !eqns
 
-and try_match_ctor_infos info tab ci params is =
+and try_match_ctor_infos info tab ci univs params is =
   let open Declarations in function
     | None | Some { ctor_out_tree = None }->
       assert false (* All constructors of natural sprop are invertible *)
@@ -1065,7 +1068,7 @@ and try_match_ctor_infos info tab ci params is =
           (* When there are projections this is where they're inserted *)
           let args = Array.map Option.get args in
           let () = Array.rev args in
-          let () = check_eqns info tab (Array.append params args) !eqns in
+          let () = check_eqns info tab univs (Array.append params args) !eqns in
           Some args
         with InvertFail -> None
       end
@@ -1088,7 +1091,7 @@ and case_inversion info tab ci (u,p,is) c v =
   let rec loop i =
     if Int.equal i nctors then None
     else
-      match try_match_ctor_infos info tab ci p is mip.mind_lc_info.(i) with
+      match try_match_ctor_infos info tab ci u p is mip.mind_lc_info.(i) with
       | Some res ->
         Some (v.(i), res)
       | None -> loop (i+1)
@@ -1193,8 +1196,12 @@ let whd_stack infos tab m stk = match m.norm with
 (* cache of constants: the body is computed only when needed. *)
 type clos_infos = fconstr infos
 
-let create_clos_infos ?(evars=fun _ -> None) flgs env =
-  create (fun _ _ c -> inject c) flgs env evars
+let create_clos_infos ?univs ?(evars=fun _ -> None) flgs env =
+  let univs = match univs with
+    | Some univs -> univs
+    | None -> universes env
+  in
+  create (fun _ _ c -> inject c) flgs env univs evars
 
 let create_tab () = KeyTable.create 17
 

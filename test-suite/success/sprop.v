@@ -217,3 +217,13 @@ Proof.
   unfold transport_box.
   match goal with |- ?x = ?x => reflexivity end.
 Qed.
+
+(** Case inversion, conversion and universe polymorphism. *)
+Set Universe Polymorphism.
+Inductive IsTy@{i j} : Type@{j} -> SProp :=
+  isty : IsTy Type@{i}.
+
+Definition IsTy_rec_red@{i j+} (P:forall T : Type@{j}, IsTy@{i j} T -> Set)
+           v (e:IsTy@{i j} Type@{i})
+  : IsTy_rec P v _ e = v
+  := eq_refl.

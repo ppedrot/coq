@@ -108,11 +108,12 @@ type 'a infos = {
 
 val ref_value_cache: 'a infos -> 'a infos_tab -> table_key -> 'a option
 val create: ('a infos -> 'a infos_tab -> constr -> 'a) -> reds -> env ->
-  (existential -> constr option) -> 'a infos
+  UGraph.t -> (existential -> constr option) -> 'a infos
 val create_tab : unit -> 'a infos_tab
 val evar_value : 'a infos_cache -> existential -> constr option
 
 val info_env : 'a infos -> env
+val info_univs : 'a infos -> UGraph.t
 val info_flags: 'a infos -> reds
 
 (***********************************************************************
@@ -193,7 +194,7 @@ val destFLambda :
 
 (** Global and local constant cache *)
 type clos_infos = fconstr infos
-val create_clos_infos :
+val create_clos_infos : ?univs:UGraph.t ->
   ?evars:(existential->constr option) -> reds -> env -> clos_infos
 val oracle_of_infos : clos_infos -> Conv_oracle.oracle
 
