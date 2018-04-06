@@ -31,7 +31,7 @@ Defined.
 Set Primitive Projections.
 (* Primitive record with all fields in SProp has the eta property of SProp so must be SProp. *)
 Record rBox (A:SProp) : Prop
-  := rmkbox { relem : A }.
+  := rbox { runbox : A }.
 
 (* Check that it doesn't have eta *)
 Fail Check (fun (A : SProp) (x : rBox A) => eq_refl : x = @rmkbox _ (@relem _ x)).
@@ -227,3 +227,17 @@ Definition IsTy_rec_red@{i j+} (P:forall T : Type@{j}, IsTy@{i j} T -> Set)
            v (e:IsTy@{i j} Type@{i})
   : IsTy_rec P v _ e = v
   := eq_refl.
+
+(** Sigma in SProp can be done through Squash and relevant sigma. *)
+Definition sSigma (A:SProp) (B:A -> SProp) : SProp
+  := Squash (@sigT (rBox A) (fun x => rBox (B (runbox _ x)))).
+
+Definition spair (A:SProp) (B:A->SProp) (x:A) (y:B x) : sSigma A B
+  := squash _ (existT _ (rbox _ x) (rbox _ y)).
+
+Definition spr1 (A:SProp) (B:A->SProp) (p:sSigma A B) : A
+  := let 'squash _ (existT _ x y) := p in runbox _ x.
+
+Definition spr2 (A:SProp) (B:A->SProp) (p:sSigma A B) : B (spr1 A B p)
+  := let 'squash _ (existT _ x y) := p in runbox _ y.
+(* it's SProp so it computes properly *)
