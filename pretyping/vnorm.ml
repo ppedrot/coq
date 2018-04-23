@@ -36,6 +36,14 @@ let decompose_prod env t =
   | Anonymous -> (Name (Id.of_string "x"), dom, codom)
   | Name _ -> res
 
+let rec decompose_n_prod env ctx n typ =
+  if Int.equal n 0 then
+    (env, ctx, typ)
+  else
+    let (name, dom, codom) = decompose_prod env typ in
+    let rel = LocalAssum (name, dom) in
+    decompose_n_prod (push_rel rel env) (rel :: ctx) (n - 1) codom
+
 exception Find_at of int
 
 (* rend le numero du constructeur correspondant au tag [tag],
@@ -146,7 +154,7 @@ and nf_whd env sigma whd typ =
   | Vprod p ->
       let dom = nf_vtype env sigma (dom p) in
       let name = Name (Id.of_string "x") in
-      let vc = reduce_fun (nb_rel env) (codom p) in
+      let vc = reduce_fun (nb_rel env) 1 (codom p) in
       let codom = nf_vtype (push_rel (LocalAssum (name,dom)) env) sigma vc  in
       mkProd(name,dom,codom)
   | Vfun f -> nf_fun env sigma f typ
@@ -291,14 +299,14 @@ and nf_predicate env sigma ind mip params v pT =
   match whd_val v, kind pT with
   | Vfun f, Prod _ ->
       let k = nb_rel env in
-      let vb = reduce_fun k f in
+      let vb = reduce_fun k 1 f in
       let name,dom,codom = decompose_prod env pT in
       let dep,body =
 	nf_predicate (push_rel (LocalAssum (name,dom)) env) sigma ind mip params vb codom in
       dep, mkLambda(name,dom,body)
   | Vfun f, _ ->
       let k = nb_rel env in
-      let vb = reduce_fun k f in
+      let vb = reduce_fun k 1 f in
       let name = Name (Id.of_string "c") in
       let n = mip.mind_nrealargs in
       let rargs = Array.init n (fun i -> mkRel (n-i)) in
@@ -332,16 +340,17 @@ and nf_bargs env sigma b ofs t =
 
 and nf_fun env sigma f typ =
   let k = nb_rel env in
-  let vb = reduce_fun k f in
-  let name,dom,codom =
-    try decompose_prod env typ
+  let arity = closure_arity f in
+  let vb = reduce_fun k arity f in
+  let (env, ctx, codom) =
+    try decompose_n_prod env [] arity typ
     with DestKO ->
       (* 27/2/13: Turned this into an anomaly *)
       CErrors.anomaly
         (Pp.strbrk "Returned a functional value in a type not recognized as a product type.")
   in
-  let body = nf_val (push_rel (LocalAssum (name,dom)) env) sigma vb codom in
-  mkLambda(name,dom,body)
+  let body = nf_val env sigma vb codom in
+  it_mkLambda_or_LetIn body ctx
 
 and nf_fix env sigma f =
   let init = current_fix f in

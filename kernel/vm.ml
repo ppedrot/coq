@@ -78,8 +78,8 @@ let mkrel_vstack k arity =
   let max = k + arity - 1 in
   Array.init arity (fun i -> val_of_rel (max - i))
 
-let reduce_fun k vf =
-  let vargs = mkrel_vstack k 1 in
+let reduce_fun k arity vf =
+  let vargs = mkrel_vstack k arity in
   apply_varray vf vargs
 
 let decompose_vfun2 k vf1 vf2 =
@@ -172,7 +172,7 @@ let apply_whd k whd =
   let v = val_of_rel k in
   match whd with
   | Vprod _ | Vconstr_const _ | Vconstr_block _ -> assert false
-  | Vfun f -> reduce_fun k f
+  | Vfun f -> reduce_fun k 1 f
   | Vfix(f, None) -> 
       push_ra stop;
       push_val v;

@@ -24,7 +24,7 @@ val type_of_switch : vswitch -> values
 
 val branch_of_switch : int -> vswitch -> (int * values) array
 
-val reduce_fun : int -> vfun -> values
+val reduce_fun : int -> int -> vfun -> values
 
 (** [decompose_vfun2 k f1 f2] takes two functions [f1] and [f2] at current
     DeBruijn level [k], with [n] lambdas in common, returns [n] and the reduced
