@@ -193,7 +193,7 @@ let vm_conv_gen cv_pb env univs t1 t2 =
   with Not_found | Invalid_argument _ ->
     warn_bytecode_compiler_failed ();
     Reduction.generic_conv cv_pb ~l2r:false (fun _ -> None)
-      full_transparent_state env univs t1 t2
+      Conv_oracle.empty env univs t1 t2
 
 let vm_conv cv_pb env t1 t2 =
   let univs = Environ.universes env in

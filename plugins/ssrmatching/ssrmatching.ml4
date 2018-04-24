@@ -318,7 +318,7 @@ let flags_FO env =
         Unification.modulo_conv_on_closed_terms = None;
         Unification.modulo_eta = true;
         Unification.modulo_betaiota = true;
-        Unification.modulo_delta_types = Conv_oracle.get_transp_state (Environ.oracle env)}
+        Unification.modulo_delta_types = Environ.oracle env }
   in
   { Unification.core_unify_flags = flags;
     Unification.merge_unify_flags = flags;

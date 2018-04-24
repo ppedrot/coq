@@ -16,7 +16,6 @@ open Termops
 open Environ
 open EConstr
 open Vars
-open CClosure
 open Reduction
 open Reductionops
 open Recordops
@@ -30,7 +29,7 @@ open Context.Named.Declaration
 module RelDecl = Context.Rel.Declaration
 module NamedDecl = Context.Named.Declaration
 
-type unify_fun = transparent_state ->
+type unify_fun = Conv_oracle.oracle ->
   env -> evar_map -> conv_pb -> EConstr.constr -> EConstr.constr -> Evarsolve.unification_result
 
 let debug_unification = ref (false)
@@ -70,14 +69,14 @@ let coq_unit_judge =
 
 let unfold_projection env evd ts p c =
   let cst = Projection.constant p in
-    if is_transparent_constant ts cst then
+    if Conv_oracle.is_transparent_constant ts cst then
       Some (mkProj (Projection.make cst true, c))
     else None
       
 let eval_flexible_term ts env evd c =
   match EConstr.kind evd c with
   | Const (c, u) ->
-      if is_transparent_constant ts c
+      if Conv_oracle.is_transparent_constant ts c
       then Option.map EConstr.of_constr (constant_opt_value_in env (c, EInstance.kind evd u))
       else None
   | Rel n ->
@@ -87,7 +86,7 @@ let eval_flexible_term ts env evd c =
        with Not_found -> None)
   | Var id ->
       (try
-	 if is_transparent_variable ts id then
+         if Conv_oracle.is_transparent_variable ts id then
 	   env |> lookup_named id |> NamedDecl.get_value
 	 else None
        with Not_found -> None)
@@ -1199,7 +1198,7 @@ let second_order_matching ts env_rhs evd (evk,args) argoccs rhs =
   | [] ->
     let evd = 
       try Evarsolve.check_evar_instance evd evk rhs
-	    (evar_conv_x full_transparent_state)
+            (evar_conv_x Conv_oracle.empty)
       with IllTypedInstance _ -> raise (TypingFailed evd)
     in
       Evd.define evk rhs evd
@@ -1340,13 +1339,13 @@ let solve_unconstrained_impossible_cases env evd =
       let j, ctx = coq_unit_judge () in
       let evd' = Evd.merge_context_set Evd.univ_flexible_alg ?loc evd' ctx in
       let ty = j_type j in
-      let conv_algo = evar_conv_x full_transparent_state in
+      let conv_algo = evar_conv_x Conv_oracle.empty in
       let evd' = check_evar_instance evd' evk ty conv_algo in
         Evd.define evk ty evd'
     | _ -> evd') evd evd
 
 let solve_unif_constraints_with_heuristics env
-    ?(ts=Conv_oracle.get_transp_state (Environ.oracle env)) evd =
+    ?(ts=Environ.oracle env) evd =
   let evd = solve_unconstrained_evars_with_candidates ts evd in
   let rec aux evd pbs progress stuck =
     match pbs with
@@ -1381,7 +1380,7 @@ let consider_remaining_unif_problems = solve_unif_constraints_with_heuristics
 
 exception UnableToUnify of evar_map * unification_error
 
-let default_transparent_state env = full_transparent_state
+let default_transparent_state env = Conv_oracle.empty
 (* Conv_oracle.get_transp_state (Environ.oracle env) *)
 
 let the_conv_x env ?(ts=default_transparent_state env) t1 t2 evd =

@@ -316,7 +316,6 @@ let traverse current t =
 let type_of_constant cb = cb.Declarations.const_type
 
 let assumptions ?(add_opaque=false) ?(add_transparent=false) st gr t =
-  let (idts, knst) = st in
   (** Only keep the transitive dependencies *)
   let (_, graph, ax2ty) = traverse (label_of gr) t in
   let fold obj _ accu = match obj with
@@ -338,7 +337,7 @@ let assumptions ?(add_opaque=false) ?(add_transparent=false) st gr t =
       let t = type_of_constant cb in
       let l = try Refmap_env.find obj ax2ty with Not_found -> [] in
       ContextObjectMap.add (Axiom (Constant kn,l)) t accu
-    else if add_opaque && (Declareops.is_opaque cb || not (Cpred.mem kn knst)) then
+    else if add_opaque && (Declareops.is_opaque cb || not (Conv_oracle.is_transparent_constant st kn)) then
       let t = type_of_constant cb in
       ContextObjectMap.add (Opaque kn) t accu
     else if add_transparent then

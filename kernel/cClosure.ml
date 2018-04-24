@@ -71,12 +71,6 @@ let with_stats c =
   end else
     Lazy.force c
 
-let all_opaque = (Id.Pred.empty, Cpred.empty)
-let all_transparent = (Id.Pred.full, Cpred.full)
-
-let is_transparent_variable (ids, _) id = Id.Pred.mem id ids
-let is_transparent_constant (_, csts) cst = Cpred.mem cst csts
-
 module type RedFlagsSig = sig
   type reds
   type red_kind
@@ -92,8 +86,8 @@ module type RedFlagsSig = sig
   val no_red : reds
   val red_add : reds -> red_kind -> reds
   val red_sub : reds -> red_kind -> reds
-  val red_add_transparent : reds -> transparent_state -> reds
-  val red_transparent : reds -> transparent_state
+  val red_add_transparent : reds -> Conv_oracle.oracle -> reds
+  val red_transparent : reds -> Conv_oracle.oracle
   val mkflags : red_kind list -> reds
   val red_set : reds -> red_kind -> bool
   val red_projection : reds -> Projection.t -> bool
@@ -109,7 +103,7 @@ module RedFlags = (struct
     r_beta : bool;
     r_delta : bool;
     r_eta : bool;
-    r_const : transparent_state;
+    r_const : Conv_oracle.oracle;
     r_zeta : bool;
     r_match : bool;
     r_fix : bool;
@@ -131,7 +125,7 @@ module RedFlags = (struct
     r_beta = false;
     r_delta = false;
     r_eta = false;
-    r_const = all_opaque;
+    r_const = Conv_oracle.all_opaque;
     r_zeta = false;
     r_match = false;
     r_fix = false;
@@ -140,32 +134,28 @@ module RedFlags = (struct
   let red_add red = function
     | BETA -> { red with r_beta = true }
     | ETA -> { red with r_eta = true }
-    | DELTA -> { red with r_delta = true; r_const = all_transparent }
+    | DELTA -> { red with r_delta = true; r_const = Conv_oracle.empty }
     | CONST kn ->
-	let (l1,l2) = red.r_const in
-	{ red with r_const = l1, Cpred.add kn l2 }
+        { red with r_const = Conv_oracle.set_transparent_constant red.r_const kn }
     | MATCH -> { red with r_match = true }
     | FIX -> { red with r_fix = true }
     | COFIX -> { red with r_cofix = true }
     | ZETA -> { red with r_zeta = true }
     | VAR id ->
-	let (l1,l2) = red.r_const in
-	{ red with r_const = Id.Pred.add id l1, l2 }
+      { red with r_const = Conv_oracle.set_transparent_variable red.r_const id }
 
   let red_sub red = function
     | BETA -> { red with r_beta = false }
     | ETA -> { red with r_eta = false }
     | DELTA -> { red with r_delta = false }
     | CONST kn ->
-	let (l1,l2) = red.r_const in
-	{ red with r_const = l1, Cpred.remove kn l2 }
+      { red with r_const = Conv_oracle.set_opaque_constant red.r_const kn }
     | MATCH -> { red with r_match = false }
     | FIX -> { red with r_fix = false }
     | COFIX -> { red with r_cofix = false }
     | ZETA -> { red with r_zeta = false }
     | VAR id ->
-	let (l1,l2) = red.r_const in
-	{ red with r_const = Id.Pred.remove id l1, l2 }
+      { red with r_const = Conv_oracle.set_opaque_variable red.r_const id }
 
   let red_transparent red = red.r_const
 
@@ -178,12 +168,10 @@ module RedFlags = (struct
     | BETA -> incr_cnt red.r_beta beta
     | ETA -> incr_cnt red.r_eta eta
     | CONST kn ->
-	let (_,l) = red.r_const in
-	let c = Cpred.mem kn l in
+      let c = Conv_oracle.is_transparent_constant red.r_const kn in
 	incr_cnt c delta
     | VAR id -> (* En attendant d'avoir des kn pour les Var *)
-	let (l,_) = red.r_const in
-	let c = Id.Pred.mem id l in
+      let c = Conv_oracle.is_transparent_variable red.r_const id in
 	incr_cnt c delta
     | ZETA -> incr_cnt red.r_zeta zeta
     | MATCH -> incr_cnt red.r_match nb_match

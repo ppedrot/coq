@@ -406,7 +406,7 @@ val generalize_dep  : ?with_let:bool (** Don't lose let bindings *) -> constr  -
 
 (** {6 Other tactics. } *)
 
-val unify           : ?state:Names.transparent_state -> constr -> constr -> unit Proofview.tactic
+val unify           : ?state:Conv_oracle.oracle -> constr -> constr -> unit Proofview.tactic
 
 val cache_term_by_tactic_then : opaque:bool -> ?goal_type:(constr option) -> Id.t -> Decl_kinds.goal_kind -> unit Proofview.tactic -> (constr -> constr list -> unit Proofview.tactic) -> unit Proofview.tactic
 

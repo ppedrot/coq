@@ -149,7 +149,7 @@ let abstract_list_all_with_dependencies env evd typ c l =
   let n = List.length l in
   let argoccs = set_occurrences_of_last_arg (Array.sub (snd ev') 0 n) in
   let evd,b =
-    Evarconv.second_order_matching empty_transparent_state
+    Evarconv.second_order_matching Conv_oracle.empty
       env evd ev' argoccs c in
   if b then
     let p = nf_evar evd ev in
@@ -250,7 +250,7 @@ let sort_eqns = unify_r2l
 *)
 
 type core_unify_flags = {
-  modulo_conv_on_closed_terms : Names.transparent_state option;
+  modulo_conv_on_closed_terms : Conv_oracle.oracle option;
     (* What this flag controls was activated with all constants transparent, *)
     (* even for auto, since Coq V5.10 *)
 
@@ -260,11 +260,11 @@ type core_unify_flags = {
 
   use_evars_eagerly_in_conv_on_closed_terms : bool;
 
-  modulo_delta : Names.transparent_state;
+  modulo_delta : Conv_oracle.oracle;
     (* This controls which constants are unfoldable; this is on for apply *)
     (* (but not simple apply) since Feb 2008 for 8.2 *)
 
-  modulo_delta_types : Names.transparent_state;
+  modulo_delta_types : Conv_oracle.oracle;
 
   check_applied_meta_types : bool;
     (* This controls whether meta's applied to arguments have their *)
@@ -325,7 +325,7 @@ type unify_flags = {
 (* Default flag for unifying a type against a type (e.g. apply) *)
 (* We set all conversion flags (no flag should be modified anymore) *)
 let default_core_unify_flags () =
-  let ts = Names.full_transparent_state in {
+  let ts = Conv_oracle.empty in {
   modulo_conv_on_closed_terms = Some ts;
   use_metas_eagerly_in_conv_on_closed_terms = true;
   use_evars_eagerly_in_conv_on_closed_terms = false;
@@ -347,14 +347,14 @@ let default_unify_flags () =
   let flags = default_core_unify_flags () in {
   core_unify_flags = flags;
   merge_unify_flags = flags;
-  subterm_unify_flags = { flags with modulo_delta = var_full_transparent_state };
+  subterm_unify_flags = { flags with modulo_delta = Conv_oracle.var_transparent };
   allow_K_in_toplevel_higher_order_unification = false; (* Why not? *)
   resolve_evars = false
 }
 
 let set_no_delta_core_flags flags = { flags with
   modulo_conv_on_closed_terms = None;
-  modulo_delta = empty_transparent_state;
+  modulo_delta = Conv_oracle.all_opaque;
   check_applied_meta_types = false;
   use_pattern_unification = false;
   use_meta_bound_pattern_unification = true;
@@ -373,7 +373,7 @@ let set_no_delta_flags flags = {
 (* For the first phase of keyed unification, restrict
   to conversion (including beta-iota) only on closed terms *)
 let set_no_delta_open_core_flags flags = { flags with
-  modulo_delta = empty_transparent_state;
+  modulo_delta = Conv_oracle.all_opaque;
   modulo_betaiota = false;
 }
 
@@ -391,7 +391,7 @@ let set_no_delta_open_flags flags = {
 (* We set only the flags available at the time the new "apply" extended *)
 (* out of "simple apply" *)
 let default_no_delta_core_unify_flags () = { (default_core_unify_flags ()) with
-  modulo_delta = empty_transparent_state;
+  modulo_delta = Conv_oracle.all_opaque;
   check_applied_meta_types = false;
   use_pattern_unification = false;
   use_meta_bound_pattern_unification = true;
@@ -423,7 +423,7 @@ let elim_flags_evars sigma =
   let flags = elim_core_flags sigma in {
   core_unify_flags = flags;
   merge_unify_flags = flags;
-  subterm_unify_flags = { flags with modulo_delta = empty_transparent_state };
+  subterm_unify_flags = { flags with modulo_delta = Conv_oracle.all_opaque };
   allow_K_in_toplevel_higher_order_unification = true;
   resolve_evars = false
 }
@@ -431,7 +431,7 @@ let elim_flags_evars sigma =
 let elim_flags () = elim_flags_evars Evd.empty
 
 let elim_no_delta_core_flags () = { (elim_core_flags Evd.empty) with
-  modulo_delta = empty_transparent_state;
+  modulo_delta = Conv_oracle.all_opaque;
   check_applied_meta_types = false;
   use_pattern_unification = false;
   modulo_betaiota = false;
@@ -506,16 +506,16 @@ let key_of env sigma b flags f =
   if subterm_restriction b flags then None else
   match EConstr.kind sigma f with
   | Const (cst, u) when is_transparent env (ConstKey cst) &&
-      (Cpred.mem cst (snd flags.modulo_delta)
+      (Conv_oracle.is_transparent_constant flags.modulo_delta cst
        || Environ.is_projection cst env) ->
       let u = EInstance.kind sigma u in
       Some (IsKey (ConstKey (cst, u)))
   | Var id when is_transparent env (VarKey id) && 
-      Id.Pred.mem id (fst flags.modulo_delta) ->
+      Conv_oracle.is_transparent_variable flags.modulo_delta id ->
     Some (IsKey (VarKey id))
   | Proj (p, c) when Projection.unfolded p
     || (is_transparent env (ConstKey (Projection.constant p)) &&
-       (Cpred.mem (Projection.constant p) (snd flags.modulo_delta))) ->
+       (Conv_oracle.is_transparent_constant flags.modulo_delta (Projection.constant p))) ->
     Some (IsProj (p, c))
   | _ -> None
   
@@ -552,7 +552,7 @@ let oracle_order env cf1 cf2 =
 
 let is_rigid_head sigma flags t =
   match EConstr.kind sigma t with
-  | Const (cst,u) -> not (Cpred.mem cst (snd flags.modulo_delta))
+  | Const (cst,u) -> not (Conv_oracle.is_transparent_constant flags.modulo_delta cst)
   | Ind (i,u) -> true
   | Construct _ -> true
   | Fix _ | CoFix _ -> true
@@ -635,11 +635,11 @@ let rec is_neutral env sigma ts t =
     | Const (c, u) ->
       not (Environ.evaluable_constant c env) ||
       not (is_transparent env (ConstKey c)) ||
-      not (Cpred.mem c (snd ts))
+      not (Conv_oracle.is_transparent_constant ts c)
     | Var id -> 
       not (Environ.evaluable_named id env) ||
       not (is_transparent env (VarKey id)) ||
-      not (Id.Pred.mem id (fst ts))
+      not (Conv_oracle.is_transparent_variable ts id)
     | Rel n -> true
     | Evar _ | Meta _ -> true
     | Case (_, p, c, cl) -> is_neutral env sigma ts c
@@ -912,8 +912,8 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst : subst0) conv_at_top e
 	let ty1 = get_type_of curenv ~lax:true sigma c1 in
 	let ty2 = get_type_of curenv ~lax:true sigma c2 in
 	  unify_0_with_initial_metas substn true curenv cv_pb
-	    { flags with modulo_conv_on_closed_terms = Some full_transparent_state;
-	      modulo_delta = full_transparent_state;
+            { flags with modulo_conv_on_closed_terms = Some Conv_oracle.empty;
+              modulo_delta = Conv_oracle.empty;
 	      modulo_eta = true;
 	      modulo_betaiota = true }
 	    ty1 ty2
@@ -1094,10 +1094,8 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst : subst0) conv_at_top e
         | _ -> constr_cmp cv_pb env sigma flags m n in
 	if b then Some sigma
 	else if (match flags.modulo_conv_on_closed_terms, flags.modulo_delta with
-        | Some (cv_id, cv_k), (dl_id, dl_k) ->
-          Id.Pred.subset dl_id cv_id && Cpred.subset dl_k cv_k
-        | None,(dl_id, dl_k) ->
-          Id.Pred.is_empty dl_id && Cpred.is_empty dl_k)
+        | Some cv, dl -> Conv_oracle.subset cv dl
+        | None, dl -> Conv_oracle.is_all_opaque dl)
 	then error_cannot_unify env sigma (m, n) else None
   in 
     let a = match res with 
@@ -1237,8 +1235,8 @@ let applyHead env evd n c  =
 
 let is_mimick_head sigma ts f =
   match EConstr.kind sigma f with
-  | Const (c,u) -> not (CClosure.is_transparent_constant ts c)
-  | Var id -> not (CClosure.is_transparent_variable ts id)
+  | Const (c,u) -> not (Conv_oracle.is_transparent_constant ts c)
+  | Var id -> not (Conv_oracle.is_transparent_variable ts id)
   | (Rel _|Construct _|Ind _) -> true
   | _ -> false
 
@@ -1508,11 +1506,11 @@ let finish_evar_resolution ?(flags=Pretyping.all_and_fail_flags) env current_sig
   (sigma, EConstr.of_constr (Universes.subst_univs_constr subst (EConstr.Unsafe.to_constr (nf_evar sigma c))))
 
 let default_matching_core_flags sigma =
-  let ts = Names.full_transparent_state in {
-  modulo_conv_on_closed_terms = Some empty_transparent_state;
+  let ts = Conv_oracle.empty in {
+  modulo_conv_on_closed_terms = Some Conv_oracle.all_opaque;
   use_metas_eagerly_in_conv_on_closed_terms = false;
   use_evars_eagerly_in_conv_on_closed_terms = false;
-  modulo_delta = empty_transparent_state;
+  modulo_delta = Conv_oracle.all_opaque;
   modulo_delta_types = ts;
   check_applied_meta_types = true;
   use_pattern_unification = false;
@@ -1524,7 +1522,7 @@ let default_matching_core_flags sigma =
 }
 
 let default_matching_merge_flags sigma =
-  let ts = Names.full_transparent_state in
+  let ts = Conv_oracle.empty in
   let flags = default_matching_core_flags sigma in {
   flags with
     modulo_conv_on_closed_terms = Some ts;
@@ -1554,7 +1552,7 @@ let make_pattern_test from_prefix_of_ind is_correct_type env sigma (pending,c) =
     if from_prefix_of_ind then
       let flags = default_matching_flags pending in
       { flags with core_unify_flags = { flags.core_unify_flags with
-        modulo_conv_on_closed_terms = Some Names.full_transparent_state;
+        modulo_conv_on_closed_terms = Some Conv_oracle.empty;
         restrict_conv_on_strict_subterms = true } }
     else default_matching_flags pending in
   let n = Array.length (snd (decompose_app_vect sigma c)) in

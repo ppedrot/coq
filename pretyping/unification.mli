@@ -14,11 +14,11 @@ open Environ
 open Evd
 
 type core_unify_flags = {
-  modulo_conv_on_closed_terms : Names.transparent_state option;
+  modulo_conv_on_closed_terms : Conv_oracle.oracle option;
   use_metas_eagerly_in_conv_on_closed_terms : bool;
   use_evars_eagerly_in_conv_on_closed_terms : bool;
-  modulo_delta : Names.transparent_state;
-  modulo_delta_types : Names.transparent_state;
+  modulo_delta : Conv_oracle.oracle;
+  modulo_delta_types : Conv_oracle.oracle;
   check_applied_meta_types : bool;
   use_pattern_unification : bool;
   use_meta_bound_pattern_unification : bool;

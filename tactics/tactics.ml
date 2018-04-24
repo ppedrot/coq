@@ -5009,7 +5009,7 @@ let tclABSTRACT ?(opaque=true) name_op tac =
     else name_op_to_name name_op (DefinitionBody Definition) "_subterm" in
   abstract_subproof ~opaque s gk tac
 
-let unify ?(state=full_transparent_state) x y =
+let unify ?(state=Conv_oracle.empty) x y =
   Proofview.Goal.enter begin fun gl ->
   let sigma = Proofview.Goal.sigma gl in
   try
@@ -5021,7 +5021,7 @@ let unify ?(state=full_transparent_state) x y =
     let flags = { (default_unify_flags ()) with
       core_unify_flags = core_flags;
       merge_unify_flags = core_flags;
-      subterm_unify_flags = { core_flags with modulo_delta = empty_transparent_state } }
+      subterm_unify_flags = { core_flags with modulo_delta = Conv_oracle.all_opaque } }
     in
     let sigma = w_unify (Tacmach.New.pf_env gl) sigma Reduction.CONV ~flags x y in
     Proofview.Unsafe.tclEVARS sigma

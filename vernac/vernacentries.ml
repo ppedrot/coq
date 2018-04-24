@@ -969,7 +969,7 @@ let vernac_restore_state file =
 
 let vernac_create_hintdb ~atts id b =
   let local = make_module_locality atts.locality in
-  Hints.create_hint_db local id full_transparent_state b
+  Hints.create_hint_db local id Conv_oracle.empty b
 
 let vernac_remove_hints ~atts dbs ids =
   let local = make_module_locality atts.locality in
@@ -1764,7 +1764,7 @@ let vernac_print ~atts env sigma =
       (* Prints all the axioms and section variables used by a term *)
       let gr = smart_global r in
       let cstr = printable_constr_of_global gr in
-      let st = Conv_oracle.get_transp_state (Environ.oracle (Global.env())) in
+      let st = Environ.oracle (Global.env()) in
       let nassums =
 	Assumptions.assumptions st ~add_opaque:o ~add_transparent:t gr cstr in
       Printer.pr_assumptionset env sigma nassums

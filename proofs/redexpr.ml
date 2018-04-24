@@ -158,13 +158,12 @@ let make_flag env f =
   let red =
     if f.rDelta then (* All but rConst *)
         let red = red_add red fDELTA in
-        let red = red_add_transparent red 
-                    (Conv_oracle.get_transp_state (Environ.oracle env)) in
+        let red = red_add_transparent red (Environ.oracle env) in
 	List.fold_right
 	  (fun v red -> red_sub red (make_flag_constant v))
 	  f.rConst red
     else (* Only rConst *)
-        let red = red_add_transparent (red_add red fDELTA) all_opaque in
+        let red = red_add_transparent (red_add red fDELTA) Conv_oracle.all_opaque in
 	List.fold_right
 	  (fun v red -> red_add red (make_flag_constant v))
 	  f.rConst red

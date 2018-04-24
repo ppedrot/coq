@@ -18,18 +18,14 @@ open Tacmach.New
 open Tacticals.New
 
 let update_flags ()=
-  let predref=ref Names.Cpred.empty in
-  let f coe=
+  let f accu coe=
     try
       let kn= fst (destConst (Classops.get_coercion_value coe)) in
-	predref:=Names.Cpred.add kn !predref
-    with DestKO -> ()
+      Conv_oracle.set_opaque_constant accu kn
+    with DestKO -> accu
   in
-    List.iter f (Classops.coercions ());
-    red_flags:=
-    CClosure.RedFlags.red_add_transparent
-      CClosure.betaiotazeta
-      (Names.Id.Pred.full,Names.Cpred.complement !predref)
+  let st = List.fold_left f Conv_oracle.empty (Classops.coercions ()) in
+  red_flags := CClosure.RedFlags.red_add_transparent CClosure.betaiotazeta st
 
 let ground_tac solver startseq =
   Proofview.Goal.enter begin fun gl ->

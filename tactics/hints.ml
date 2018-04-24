@@ -266,9 +266,9 @@ let lookup_tacs sigma concl st se =
 
 module Constr_map = Map.Make(RefOrdered)
 
-let is_transparent_gr (ids, csts) = function
-  | VarRef id -> Id.Pred.mem id ids
-  | ConstRef cst -> Cpred.mem cst csts
+let is_transparent_gr st = function
+  | VarRef id -> Conv_oracle.is_transparent_variable st id
+  | ConstRef cst -> Conv_oracle.is_transparent_constant st cst
   | IndRef _ | ConstructRef _ -> false
 
 let strip_params env sigma c = 
@@ -473,7 +473,7 @@ type hint_db_name = string
 module Hint_db :
 sig
 type t
-val empty : ?name:hint_db_name -> transparent_state -> bool -> t
+val empty : ?name:hint_db_name -> Conv_oracle.oracle -> bool -> t
 val find : global_reference -> t -> search_entry
 val map_none : secvars:Id.Pred.t -> t -> full_hint list
 val map_all : secvars:Id.Pred.t -> global_reference -> t -> full_hint list
@@ -489,8 +489,8 @@ val remove_one : global_reference -> t -> t
 val remove_list : global_reference list -> t -> t
 val iter : (global_reference option -> hint_mode array list -> full_hint list -> unit) -> t -> unit
 val use_dn : t -> bool
-val transparent_state : t -> transparent_state
-val set_transparent_state : t -> transparent_state -> t
+val transparent_state : t -> Conv_oracle.oracle
+val set_transparent_state : t -> Conv_oracle.oracle -> t
 val add_cut : hints_path -> t -> t
 val add_mode : global_reference -> hint_mode array -> t -> t
 val cut : t -> hints_path
@@ -502,7 +502,7 @@ end =
 struct
 
   type t = {
-    hintdb_state : Names.transparent_state;
+    hintdb_state : Conv_oracle.oracle;
     hintdb_cut : hints_path;
     hintdb_unfolds : Id.Set.t * Cset.t;
     hintdb_max_id : int;
@@ -639,10 +639,10 @@ struct
     let st',db,rebuild =
       match v.code.obj with
       | Unfold_nth egr ->
-	  let addunf (ids,csts) (ids',csts') =
+          let addunf st (ids, csts) =
 	    match egr with
-	    | EvalVarRef id -> (Id.Pred.add id ids, csts), (Id.Set.add id ids', csts')
-	    | EvalConstRef cst -> (ids, Cpred.add cst csts), (ids', Cset.add cst csts')
+            | EvalVarRef id -> Conv_oracle.set_transparent_variable st id, (Id.Set.add id ids, csts)
+            | EvalConstRef cst -> Conv_oracle.set_transparent_constant st cst, (ids, Cset.add cst csts)
 	  in 
 	  let state, unfs = addunf db.hintdb_state db.hintdb_unfolds in
 	    state, { db with hintdb_unfolds = unfs }, true
@@ -718,8 +718,8 @@ let typeclasses_db = "typeclass_instances"
 let rewrite_db = "rewrite"
 
 let auto_init_db =
-  Hintdbmap.add typeclasses_db (Hint_db.empty full_transparent_state true)
-    (Hintdbmap.add rewrite_db (Hint_db.empty cst_full_transparent_state true)
+  Hintdbmap.add typeclasses_db (Hint_db.empty Conv_oracle.empty true)
+    (Hintdbmap.add rewrite_db (Hint_db.empty Conv_oracle.cst_transparent true)
        Hintdbmap.empty)
 
 let searchtable : hint_db_table = ref auto_init_db
@@ -978,7 +978,7 @@ let make_trivial env sigma poly ?(name=PathAny) r =
 
 let get_db dbname =
   try searchtable_map dbname
-  with Not_found -> Hint_db.empty ~name:dbname empty_transparent_state false
+  with Not_found -> Hint_db.empty ~name:dbname Conv_oracle.all_opaque false
 
 let add_hint dbname hintlist =
   let check (_, h) =
@@ -999,10 +999,10 @@ let add_transparency dbname grs b =
   let db = get_db dbname in
   let st = Hint_db.transparent_state db in
   let st' =
-    List.fold_left (fun (ids, csts) gr ->
+    List.fold_left (fun st gr ->
       match gr with
-      | EvalConstRef c -> (ids, (if b then Cpred.add else Cpred.remove) c csts)
-      | EvalVarRef v -> (if b then Id.Pred.add else Id.Pred.remove) v ids, csts)
+      | EvalConstRef c -> if b then Conv_oracle.set_transparent_constant st c else Conv_oracle.set_opaque_constant st c
+      | EvalVarRef v -> if b then Conv_oracle.set_transparent_variable st v else Conv_oracle.set_opaque_variable st v)
       st grs
   in searchtable_add (dbname, Hint_db.set_transparent_state db st')
 
@@ -1012,7 +1012,7 @@ let remove_hint dbname grs =
     searchtable_add (dbname, db')
 
 type hint_action =
-  | CreateDB of bool * transparent_state
+  | CreateDB of bool * Conv_oracle.oracle
   | AddTransparency of evaluable_global_reference list * bool
   | AddHints of hint_entry list
   | RemoveHints of global_reference list
@@ -1493,7 +1493,17 @@ let pr_hint_db_env env sigma db =
     in
     Hint_db.fold fold db (mt ())
   in
-  let (ids, csts) = Hint_db.transparent_state db in
+  let st = Hint_db.transparent_state db in
+  let fold key lv (ids, csts) = match key with
+  | ConstKey kn ->
+    if lv == Conv_oracle.Opaque then (ids, Cpred.remove kn csts)
+    else (ids, Cpred.add kn csts)
+  | VarKey id ->
+    if lv == Conv_oracle.Opaque then (Id.Pred.remove id ids, csts)
+    else (Id.Pred.add id ids, csts)
+  | RelKey _ -> (ids, csts)
+  in
+  let ids, csts = Conv_oracle.fold_strategy fold st (Id.Pred.full, Cpred.full) in
   hov 0
     ((if Hint_db.use_dn db then str"Discriminated database"
       else str"Non-discriminated database")) ++ fnl () ++

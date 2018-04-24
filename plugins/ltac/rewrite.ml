@@ -519,7 +519,7 @@ let decompose_applied_relation env sigma (c,l) =
 
 let rewrite_db = "rewrite"
 
-let conv_transparent_state = (Id.Pred.empty, Cpred.full)
+let conv_transparent_state = Conv_oracle.cst_transparent
 
 let _ = 
   Hints.add_hints_init
@@ -533,8 +533,8 @@ let rewrite_core_unif_flags = {
   Unification.modulo_conv_on_closed_terms = None;
   Unification.use_metas_eagerly_in_conv_on_closed_terms = true;
   Unification.use_evars_eagerly_in_conv_on_closed_terms = true;
-  Unification.modulo_delta = empty_transparent_state;
-  Unification.modulo_delta_types = full_transparent_state;
+  Unification.modulo_delta = Conv_oracle.all_opaque;
+  Unification.modulo_delta_types = Conv_oracle.empty;
   Unification.check_applied_meta_types = true;
   Unification.use_pattern_unification = true;
   Unification.use_meta_bound_pattern_unification = true;
@@ -581,12 +581,12 @@ let general_rewrite_unif_flags () =
       Unification.modulo_conv_on_closed_terms = Some ts;
       Unification.use_evars_eagerly_in_conv_on_closed_terms = true;
       Unification.modulo_delta = ts;
-      Unification.modulo_delta_types = full_transparent_state;
+      Unification.modulo_delta_types = Conv_oracle.empty;
       Unification.modulo_betaiota = true }
   in {
     Unification.core_unify_flags = core_flags;
     Unification.merge_unify_flags = core_flags;
-    Unification.subterm_unify_flags = { core_flags with Unification.modulo_delta = empty_transparent_state };
+    Unification.subterm_unify_flags = { core_flags with Unification.modulo_delta = Conv_oracle.all_opaque };
     Unification.allow_K_in_toplevel_higher_order_unification = true;
     Unification.resolve_evars = true
   }

@@ -489,9 +489,19 @@ let pr_predicate pr_elt (b, elts) =
 let pr_cpred p = pr_predicate (pr_constant (Global.env())) (Cpred.elements p)
 let pr_idpred p = pr_predicate Id.print (Id.Pred.elements p)
 
-let pr_transparent_state (ids, csts) =
+let pr_conv_oracle st =
+  let fold key lv (ids, csts) = match key with
+  | ConstKey kn ->
+    if lv == Conv_oracle.Opaque then (ids, Cpred.remove kn csts)
+    else (ids, Cpred.add kn csts)
+  | VarKey id ->
+    if lv == Conv_oracle.Opaque then (Id.Pred.remove id ids, csts)
+    else (Id.Pred.add id ids, csts)
+  | RelKey _ -> (ids, csts)
+  in
+  let ids, csts = Conv_oracle.fold_strategy fold st (Id.Pred.full, Cpred.full) in
   hv 0 (str"VARIABLES: " ++ pr_idpred ids ++ fnl () ++
-	str"CONSTANTS: " ++ pr_cpred csts ++ fnl ())
+        str"CONSTANTS: " ++ pr_cpred csts ++ fnl ())
 
 (* display complete goal *)
 let default_pr_goal gs =

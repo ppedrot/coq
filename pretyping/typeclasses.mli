@@ -118,8 +118,8 @@ val resolve_one_typeclass : ?unique:bool -> env -> evar_map -> EConstr.types -> 
 val set_typeclass_transparency_hook : (evaluable_global_reference -> bool (*local?*) -> bool -> unit) Hook.t
 val set_typeclass_transparency : evaluable_global_reference -> bool -> bool -> unit
 
-val classes_transparent_state_hook : (unit -> transparent_state) Hook.t
-val classes_transparent_state : unit -> transparent_state
+val classes_transparent_state_hook : (unit -> Conv_oracle.oracle) Hook.t
+val classes_transparent_state : unit -> Conv_oracle.oracle
 
 val add_instance_hint_hook : 
   (global_reference_or_constr -> global_reference list ->
