@@ -105,7 +105,7 @@ let rewrite_core_unif_flags = {
   check_applied_meta_types = true;
   use_pattern_unification = true;
   use_meta_bound_pattern_unification = true;
-  frozen_evars = Evar.Set.empty;
+  frozen_evars = lazy Evar.Set.empty;
   restrict_conv_on_strict_subterms = false;
   modulo_betaiota = false;
   modulo_eta = true;
@@ -124,12 +124,13 @@ let freeze_initial_evars sigma flags clause =
   (* We take evars of the type: this may include old evars! For excluding *)
   (* all old evars, including the ones occurring in the rewriting lemma, *)
   (* we would have to take the clenv_value *)
-  let newevars = Evarutil.undefined_evars_of_term sigma (clenv_type clause) in
-  let evars =
+  let evars = lazy begin
+    let newevars = Evarutil.undefined_evars_of_term sigma (clenv_type clause) in
     fold_undefined (fun evk _ evars ->
       if Evar.Set.mem evk newevars then evars
       else Evar.Set.add evk evars)
-      sigma Evar.Set.empty in
+      sigma Evar.Set.empty
+  end in
   {flags with
     core_unify_flags = {flags.core_unify_flags with frozen_evars = evars};
     merge_unify_flags = {flags.merge_unify_flags with frozen_evars = evars};
@@ -186,7 +187,7 @@ let rewrite_conv_closed_core_unif_flags = {
 
   use_meta_bound_pattern_unification = true;
 
-  frozen_evars = Evar.Set.empty;
+  frozen_evars = Lazy.from_val Evar.Set.empty;
     (* This is set dynamically *)
 
   restrict_conv_on_strict_subterms = false;
@@ -221,7 +222,7 @@ let rewrite_keyed_core_unif_flags = {
 
   use_meta_bound_pattern_unification = true;
 
-  frozen_evars = Evar.Set.empty;
+  frozen_evars = Lazy.from_val Evar.Set.empty;
     (* This is set dynamically *)
 
   restrict_conv_on_strict_subterms = false;

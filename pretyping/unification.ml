@@ -282,7 +282,7 @@ type core_unify_flags = {
     (* This allowed for instance to unify "forall x:?A, ?B x" with "A' -> B'" *)
     (* when ?B is a Meta. *)
 
-  frozen_evars : Evar.Set.t;
+  frozen_evars : Evar.Set.t Lazy.t;
     (* Evars of this set are considered axioms and never instantiated *)
     (* Useful e.g. for autorewrite *)
 
@@ -334,7 +334,7 @@ let default_core_unify_flags () =
   check_applied_meta_types = true;
   use_pattern_unification = true;
   use_meta_bound_pattern_unification = true;
-  frozen_evars = Evar.Set.empty;
+  frozen_evars = Lazy.from_val Evar.Set.empty;
   restrict_conv_on_strict_subterms = false;
   modulo_betaiota = true;
   modulo_eta = true;
@@ -415,8 +415,8 @@ let default_no_delta_unify_flags () =
 let elim_core_flags sigma = { (default_core_unify_flags ()) with
   modulo_betaiota = false;
   frozen_evars =
-    fold_undefined (fun evk _ evars -> Evar.Set.add evk evars)
-      sigma Evar.Set.empty;
+    lazy (fold_undefined (fun evk _ evars -> Evar.Set.add evk evars)
+      sigma Evar.Set.empty);
 }
 
 let elim_flags_evars sigma =
@@ -594,8 +594,11 @@ let do_reduce ts (env, nb) sigma c =
   Stack.zip sigma (fst (whd_betaiota_deltazeta_for_iota_state
 		  ts env sigma Cst_stack.empty (c, Stack.empty)))
 
+let is_not_frozen flags evk =
+  not (Evar.Set.mem evk (Lazy.force flags.frozen_evars))
+
 let isAllowedEvar sigma flags c = match EConstr.kind sigma c with
-  | Evar (evk,_) -> not (Evar.Set.mem evk flags.frozen_evars)
+  | Evar (evk,_) -> is_not_frozen flags evk
   | _ -> false
 
 
@@ -738,7 +741,7 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst : subst0) conv_at_top e
               evarsubst)
 	    else error_cannot_unify_local curenv sigma (m,n,cM)
 	| Evar (evk,_ as ev), Evar (evk',_)
-            when not (Evar.Set.mem evk flags.frozen_evars)
+            when is_not_frozen flags evk
               && Evar.equal evk evk' ->
             let sigma',b = constr_cmp cv_pb env sigma flags cM cN in
             if b then
@@ -746,14 +749,14 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst : subst0) conv_at_top e
             else
 	      sigma,metasubst,((curenv,ev,cN)::evarsubst)
 	| Evar (evk,_ as ev), _
-            when not (Evar.Set.mem evk flags.frozen_evars) 
+            when is_not_frozen flags evk
 	      && not (occur_evar sigma evk cN) ->
 	    let cmvars = free_rels sigma cM and cnvars = free_rels sigma cN in
 	      if Int.Set.subset cnvars cmvars then
 		sigma,metasubst,((curenv,ev,cN)::evarsubst)
 	      else error_cannot_unify_local curenv sigma (m,n,cN)
 	| _, Evar (evk,_ as ev)
-            when not (Evar.Set.mem evk flags.frozen_evars)
+            when is_not_frozen flags evk
 	      && not (occur_evar sigma evk cM) ->
 	    let cmvars = free_rels sigma cM and cnvars = free_rels sigma cN in
 	      if Int.Set.subset cmvars cnvars then
@@ -1517,7 +1520,7 @@ let default_matching_core_flags sigma =
   check_applied_meta_types = true;
   use_pattern_unification = false;
   use_meta_bound_pattern_unification = false;
-  frozen_evars = Evar.Map.domain (Evd.undefined_map sigma);
+  frozen_evars = lazy (Evar.Map.domain (Evd.undefined_map sigma));
   restrict_conv_on_strict_subterms = false;
   modulo_betaiota = false;
   modulo_eta = false;

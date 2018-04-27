@@ -369,10 +369,10 @@ and e_my_find_search db_list local_db secvars hdc complete only_classes env sigm
       | Some (hd,_) when only_classes ->
          let cl = Typeclasses.class_info hd in
          if cl.cl_strict then
-           Evarutil.undefined_evars_of_term sigma concl
-         else Evar.Set.empty
-      | _ -> Evar.Set.empty
-    with e when CErrors.noncritical e -> Evar.Set.empty
+           lazy (Evarutil.undefined_evars_of_term sigma concl)
+         else Lazy.from_val Evar.Set.empty
+      | _ -> Lazy.from_val Evar.Set.empty
+    with e when CErrors.noncritical e -> Lazy.from_val Evar.Set.empty
   in
   let hint_of_db = hintmap_of sigma hdc secvars concl in
   let hintl =
@@ -1229,7 +1229,7 @@ let is_ground c =
 let autoapply c i =
   let open Proofview.Notations in
   Proofview.Goal.enter begin fun gl ->
-  let flags = auto_unif_flags Evar.Set.empty
+  let flags = auto_unif_flags (Lazy.from_val Evar.Set.empty)
     (Hints.Hint_db.transparent_state (Hints.searchtable_map i)) in
   let cty = Tacmach.New.pf_unsafe_type_of gl c in
   let ce = mk_clenv_from gl (c,cty) in
