@@ -171,9 +171,7 @@ let catch_error call_trace f x =
     catching_error call_trace iraise e
 
 let catch_error_tac call_trace tac =
-  Proofview.tclORELSE
     tac
-    (catching_error call_trace (fun (e, info) -> Proofview.tclZERO ~info e))
 
 let curr_debug ist = match TacStore.get ist.extra f_debug with
 | None -> DebugOff
