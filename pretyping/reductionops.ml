@@ -1159,6 +1159,24 @@ let iterate_whd_gen refold flags env sigma s =
 let red_of_state_red f sigma x =
   Stack.zip sigma (f sigma (x,Stack.empty))
 
+let kernel_whd_flags flgs env sigma t =
+  let old = !CClosure.share in
+  try
+    let evars ev = safe_evar_value sigma ev in
+    let () = CClosure.share := false in
+    let ans = EConstr.of_constr (CClosure.whd_val
+      (CClosure.create_clos_infos ~evars flgs env)
+      (CClosure.create_tab ())
+      (CClosure.inject (EConstr.Unsafe.to_constr t)))
+    in
+    let () = CClosure.share := old in
+    ans
+  with e ->
+    let e = CErrors.push e in
+    let () = CClosure.share := old in
+    if is_anomaly (fst e) then user_err Pp.(str "Tried to normalize ill-typed term")
+    else Exninfo.iraise e
+
 (* 0. No Reduction Functions *)
 
 let whd_nored_state = local_whd_state_gen CClosure.nored
@@ -1201,8 +1219,7 @@ let whd_betaiotazeta = red_of_state_red whd_betaiotazeta_state
 let whd_all_state env = raw_whd_state_gen CClosure.all env
 let whd_all_stack env =
   stack_red_of_state_red (whd_all_state env)
-let whd_all env =
-  red_of_state_red (whd_all_state env)
+let whd_all env sigma c = kernel_whd_flags CClosure.all env sigma c
 
 let whd_allnolet_state env = raw_whd_state_gen CClosure.allnolet env
 let whd_allnolet_stack env =
