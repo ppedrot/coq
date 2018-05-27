@@ -241,7 +241,7 @@ let nametab_register_body mp dir (l,body) =
     | SFBmodtype _ -> () (* TODO *)
     | SFBconst _ ->
       push (Label.to_id l) (ConstRef (Constant.make2 mp l))
-    | SFBmind mib ->
+    | SFBmind (MindValue mib) ->
       let mind = MutInd.make2 mp l in
       Array.iteri
 	(fun i mip ->
@@ -249,6 +249,8 @@ let nametab_register_body mp dir (l,body) =
 	  Array.iteri (fun j id -> push id (ConstructRef ((mind,i),j+1)))
 	    mip.mind_consnames)
 	mib.mind_packets
+    | SFBmind (MindAlias kn) ->
+      assert false (** FIXME *)
 
 let nametab_register_module_body mp struc =
   (* If [mp] is a globally visible module, we simply import it *)
@@ -307,8 +309,8 @@ let print_body is_impl extent env mp (l,body) =
                        Printer.pr_lconstr_env env sigma (Mod_subst.force_constr l))
 	      | _ -> mt ()) ++ str "." ++
             Printer.pr_abstract_universe_ctx sigma ctx)
-    | SFBmind mib ->
-      match extent with
+    | SFBmind (MindValue mib) ->
+      begin match extent with
       | WithContents ->
         pr_mutual_inductive_body env (MutInd.make2 mp l) mib None
       | OnlyNames ->
@@ -319,7 +321,11 @@ let print_body is_impl extent env mp (l,body) =
           | BiFinite -> def "Variant"
           | CoFinite -> def "CoInductive"
         in
-	keyword ++ spc () ++ name)
+        keyword ++ spc () ++ name
+      end
+    | SFBmind (MindAlias kn) ->
+      def "Inductive" ++ spc () ++ name
+    )
 
 let print_struct is_impl extent env mp struc =
   prlist_with_sep spc (print_body is_impl extent env mp) struc

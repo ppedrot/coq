@@ -54,6 +54,9 @@ val subst_wf_paths : substitution -> wf_paths -> wf_paths
 
 val subst_mind_body : substitution -> mutual_inductive_body -> mutual_inductive_body
 
+val subst_mind_data : substitution ->
+  mutual_inductive_body mind_data -> mutual_inductive_body mind_data
+
 val inductive_polymorphic_context : mutual_inductive_body -> AUContext.t
 
 (** Is the inductive polymorphic? *)

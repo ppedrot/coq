@@ -71,11 +71,14 @@ let get_mod mp map l =
   try Label.Map.find l map.mods
   with Not_found -> error_no_such_label_sub l (ModPath.to_string mp)
 
-let make_labmap mp list =
+let make_labmap env mp list =
   let add_one (l,e) map =
    match e with
     | SFBconst cb -> { map with objs = Label.Map.add l (Constant cb) map.objs }
-    | SFBmind mib -> { map with objs = add_mib_nameobjects mp l mib map.objs }
+    | SFBmind (MindValue mib) -> { map with objs = add_mib_nameobjects mp l mib map.objs }
+    | SFBmind (MindAlias kn) ->
+      let mib = Environ.lookup_mind kn env in
+      { map with objs = add_mib_nameobjects mp l mib map.objs }
     | SFBmodule mb -> { map with mods = Label.Map.add l (Module mb) map.mods }
     | SFBmodtype mtb -> { map with mods = Label.Map.add l (Modtype mtb) map.mods }
   in
@@ -288,15 +291,19 @@ let rec check_modules cst env msb1 msb2 subst1 subst2 =
   check_modtypes cst env mty1 mty2 subst1 subst2 false
 
 and check_signatures cst env mp1 sig1 mp2 sig2 subst1 subst2 reso1 reso2= 
-  let map1 = make_labmap mp1 sig1 in
+  let map1 = make_labmap env mp1 sig1 in
   let check_one_body cst (l,spec2) =
     match spec2 with
 	| SFBconst cb2 ->
             check_constant cst env l (get_obj mp1 map1 l)
 	      cb2 spec2 subst1 subst2
-	| SFBmind mib2 ->
+        | SFBmind (MindValue mib2) ->
 	    check_inductive cst env mp1 l (get_obj mp1 map1 l)
 	      mp2 mib2 spec2 subst1 subst2 reso1 reso2
+        | SFBmind (MindAlias kn2) ->
+            let mib2 = Environ.lookup_mind kn2 env in
+            check_inductive cst env mp1 l (get_obj mp1 map1 l)
+              mp2 mib2 spec2 subst1 subst2 reso1 reso2
 	| SFBmodule msb2 ->
 	    begin match get_mod mp1 map1 l with
 	      | Module msb -> check_modules cst env msb msb2 subst1 subst2

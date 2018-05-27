@@ -47,7 +47,6 @@ type constant_key = constant_body * (link_info ref * key)
 type mind_key = mutual_inductive_body * link_info ref
 
 type globals
-(** globals = constants + projections + inductive types + modules + module-types *)
 
 type stratification = {
   env_universes : UGraph.t;
@@ -230,6 +229,7 @@ val get_projections : env -> inductive -> Names.Projection.Repr.t array option
 val lookup_mind_key : MutInd.t -> env -> mind_key
 val add_mind_key : MutInd.t -> mind_key -> env -> env
 val add_mind : MutInd.t -> mutual_inductive_body -> env -> env
+val add_mind_alias : MutInd.t -> MutInd.t -> env -> env
 
 (** Looks up in the context of global inductive names 
    raises [Not_found] if the required path is not found *)

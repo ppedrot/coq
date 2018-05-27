@@ -37,7 +37,7 @@ let toplevel_env () =
             Some (l, SFBconst constant)
 	  | "INDUCTIVE" ->
             let inductive = Global.lookup_mind (MutInd.make1 kn) in
-            Some (l, SFBmind inductive)
+            Some (l, SFBmind (MindValue inductive))
 	  | "MODULE" ->
             let modl = Global.lookup_module (MPdot (mp, l)) in
             Some (l, SFBmodule modl)

@@ -32,12 +32,15 @@ and translate_field prefix mp env acc (l,x) =
         let msg = Printf.sprintf "Compiling constant %s..." (Constant.to_string con) in
 	Feedback.msg_debug (Pp.str msg));
      compile_constant_field env prefix con acc cb
-  | SFBmind mb ->
+  | SFBmind (MindValue mb) ->
      (if !Flags.debug then
 	let id = mb.mind_packets.(0).mind_typename in
 	let msg = Printf.sprintf "Compiling inductive %s..." (Id.to_string id) in
 	Feedback.msg_debug (Pp.str msg));
      compile_mind_field mp l acc mb
+  | SFBmind (MindAlias _kn) ->
+      (** Already translated somewhere else *)
+      acc
   | SFBmodule md ->
      let mp = md.mod_mp in
      (if !Flags.debug then

@@ -471,7 +471,8 @@ let globalize_mind_universes mb =
 let constraints_of_sfb env sfb = 
   match sfb with
   | SFBconst cb -> globalize_constant_universes env cb
-  | SFBmind mib -> globalize_mind_universes mib
+  | SFBmind (MindValue mib) -> globalize_mind_universes mib
+  | SFBmind (MindAlias _) -> []
   | SFBmodtype mtb -> [Now (false, mtb.mod_constraints)]
   | SFBmodule mb -> [Now (false, mb.mod_constraints)]
 
@@ -486,7 +487,11 @@ type generic_name =
 
 let add_field ((l,sfb) as field) gn senv =
   let mlabs,olabs = match sfb with
-    | SFBmind mib ->
+    | SFBmind (MindValue mib) ->
+      let l = labels_of_mib mib in
+      check_objlabels l senv; (Label.Set.empty,l)
+    | SFBmind (MindAlias kn) ->
+      let mib = Environ.lookup_mind kn senv.env in
       let l = labels_of_mib mib in
       check_objlabels l senv; (Label.Set.empty,l)
     | SFBconst _ ->
@@ -498,7 +503,8 @@ let add_field ((l,sfb) as field) gn senv =
   let senv = add_constraints_list cst senv in
   let env' = match sfb, gn with
     | SFBconst cb, C con -> Environ.add_constant con cb senv.env
-    | SFBmind mib, I mind -> Environ.add_mind mind mib senv.env
+    | SFBmind (MindValue mib), I mind -> Environ.add_mind mind mib senv.env
+    | SFBmind (MindAlias kn), I mind -> Environ.add_mind_alias mind kn senv.env
     | SFBmodtype mtb, MT -> Environ.add_modtype mtb senv.env
     | SFBmodule mb, M -> Modops.add_module mb senv.env
     | _ -> assert false
@@ -801,7 +807,7 @@ let add_mind l mie senv =
   let mib =
     match mib.mind_hyps with [] -> Declareops.hcons_mind mib | _ -> mib
   in
-  kn, add_field (l,SFBmind mib) (I kn) senv
+  kn, add_field (l,SFBmind (MindValue mib)) (I kn) senv
 
 (** Insertion of module types *)
 
@@ -1027,13 +1033,15 @@ let add_include me is_module inl senv =
   let senv = update_resolver (Mod_subst.add_delta_resolver resolver) senv
   in
   let add senv ((l,elem) as field) =
-    let new_name = match elem with
+    let field, new_name = match elem with
       | SFBconst _ ->
-        C (Mod_subst.constant_of_delta_kn resolver (KerName.make mp_sup l))
+        field, C (Mod_subst.constant_of_delta_kn resolver (KerName.make mp_sup l))
       | SFBmind _ ->
-        I (Mod_subst.mind_of_delta_kn resolver (KerName.make mp_sup l))
-      | SFBmodule _ -> M
-      | SFBmodtype _ -> MT
+        let mind = Mod_subst.mind_of_delta_kn resolver (KerName.make mp_sup l) in
+        let kn = MutInd.make1 (MutInd.canonical mind) in
+        (l, SFBmind (MindAlias kn)), I mind
+      | SFBmodule _ -> field, M
+      | SFBmodtype _ -> field, MT
     in
     add_field field new_name senv
   in

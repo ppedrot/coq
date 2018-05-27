@@ -187,8 +187,8 @@ let rec subst_structure sub do_delta sign =
       let cb' = subst_const_body sub cb in
       if cb==cb' then orig else (l,SFBconst cb')
     |SFBmind mib ->
-      let mib' = subst_mind_body sub mib in
-      if mib==mib' then orig else (l,SFBmind mib')
+      let mib' = subst_mind_data sub mib in
+      if mib==mib' then orig else (l, SFBmind mib')
     |SFBmodule mb ->
       let mb' = subst_module sub do_delta mb in
       if mb==mb' then orig else (l,SFBmodule mb')
@@ -291,7 +291,7 @@ let rec add_structure mp sign resolver linkinfo env =
     |SFBconst cb ->
       let c = constant_of_delta_kn resolver (KerName.make mp l) in
       Environ.add_constant_key c cb linkinfo env
-    |SFBmind mib ->
+    |SFBmind (MindValue mib) ->
       let mind = mind_of_delta_kn resolver (KerName.make mp l) in
       let mib = 
 	if mib.mind_private != None then 
@@ -299,6 +299,9 @@ let rec add_structure mp sign resolver linkinfo env =
 	else mib
       in
       Environ.add_mind_key mind (mib,ref linkinfo) env
+    | SFBmind (MindAlias mind0) ->
+      let mind = mind_of_delta_kn resolver (KerName.make mp l) in
+      Environ.add_mind_alias mind mind0 env
     |SFBmodule mb -> add_module mb linkinfo env (* adds components as well *)
     |SFBmodtype mtb -> Environ.add_modtype mtb env
   in
@@ -460,7 +463,7 @@ and strengthen_and_subst_struct str subst mp_from mp_to alias incl reso =
 	     because reso' contains mp_to maps to reso(mp_from) *)
 	  reso', str'
     | (l,SFBmind mib) as item :: rest ->
-        let mib' = subst_mind_body subst mib in
+        let mib' = subst_mind_data subst mib in
         let item' = if mib' == mib then item else (l, SFBmind mib') in
 	let reso',rest' =
 	  strengthen_and_subst_struct rest subst mp_from mp_to alias incl reso

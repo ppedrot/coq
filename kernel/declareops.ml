@@ -231,6 +231,14 @@ let subst_mind_body sub mib =
     mind_typing_flags = mib.mind_typing_flags;
   }
 
+let subst_mind_data sub data = match data with
+| MindValue v ->
+  let v' = subst_mind_body sub v in
+  if v == v' then data else MindValue v'
+| MindAlias mind ->
+  let mind' = subst_mind sub mind in
+  if mind == mind' then data else MindAlias mind'
+
 let inductive_polymorphic_context mib =
   match mib.mind_universes with
   | Monomorphic_ind _ -> Univ.AUContext.empty
@@ -326,9 +334,12 @@ let rec hcons_structure_field_body sb = match sb with
 | SFBconst cb ->
   let cb' = hcons_const_body cb in
   if cb == cb' then sb else SFBconst cb'
-| SFBmind mib ->
+| SFBmind (MindValue mib) ->
   let mib' = hcons_mind mib in
-  if mib == mib' then sb else SFBmind mib'
+  if mib == mib' then sb else SFBmind (MindValue mib')
+| SFBmind (MindAlias mind) ->
+  let mind' = Names.hcons_mind mind in
+  if mind == mind' then sb else SFBmind (MindAlias mind')
 | SFBmodule mb ->
   let mb' = hcons_module_body mb in
   if mb == mb' then sb else SFBmodule mb'

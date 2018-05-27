@@ -52,7 +52,7 @@ type mind_key = mutual_inductive_body * link_info ref
 
 type globals = {
   env_constants : constant_key Cmap_env.t;
-  env_inductives : mind_key Mindmap_env.t;
+  env_inductives : mind_key mind_data Mindmap_env.t;
   env_modules : module_body MPmap.t;
   env_modtypes : module_type_body MPmap.t;
 }
@@ -219,11 +219,13 @@ let lookup_constant kn env =
   fst (Cmap_env.find kn env.env_globals.env_constants)
 
 (* Mutual Inductives *)
-let lookup_mind kn env =
-  fst (Mindmap_env.find kn env.env_globals.env_inductives)
+let rec lookup_mind_key kn env =
+  let data = Mindmap_env.find kn env.env_globals.env_inductives in
+  match data with
+  | MindAlias kn -> lookup_mind_key kn env
+  | MindValue key -> key
 
-let lookup_mind_key kn env =
-  Mindmap_env.find kn env.env_globals.env_inductives
+let lookup_mind kn env = fst (lookup_mind_key kn env)
 
 let oracle env = env.env_typing_flags.conv_oracle
 let set_oracle env o =
@@ -522,7 +524,7 @@ let template_polymorphic_pind (ind,u) env =
   else template_polymorphic_ind ind env
   
 let add_mind_key kn (_mind, _ as mind_key) env =
-  let new_inds = Mindmap_env.add kn mind_key env.env_globals.env_inductives in
+  let new_inds = Mindmap_env.add kn (MindValue mind_key) env.env_globals.env_inductives in
   let new_globals =
     { env.env_globals with
         env_inductives = new_inds; } in
@@ -530,6 +532,13 @@ let add_mind_key kn (_mind, _ as mind_key) env =
 
 let add_mind kn mib env =
   let li = ref no_link_info in add_mind_key kn (mib, li) env
+
+let add_mind_alias kn mind env =
+  let new_inds = Mindmap_env.add kn (MindAlias mind) env.env_globals.env_inductives in
+  let new_globals =
+    { env.env_globals with
+        env_inductives = new_inds } in
+  { env with env_globals = new_globals }
 
 (* Lookup of section variables *)
 

@@ -225,11 +225,17 @@ type module_alg_expr =
   | MEapply of module_alg_expr * ModPath.t
   | MEwith of module_alg_expr * with_declaration
 
+(** Indirections *)
+
+type 'a mind_data =
+| MindValue of 'a
+| MindAlias of MutInd.t
+
 (** A component of a module structure *)
 
 type structure_field_body =
   | SFBconst of constant_body
-  | SFBmind of mutual_inductive_body
+  | SFBmind of mutual_inductive_body mind_data
   | SFBmodule of module_body
   | SFBmodtype of module_type_body
 

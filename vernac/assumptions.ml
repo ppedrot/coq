@@ -141,15 +141,18 @@ let lookup_constant cst =
     else lookup_constant_in_impl cst (Some cb)
   with Not_found -> lookup_constant_in_impl cst None
 
-let lookup_mind_in_impl mind =
+let rec lookup_mind_in_impl mind =
   try
     let mp,lab = KerName.repr (MutInd.canonical mind) in
     let fields = memoize_fields_of_mp mp in
-      search_mind_label lab fields
+    begin match search_mind_label lab fields with
+    | MindValue mib -> mib
+    | MindAlias kn -> lookup_mind kn
+    end
   with Not_found ->
     anomaly (str "Print Assumption: unknown inductive " ++ MutInd.print mind ++ str ".")
 
-let lookup_mind mind =
+and lookup_mind mind =
   try Global.lookup_mind mind
   with Not_found -> lookup_mind_in_impl mind
 
