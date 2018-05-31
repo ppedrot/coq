@@ -360,7 +360,11 @@ let rec execute env cstr =
   let open Context.Rel.Declaration in
   match kind cstr with
     (* Atomic terms *)
-    | Sort s -> type_of_sort s
+    | Sort s ->
+      (match s with
+       | SProp -> if not (Environ.sprop_allowed env) then error_disallowed_sprop env
+       | _ -> ());
+      type_of_sort s
 
     | Rel n ->
       type_of_relative env n

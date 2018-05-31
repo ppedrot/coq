@@ -104,5 +104,11 @@ and relevance_of_term_extra env extra lft subs c =
 
   | Meta _ | Evar _ -> Sorts.Relevant (* let's assume metas and evars are relevant for now *)
 
+let relevance_of_fterm env extra lft c =
+  if Environ.sprop_allowed env then relevance_of_fterm env extra lft c
+  else Sorts.Relevant
+
 let relevance_of_term env c =
-  relevance_of_term_extra env [] Esubst.el_id (Esubst.subs_id 0) c
+  if Environ.sprop_allowed env
+  then relevance_of_term_extra env [] Esubst.el_id (Esubst.subs_id 0) c
+  else Sorts.Relevant

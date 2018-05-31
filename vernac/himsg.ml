@@ -686,6 +686,9 @@ let explain_unsatisfied_constraints env sigma cst =
 let explain_bad_relevance env =
   strbrk "Bad relevance (maybe a bugged tactic)."
 
+let explain_disallowed_sprop () =
+  Pp.(str "SProp not allowed, you need to use -allow-sprop.")
+
 let explain_sprop_missing_annot env sigma =
   strbrk "Missing annotation while eliminating SProp inductive"
 
@@ -735,6 +738,7 @@ let explain_type_error env sigma err =
   | UnsatisfiedConstraints cst ->
       explain_unsatisfied_constraints env sigma cst
   | BadRelevance -> explain_bad_relevance env
+  | DisallowedSProp -> explain_disallowed_sprop ()
   | SPropMissingAnnot ->
     explain_sprop_missing_annot env sigma
   | SPropUnexpectedAnnot ->
@@ -855,6 +859,7 @@ let explain_pretype_error env sigma err =
   | SPropMissingAnnot -> explain_sprop_missing_annot env sigma
   | SPropUnexpectedAnnot -> explain_sprop_unexpected_annot env sigma
   | SPropIncorrectAnnot (pi,index) -> explain_sprop_incorrect_annot env sigma pi index
+  | DisallowedSProp -> explain_disallowed_sprop ()
 (* Module errors *)
 
 open Modops
@@ -1336,6 +1341,7 @@ let map_ptype_error f = function
 | IllTypedRecBody (n, na, jv, t) ->
   IllTypedRecBody (n, na, Array.map (on_judgment f) jv, Array.map f t)
 | UnsatisfiedConstraints g -> UnsatisfiedConstraints g
+| DisallowedSProp -> DisallowedSProp
 | BadRelevance -> BadRelevance
 | SPropMissingAnnot -> SPropMissingAnnot
 | SPropUnexpectedAnnot -> SPropUnexpectedAnnot

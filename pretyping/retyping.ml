@@ -258,12 +258,16 @@ let expand_projection env sigma pr c args =
 	   Array.of_list (ind_args @ (c :: args)))
 
 let relevance_of_term env sigma c =
-  let s = get_sort_family_of env sigma (get_type_of env sigma c) in
-  Sorts.relevance_of_sort_family s
+  if Environ.sprop_allowed env then
+    let s = get_sort_family_of env sigma (get_type_of env sigma c) in
+    Sorts.relevance_of_sort_family s
+  else Sorts.Relevant
 
 let relevance_of_type env sigma t =
-  let s = get_sort_family_of env sigma t in
-  Sorts.relevance_of_sort_family s
+  if Environ.sprop_allowed env then
+    let s = get_sort_family_of env sigma t in
+    Sorts.relevance_of_sort_family s
+  else Sorts.Relevant
 
 let relevance_of_sort s = Sorts.relevance_of_sort (EConstr.Unsafe.to_sorts s)
 

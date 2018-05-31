@@ -64,6 +64,7 @@ type ('constr, 'types) ptype_error =
       int * Name.t binder_annot array * ('constr, 'types) punsafe_judgment array * 'types array
   | UnsatisfiedConstraints of Univ.Constraint.t
   | BadRelevance
+  | DisallowedSProp
   | SPropMissingAnnot
   | SPropUnexpectedAnnot
   | SPropIncorrectAnnot of 'constr * 'constr
@@ -139,3 +140,6 @@ let error_unsatisfied_constraints env c =
 
 let error_bad_relevance env =
   raise (TypeError (env, BadRelevance))
+
+let error_disallowed_sprop env =
+  raise (TypeError (env, DisallowedSProp))

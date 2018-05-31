@@ -459,6 +459,7 @@ let init_toplevel custom_init arglist =
       Flags.if_verbose print_header ();
       Mltop.init_known_plugins ();
       Global.set_engagement opts.impredicative_set;
+      (if opts.allow_sprop then Global.allow_sprop ());
       (if opts.cumulative_sprop then Global.make_sprop_cumulative ());
 
       (* Allow the user to load an arbitrary state here *)

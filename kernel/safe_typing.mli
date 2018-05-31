@@ -150,6 +150,7 @@ val add_constraints :
 val set_engagement : Declarations.engagement -> safe_transformer0
 val set_typing_flags : Declarations.typing_flags -> safe_transformer0
 val make_sprop_cumulative : safe_transformer0
+val allow_sprop : safe_transformer0
 
 (** {6 Interactive module functions } *)
 

@@ -190,6 +190,8 @@ let set_typing_flags c senv =
 
 let make_sprop_cumulative senv = { senv with env = Environ.make_sprop_cumulative senv.env }
 
+let allow_sprop senv = { senv with env = Environ.allow_sprop senv.env }
+
 (** Check that the engagement [c] expected by a library matches
     the current (initial) one *)
 let check_engagement env expected_impredicative_set =

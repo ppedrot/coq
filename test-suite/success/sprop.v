@@ -1,3 +1,4 @@
+(* -*- mode: coq; coq-prog-args: ("-allow-sprop") -*- *)
 
 Definition iUnit : SProp := forall A : SProp, A -> A.
 

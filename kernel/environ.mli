@@ -56,7 +56,8 @@ type globals = {
 
 type stratification = {
   env_universes : UGraph.t;
-  env_engagement : engagement
+  env_engagement : engagement;
+  env_sprop_allowed : bool;
 }
 
 type named_context_val = private {
@@ -268,6 +269,8 @@ val push_constraints_to_env : 'a Univ.constrained -> env -> env
 val set_engagement : engagement -> env -> env
 val set_typing_flags : typing_flags -> env -> env
 val make_sprop_cumulative : env -> env
+val allow_sprop : env -> env
+val sprop_allowed : env -> bool
 
 (** {6 Sets of referred section variables }
    [global_vars_set env c] returns the list of [id]'s occurring either

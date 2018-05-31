@@ -59,6 +59,7 @@ type pretype_error =
   | CannotUnifyOccurrences of subterm_unification_error
   | UnsatisfiableConstraints of
       (Evar.t * Evar_kinds.t) option * Evar.Set.t option
+  | DisallowedSProp
   | SPropMissingAnnot
   | SPropUnexpectedAnnot
   | SPropIncorrectAnnot of constr * constr
@@ -169,6 +170,9 @@ let error_not_product ?loc env sigma c =
 
 let error_var_not_found ?loc s =
   raise_pretype_error ?loc (empty_env, Evd.from_env empty_env, VarNotFound s)
+
+let error_disallowed_sprop env sigma  =
+  raise (PretypeError (env, sigma, DisallowedSProp))
 
 (*s Typeclass errors *)
 

@@ -97,7 +97,7 @@ let parse_args () =
       |"-batch"|"-noinit"|"-nois"|"-noglob"|"-no-glob"
       |"-q"|"-profile"|"-echo" |"-quiet"
       |"-silent"|"-m"|"-beautify"|"-strict-implicit"
-      |"-impredicative-set"|"-sprop-cumulative"|"-vm"|"-native-compiler"
+      |"-allow-sprop"|"-impredicative-set"|"-sprop-cumulative"|"-vm"|"-native-compiler"
       |"-indices-matter"|"-quick"|"-type-in-type"
       |"-async-proofs-always-delegate"|"-async-proofs-never-reopen-branch"
       |"-stm-debug"

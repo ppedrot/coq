@@ -245,6 +245,9 @@ let declare_one_induction_scheme ind =
   let from_prop = kind == InProp in
   let depelim = Inductiveops.has_dependent_elim mib in
   let kelim = elim_sorts (mib,mip) in
+  let kelim = if Global.sprop_allowed () then kelim
+    else List.filter (fun s -> s <> InSProp) kelim
+  in
   let elims =
     List.map_filter (fun (sort,kind) ->
       if Sorts.List.mem sort kelim then Some kind else None)

@@ -59,7 +59,8 @@ type globals = {
 
 type stratification = {
   env_universes : UGraph.t;
-  env_engagement : engagement
+  env_engagement : engagement;
+  env_sprop_allowed : bool;
 }
 
 type val_kind =
@@ -118,7 +119,9 @@ let empty_env = {
   env_nb_rel = 0;
   env_stratification = {
     env_universes = UGraph.initial_universes;
-    env_engagement = PredicativeSet };
+    env_engagement = PredicativeSet;
+    env_sprop_allowed = false;
+  };
   env_typing_flags = Declareops.safe_flags Conv_oracle.empty;
   retroknowledge = Retroknowledge.initial_retroknowledge;
   indirect_pterms = Opaqueproof.empty_opaquetab }
@@ -400,6 +403,12 @@ let set_typing_flags c env = (* Unsafe *)
   { env with env_typing_flags = c }
 
 let make_sprop_cumulative = map_universes UGraph.make_sprop_cumulative
+
+let allow_sprop env =
+  { env with env_stratification =
+    { env.env_stratification with env_sprop_allowed = true } }
+
+let sprop_allowed env = env.env_stratification.env_sprop_allowed
 
 (* Global constants *)
 

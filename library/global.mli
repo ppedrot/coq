@@ -31,6 +31,8 @@ val named_context : unit -> Context.Named.t
 val set_engagement : Declarations.engagement -> unit
 val set_typing_flags : Declarations.typing_flags -> unit
 val make_sprop_cumulative : unit -> unit
+val allow_sprop : unit -> unit
+val sprop_allowed : unit -> bool
 
 (** Variables, Local definitions, constants, inductive types *)
 

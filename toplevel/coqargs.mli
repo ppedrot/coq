@@ -41,6 +41,7 @@ type coq_cmdopts = {
   color : color;
 
   impredicative_set : Declarations.set_predicativity;
+  allow_sprop : bool;
   cumulative_sprop : bool;
   stm_flags   : Stm.AsyncOpts.stm_opt;
   debug       : bool;
