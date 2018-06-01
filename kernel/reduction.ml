@@ -617,7 +617,13 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
           convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
         else raise NotConvertible
 
-    | FCaseInvert _, FCaseInvert _ -> raise NotConvertible (* TODO *)
+    | FCaseInvert (ci1,p1,is1,c1,br1,e1), FCaseInvert (ci2,p2,is2,c2,br2,e2) ->
+      (if not (eq_ind ci1.ci_ind ci2.ci_ind) then raise NotConvertible);
+      let el1 = el_stack lft1 v1 and el2 = el_stack lft2 v2 in
+      let ccnv = ccnv CONV l2r infos el1 el2 in
+      let cuniv = ccnv (mk_clos e1 p1) (mk_clos e2 p2) cuniv in
+      Array.fold_right2 (fun b1 b2 cuniv -> ccnv (mk_clos e1 b2) (mk_clos e2 b2) cuniv)
+        br1 br2 cuniv
 
      (* Should not happen because both (hd1,v1) and (hd2,v2) are in whnf *)
      | ( (FLetIn _ | FCaseT _ | FApp _ | FCLOS _ | FLIFT _), _

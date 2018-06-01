@@ -242,3 +242,14 @@ Definition spr1 (A:SProp) (B:A->SProp) (p:sSigma A B) : A
 Definition spr2 (A:SProp) (B:A->SProp) (p:sSigma A B) : B (spr1 A B p)
   := let 'squash _ (existT _ x y) := p in runbox _ y.
 (* it's SProp so it computes properly *)
+
+(** Compare blocked invertcase *)
+Definition blocked1 (x:nat) (e:sNZ x) (a:nat) :=
+  match e with
+    snz _ => a
+  end.
+Definition blocked2 (x:nat) (e:sNZ x) (a:nat) :=
+  match e with
+    snz _ => 0+a
+  end.
+Check fun x (e:sNZ x) a => eq_refl : (blocked1 x e a) = (blocked2 x e a).
