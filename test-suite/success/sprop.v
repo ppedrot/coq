@@ -253,3 +253,43 @@ Definition blocked2 (x:nat) (e:sNZ x) (a:nat) :=
     snz _ => 0+a
   end.
 Check fun x (e:sNZ x) a => eq_refl : (blocked1 x e a) = (blocked2 x e a).
+
+
+
+(** Play with UIP *)
+Lemma of_seq {A:Type} {x y:A} (p:seq x y) : x = y.
+Proof.
+  destruct p. reflexivity.
+Defined.
+
+Lemma to_seq {A:Type} {x y:A} (p: x = y) : seq x y.
+Proof.
+  destruct p. reflexivity.
+Defined.
+
+Lemma eq_srec (A:Type) (x y:A) (P:x=y->Type) : (forall e : seq x y, P (of_seq e)) -> forall e, P e.
+Proof.
+  intros H e. destruct e.
+  apply (H (srefl _)).
+Defined.
+
+Lemma K : forall {A x} (p:x=x:>A), p = eq_refl.
+Proof.
+  intros A x. apply eq_srec. intros;reflexivity.
+Defined.
+
+Definition K_refl : forall {A x}, @K A x eq_refl = eq_refl
+  := fun A x => eq_refl.
+
+Section funext.
+
+  Variable sfunext : forall {A B} (f g : A -> B), (forall x, seq (f x) (g x)) -> seq f g.
+
+  Lemma funext {A B} (f g : A -> B) (H:forall x, (f x) = (g x)) : f = g.
+  Proof.
+    apply of_seq,sfunext;intros x;apply to_seq,H.
+  Defined.
+
+  Definition funext_refl A B (f : A -> B) : funext f f (fun x => eq_refl) = eq_refl
+    := eq_refl.
+End funext.
