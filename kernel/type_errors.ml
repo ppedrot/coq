@@ -63,7 +63,6 @@ type ('constr, 'types) ptype_error =
   | IllTypedRecBody of
       int * Name.t binder_annot array * ('constr, 'types) punsafe_judgment array * 'types array
   | UnsatisfiedConstraints of Univ.Constraint.t
-  | BadRelevance
   | DisallowedSProp
   | SPropMissingAnnot
   | SPropUnexpectedAnnot
@@ -137,9 +136,6 @@ let error_elim_explain kp ki =
 
 let error_unsatisfied_constraints env c =
   raise (TypeError (env, UnsatisfiedConstraints c))
-
-let error_bad_relevance env =
-  raise (TypeError (env, BadRelevance))
 
 let error_disallowed_sprop env =
   raise (TypeError (env, DisallowedSProp))

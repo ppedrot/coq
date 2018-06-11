@@ -1,5 +1,7 @@
 (* -*- mode: coq; coq-prog-args: ("-allow-sprop") -*- *)
 
+Set Warnings "+bad-relevance".
+
 Definition iUnit : SProp := forall A : SProp, A -> A.
 
 Definition itt : iUnit := fun A a => a.
@@ -293,3 +295,8 @@ Section funext.
   Definition funext_refl A B (f : A -> B) : funext f f (fun x => eq_refl) = eq_refl
     := eq_refl.
 End funext.
+
+Fail Definition fix_relevance : _ -> nat := fun _ : iUnit => 0.
+
+Set Warnings "-bad-relevance".
+Definition fix_relevance : _ -> nat := fun _ : iUnit => 0.

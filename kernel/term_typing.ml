@@ -21,7 +21,6 @@ open Constr
 open Declarations
 open Environ
 open Entries
-open Typeops
 
 module NamedDecl = Context.Named.Declaration
 
@@ -243,10 +242,10 @@ let infer_declaration (type a) ~(trust : a trust) env (dcl : a constant_entry) =
         | Monomorphic_const_entry uctx -> push_context_set ~strict:true uctx env
         | Polymorphic_const_entry uctx -> push_context ~strict:false uctx env
       in
-      let j = infer env t in
+      let j = Typeops.infer env t in
       let usubst, univs = abstract_constant_universes uctx in
-      let c, r = Typeops.assumption_of_judgment env j in
-      let t = Constr.hcons (Vars.subst_univs_level_constr usubst c) in
+      let r = Typeops.assumption_of_judgment env j in
+      let t = Constr.hcons (Vars.subst_univs_level_constr usubst j.uj_val) in
       {
         Cooking.cook_body = Undef nl;
         cook_type = t;
@@ -266,23 +265,23 @@ let infer_declaration (type a) ~(trust : a trust) env (dcl : a constant_entry) =
 		       const_entry_universes = Monomorphic_const_entry univs } as c) ->
       let env = push_context_set ~strict:true univs env in
       let { const_entry_body = body; const_entry_feedback = feedback_id } = c in
-      let tyj = infer_type env typ in
+      let tyj = Typeops.infer_type env typ in
       let proofterm =
         Future.chain body (fun ((body,uctx),side_eff) ->
           let j, uctx = match trust with
           | Pure ->
             let env = push_context_set uctx env in
-            let j = infer env body in
-            let _ = judge_of_cast env j DEFAULTcast tyj in
+            let j = Typeops.infer env body in
+            let _ = Typeops.judge_of_cast env j DEFAULTcast tyj in
             j, uctx
           | SideEffects mb ->
             let (body, uctx, signatures) = inline_side_effects env body uctx side_eff in
             let valid_signatures = check_signatures mb signatures in
             let env = push_context_set uctx env in
             let body,env,ectx = skip_trusted_seff valid_signatures body env in
-            let j = infer env body in
+            let j = Typeops.infer env body in
             let j = unzip ectx j in
-            let _ = judge_of_cast env j DEFAULTcast tyj in
+            let _ = Typeops.judge_of_cast env j DEFAULTcast tyj in
             j, uctx
           in
           let c = Constr.hcons j.uj_val in
@@ -291,7 +290,7 @@ let infer_declaration (type a) ~(trust : a trust) env (dcl : a constant_entry) =
       let def = OpaqueDef (Opaqueproof.create proofterm) in
       {
         Cooking.cook_body = def;
-        cook_type = typ;
+        cook_type = tyj.utj_val;
         cook_proj = false;
         cook_universes = Monomorphic_const univs;
         cook_relevance = Sorts.relevance_of_sort tyj.utj_type;
@@ -327,14 +326,14 @@ let infer_declaration (type a) ~(trust : a trust) env (dcl : a constant_entry) =
         let sbst = Univ.make_instance_subst sbst in
         env, sbst, Polymorphic_const auctx
       in
-      let j = infer env body in
+      let j = Typeops.infer env body in
       let typ = match typ with
         | None ->
           Vars.subst_univs_level_constr usubst j.uj_type
         | Some t ->
-           let tj = infer_type env t in
-           let _ = judge_of_cast env j DEFAULTcast tj in
-           Vars.subst_univs_level_constr usubst t
+           let tj = Typeops.infer_type env t in
+           let _ = Typeops.judge_of_cast env j DEFAULTcast tj in
+           Vars.subst_univs_level_constr usubst tj.utj_val
       in
       let def = Constr.hcons (Vars.subst_univs_level_constr usubst j.uj_val) in
       let def = 
@@ -347,7 +346,7 @@ let infer_declaration (type a) ~(trust : a trust) env (dcl : a constant_entry) =
         cook_type = typ;
         cook_proj = false;
         cook_universes = univs;
-        cook_relevance = Retypeops.relevance_of_term env body;
+        cook_relevance = Retypeops.relevance_of_term env j.uj_val;
         cook_inline = c.const_entry_inline_code;
         cook_context = c.const_entry_secctx;
       }
@@ -580,9 +579,9 @@ let export_side_effects mb env c =
 ;;
 
 let translate_local_assum env t =
-  let j = infer env t in
+  let j = Typeops.infer env t in
   let t = Typeops.assumption_of_judgment env j in
-    t
+    j.uj_val, t
 
 let translate_recipe env kn r =
   (** We only hashcons the term when outside of a section, otherwise this would

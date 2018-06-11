@@ -683,9 +683,6 @@ let explain_unsatisfied_constraints env sigma cst =
     Univ.pr_constraints (Termops.pr_evd_level sigma) cst ++ 
     spc () ++ str "(maybe a bugged tactic)."
 
-let explain_bad_relevance env =
-  strbrk "Bad relevance (maybe a bugged tactic)."
-
 let explain_disallowed_sprop () =
   Pp.(str "SProp not allowed, you need to use -allow-sprop.")
 
@@ -737,7 +734,6 @@ let explain_type_error env sigma err =
       explain_wrong_case_info env ind ci
   | UnsatisfiedConstraints cst ->
       explain_unsatisfied_constraints env sigma cst
-  | BadRelevance -> explain_bad_relevance env
   | DisallowedSProp -> explain_disallowed_sprop ()
   | SPropMissingAnnot ->
     explain_sprop_missing_annot env sigma
@@ -1342,7 +1338,6 @@ let map_ptype_error f = function
   IllTypedRecBody (n, na, Array.map (on_judgment f) jv, Array.map f t)
 | UnsatisfiedConstraints g -> UnsatisfiedConstraints g
 | DisallowedSProp -> DisallowedSProp
-| BadRelevance -> BadRelevance
 | SPropMissingAnnot -> SPropMissingAnnot
 | SPropUnexpectedAnnot -> SPropUnexpectedAnnot
 | SPropIncorrectAnnot (pi,index) -> SPropIncorrectAnnot (f pi, f index)

@@ -64,7 +64,6 @@ type ('constr, 'types) ptype_error =
   | IllTypedRecBody of
       int * Name.t binder_annot array * ('constr, 'types) punsafe_judgment array * 'types array
   | UnsatisfiedConstraints of Univ.Constraint.t
-  | BadRelevance
   | DisallowedSProp
   | SPropMissingAnnot
   | SPropUnexpectedAnnot
@@ -114,8 +113,6 @@ val error_ill_typed_rec_body  :
 val error_elim_explain : Sorts.family -> Sorts.family -> arity_error
 
 val error_unsatisfied_constraints : env -> Univ.Constraint.t -> 'a
-
-val error_bad_relevance : env -> 'a
 
 val error_sprop_missing_annot : env -> 'a
 val error_sprop_unexpected_annot : env -> 'a
