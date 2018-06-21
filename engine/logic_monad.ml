@@ -180,7 +180,7 @@ struct
   type ('a, 'i, 'o, 'e) t =
       { iolist : 'r. 'i -> ('e -> 'r NonLogical.t) ->
                      ('a -> 'o -> ('e -> 'r NonLogical.t) -> 'r NonLogical.t) ->
-                     'r NonLogical.t }
+                     'r NonLogical.t } [@@ocaml.unboxed]
 
   let return x =
     { iolist = fun s nil cons -> cons x s nil }
