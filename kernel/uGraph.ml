@@ -351,12 +351,9 @@ let rec find_to_merge to_revert g x v =
 
 let get_new_edges g to_merge =
   (* Computing edge sets. *)
-  let to_merge_lvl =
-    List.fold_left (fun acc u -> UMap.add u.univ u acc)
-      UMap.empty to_merge
-  in
+  (** invariant: [to_merge] nodes are unique w.r.t. their univ field *)
   let ltle =
-    let fold _ n acc =
+    let fold acc n =
       let fold u strict acc =
         if strict then UMap.add u strict acc
         else if UMap.mem u acc then acc
@@ -364,10 +361,10 @@ let get_new_edges g to_merge =
       in
       UMap.fold fold n.ltle acc
     in
-    UMap.fold fold to_merge_lvl UMap.empty
+    List.fold_left fold UMap.empty to_merge
   in
   let ltle, _ = clean_ltle g ltle in
-  let fold u _ accu = match UMap.find u accu with
+  let fold accu { univ = u } = match UMap.find u accu with
   | true ->
     (* There is a lt edge inside the new component. This is a
         "bad cycle". *)
@@ -375,13 +372,14 @@ let get_new_edges g to_merge =
   | false -> UMap.remove u accu
   | exception Not_found -> accu
   in
-  let ltle = UMap.fold fold to_merge_lvl ltle in
+  let ltle = List.fold_left fold ltle to_merge in
   let gtge =
-    UMap.fold (fun _ n acc -> LSet.union acc n.gtge)
-      to_merge_lvl LSet.empty
+    List.fold_left (fun acc n -> LSet.union acc n.gtge)
+      LSet.empty to_merge
   in
   let gtge, _ = clean_gtge g gtge in
-  let gtge = LSet.diff gtge (UMap.domain to_merge_lvl) in
+  let fold accu { univ = u } = LSet.remove u accu in
+  let gtge = List.fold_left fold gtge to_merge in
   (ltle, gtge)
 
 
