@@ -367,17 +367,15 @@ let get_new_edges g to_merge =
     UMap.fold fold to_merge_lvl UMap.empty
   in
   let ltle, _ = clean_ltle g ltle in
-  let ltle =
-    UMap.merge (fun _ a strict ->
-      match a, strict with
-      | Some _, Some true ->
-        (* There is a lt edge inside the new component. This is a
-            "bad cycle". *)
-        raise CycleDetected
-      | Some _, Some false -> None
-      | _, _ -> strict
-    ) to_merge_lvl ltle
+  let fold u _ accu = match UMap.find u accu with
+  | true ->
+    (* There is a lt edge inside the new component. This is a
+        "bad cycle". *)
+    raise CycleDetected
+  | false -> UMap.remove u accu
+  | exception Not_found -> accu
   in
+  let ltle = UMap.fold fold to_merge_lvl ltle in
   let gtge =
     UMap.fold (fun _ n acc -> LSet.union acc n.gtge)
       to_merge_lvl LSet.empty
