@@ -300,3 +300,10 @@ Fail Definition fix_relevance : _ -> nat := fun _ : iUnit => 0.
 
 Set Warnings "-bad-relevance".
 Definition fix_relevance : _ -> nat := fun _ : iUnit => 0.
+
+(* relevance isn't fixed when checking P x == P y *)
+Fail Definition relevance_unfixed := fun (A:SProp) (P:A -> Prop) x y (v:P x) => v : P y.
+
+(* but the kernel is fine *)
+Definition relevance_unfixed := fun (A:SProp) (P:A -> Prop) x y (v:P x) =>
+                                  ltac:(refine (_:P y);exact_no_check v).
