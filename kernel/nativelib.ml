@@ -98,10 +98,17 @@ let call_compiler ?profile:(profile=false) ml_filename =
     else
       []
   in
+  let optim_args =
+    if Coq_config.caml_version_nums >= [4;6;0] && Dynlink.is_native then
+      (** Use a linear-time register allocation algorithm *)
+      ["-linscan"]
+    else []
+  in
   let args =
     initial_args @
       profile_args @
         flambda_args @
+          optim_args @
       ("-o"::link_filename
        ::"-rectypes"
        ::"-w"::"a"
