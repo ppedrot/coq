@@ -425,12 +425,12 @@ let interp_instance ?loc evd l =
   evd, Some (Univ.Instance.of_array (Array.of_list (List.rev l')))
 
 let pretype_global ?loc rigid env evd gr us =
-  let evd, instance =
+  let evd, inst =
     match us with
     | None -> evd, None
     | Some l -> interp_instance ?loc evd l
   in
-  Evd.fresh_global ?loc ~rigid ?names:instance !!env evd gr
+  Evd.fresh_global ?loc ~rigid ?inst !!env evd gr
 
 let pretype_ref ?loc sigma env ref us =
   match ref with

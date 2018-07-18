@@ -50,25 +50,25 @@ let fresh_instance_from ?loc ctx = function
 
 open Globnames
 
-let fresh_global_instance ?loc ?names env gr =
+let fresh_global_instance ?loc ?inst env gr =
   let auctx = Environ.universes_of_global env gr in
-  let u, ctx = fresh_instance_from ?loc auctx names in
+  let u, ctx = fresh_instance_from ?loc auctx inst in
   u, ctx
 
-let fresh_constant_instance env c =
-  let u, ctx = fresh_global_instance env (GlobRef.ConstRef c) in
+let fresh_constant_instance ?inst env c =
+  let u, ctx = fresh_global_instance ?inst env (GlobRef.ConstRef c) in
   (c, u), ctx
 
-let fresh_inductive_instance env ind =
-  let u, ctx = fresh_global_instance env (GlobRef.IndRef ind) in
+let fresh_inductive_instance ?inst env ind =
+  let u, ctx = fresh_global_instance ?inst env (GlobRef.IndRef ind) in
   (ind, u), ctx
 
-let fresh_constructor_instance env c =
-  let u, ctx = fresh_global_instance env (GlobRef.ConstructRef c) in
+let fresh_constructor_instance ?inst env c =
+  let u, ctx = fresh_global_instance ?inst env (GlobRef.ConstructRef c) in
   (c, u), ctx
 
-let fresh_global_instance ?loc ?names env gr =
-  let u, ctx = fresh_global_instance ?loc ?names env gr in
+let fresh_global_instance ?loc ?inst env gr =
+  let u, ctx = fresh_global_instance ?loc ?inst env gr in
   mkRef (gr, u), ctx
 
 let constr_of_monomorphic_global gr =

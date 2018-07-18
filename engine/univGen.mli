@@ -36,14 +36,14 @@ val fresh_instance_from : ?loc:Loc.t -> AUContext.t -> Instance.t option ->
 
 val fresh_sort_in_family : Sorts.family ->
   Sorts.t in_universe_context_set
-val fresh_constant_instance : env -> Constant.t ->
+val fresh_constant_instance : ?inst:Univ.Instance.t -> env -> Constant.t ->
   pconstant in_universe_context_set
-val fresh_inductive_instance : env -> inductive ->
+val fresh_inductive_instance : ?inst:Univ.Instance.t -> env -> inductive ->
   pinductive in_universe_context_set
-val fresh_constructor_instance : env -> constructor ->
+val fresh_constructor_instance : ?inst:Univ.Instance.t -> env -> constructor ->
   pconstructor in_universe_context_set
 
-val fresh_global_instance : ?loc:Loc.t -> ?names:Univ.Instance.t -> env -> GlobRef.t ->
+val fresh_global_instance : ?loc:Loc.t -> ?inst:Univ.Instance.t -> env -> GlobRef.t ->
   constr in_universe_context_set
 
 val fresh_global_or_constr_instance : env -> Globnames.global_reference_or_constr ->

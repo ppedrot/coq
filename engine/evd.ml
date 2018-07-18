@@ -445,6 +445,8 @@ type evar_map = {
   evar_names : EvNames.t;
   (** Universes *)
   universes  : UState.t;
+  mono_const : Univ.Instance.t Cmap_env.t;
+  mono_mind  : Univ.Instance.t Mindmap_env.t;
   (** Conversion problems *)
   conv_pbs   : evar_constraint list;
   last_mods  : Evar.Set.t;
@@ -689,6 +691,8 @@ let empty = {
   defn_evars = EvMap.empty;
   undf_evars = EvMap.empty;
   universes  = UState.empty;
+  mono_const = Cmap_env.empty;
+  mono_mind  = Mindmap_env.empty;
   conv_pbs   = [];
   last_mods  = Evar.Set.empty;
   evar_flags = empty_evar_flags;
@@ -910,8 +914,52 @@ let fresh_inductive_instance ?loc env evd i =
 let fresh_constructor_instance ?loc env evd c =
   with_context_set ?loc univ_flexible evd (UnivGen.fresh_constructor_instance env c)
 
-let fresh_global ?loc ?(rigid=univ_flexible) ?names env evd gr =
-  with_context_set ?loc rigid evd (UnivGen.fresh_global_instance ?loc ?names env gr)
+let emulate_monomorphism = ref false
+
+let _ =
+  let open Goptions in
+  declare_bool_option
+    { optdepr  = false;
+      optname  = "locally emulate universe polymorphism";
+      optkey   = ["Universe"; "Polymorphism"; "Monomorphism"; "Emulation"];
+      optread  = (fun () -> !emulate_monomorphism);
+      optwrite = (fun b -> emulate_monomorphism := b) }
+
+let fresh_global ?loc ?(rigid=univ_flexible) ?inst env evd gr =
+  let open GlobRef in
+  let fresh = Option.is_empty inst in
+  let inst = match inst with
+  | Some _ -> inst
+  | None ->
+    if not !emulate_monomorphism then None
+    else try match gr with
+    | VarRef _ -> None
+    | ConstRef cst ->
+      let inst = Cmap_env.find cst evd.mono_const in
+      Some inst
+    | IndRef (mind, _) | ConstructRef ((mind, _), _) ->
+      let inst = Mindmap_env.find mind evd.mono_mind in
+      Some inst
+    with Not_found -> None
+  in
+  let evd, c = with_context_set ?loc rigid evd (UnivGen.fresh_global_instance ?loc ?inst env gr) in
+  match inst with
+  | None ->
+    (* Set the monomorphic instance in the evar map to be reused *)
+    if fresh && !emulate_monomorphism then match gr with
+    | VarRef _ -> evd, c
+    | ConstRef cst ->
+      let (_, u) = destConst c in
+      { evd with mono_const = Cmap_env.add cst u evd.mono_const }, c
+    | IndRef (mind, _) ->
+      let (_, u) = destInd c in
+      { evd with mono_mind = Mindmap_env.add mind u evd.mono_mind }, c
+    | ConstructRef ((mind, _), _) ->
+      let (_, u) = destConstruct c in
+      { evd with mono_mind = Mindmap_env.add mind u evd.mono_mind }, c
+    else
+      evd, c
+  | Some _ -> evd, c
 
 let is_sort_variable evd s = UState.is_sort_variable evd.universes s
 
@@ -1115,6 +1163,8 @@ let set_metas evd metas = {
   defn_evars = evd.defn_evars;
   undf_evars = evd.undf_evars;
   universes  = evd.universes;
+  mono_const = evd.mono_const;
+  mono_mind = evd.mono_mind;
   conv_pbs = evd.conv_pbs;
   last_mods = evd.last_mods;
   evar_flags = evd.evar_flags;
