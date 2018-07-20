@@ -230,6 +230,7 @@ val lookup_mind_key : MutInd.t -> env -> mind_key
 val add_mind_key : MutInd.t -> mind_key -> env -> env
 val add_mind : MutInd.t -> mutual_inductive_body -> env -> env
 val add_mind_alias : MutInd.t -> MutInd.t -> env -> env
+val canonical_mind : MutInd.t -> env -> MutInd.t
 
 (** Looks up in the context of global inductive names 
    raises [Not_found] if the required path is not found *)

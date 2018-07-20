@@ -60,8 +60,8 @@ let subst_global subst ref = match ref with
 
 let canonical_gr = function
   | ConstRef con -> ConstRef(Constant.make1 (Constant.canonical con))
-  | IndRef (kn,i) -> IndRef(MutInd.make1(MutInd.canonical kn),i)
-  | ConstructRef ((kn,i),j )-> ConstructRef((MutInd.make1(MutInd.canonical kn),i),j)
+  | IndRef (kn,i) -> IndRef(MutInd.make1(MutInd.user kn),i) (** FIXME *)
+  | ConstructRef ((kn,i),j )-> ConstructRef((MutInd.make1(MutInd.user kn),i),j) (** FIXME *)
   | VarRef id -> VarRef id
 
 let global_of_constr c = match kind c with

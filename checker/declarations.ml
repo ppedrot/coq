@@ -89,14 +89,6 @@ let constant_of_delta2 resolve con =
   let kn, kn' = Constant.canonical con, Constant.user con in
   gen_of_delta resolve con kn (Constant.make kn')
 
-let mind_of_delta resolve mind =
-  let kn = MutInd.user mind in
-  gen_of_delta resolve mind kn (MutInd.make kn)
-
-let mind_of_delta2 resolve mind =
-  let kn, kn' = MutInd.canonical mind, MutInd.user mind in
-  gen_of_delta resolve mind kn (MutInd.make kn')
-
 let find_inline_of_delta kn resolve =
   match Deltamap.find_kn kn resolve with
     | Inline (_,o) -> o
@@ -156,22 +148,8 @@ let gen_subst_mp f sub mp1 mp2 =
     | None, Some (mp',resolve) -> Canonical, (f mp1 mp'), resolve
     | Some (mp1',_), Some (mp2',resolve2) -> Canonical, (f mp1' mp2'), resolve2
 
-let make_mind_equiv mpu mpc l =
-  let knu = KerName.make mpu l in
-  if mpu == mpc then MutInd.make1 knu
-  else MutInd.make knu (KerName.make mpc l)
-
 let subst_ind sub mind =
-  let kn1,kn2 = MutInd.user mind, MutInd.canonical mind in
-  let mp1,l = KerName.repr kn1 in
-  let mp2,_ = KerName.repr kn2 in
-  let rebuild_mind mp1 mp2 = make_mind_equiv mp1 mp2 l in
-  try
-    let side,mind',resolve = gen_subst_mp rebuild_mind sub mp1 mp2 in
-    match side with
-      | User -> mind_of_delta resolve mind'
-      | Canonical -> mind_of_delta2 resolve mind'
-  with No_subst -> mind
+  MutInd.make1 (subst_kn sub (MutInd.user mind))
 
 let make_con_equiv mpu mpc l =
   let knu = KerName.make mpu l in

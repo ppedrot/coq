@@ -46,12 +46,6 @@ val constant_of_delta_kn : delta_resolver -> KerName.t -> Constant.t
 val constant_of_deltas_kn :
   delta_resolver -> delta_resolver -> KerName.t -> Constant.t
 
-(** Same for inductive names *)
-
-val mind_of_delta_kn : delta_resolver -> KerName.t -> MutInd.t
-val mind_of_deltas_kn :
-  delta_resolver -> delta_resolver -> KerName.t -> MutInd.t
-
 (** Extract the set of inlined constant in the resolver *)
 val inline_of_delta : int option -> delta_resolver -> (int * KerName.t) list
 

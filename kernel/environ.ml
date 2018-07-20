@@ -227,6 +227,12 @@ let rec lookup_mind_key kn env =
 
 let lookup_mind kn env = fst (lookup_mind_key kn env)
 
+let rec canonical_mind kn env =
+  let data = Mindmap_env.find kn env.env_globals.env_inductives in
+  match data with
+  | MindAlias kn -> canonical_mind kn env
+  | MindValue _ -> kn
+
 let oracle env = env.env_typing_flags.conv_oracle
 let set_oracle env o =
   let env_typing_flags = { env.env_typing_flags with conv_oracle = o } in

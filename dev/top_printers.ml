@@ -562,11 +562,11 @@ let raw_string_of_ref ?loc _ = function
       let (mp,id) = Constant.repr2 cst in
       encode_path ?loc "CST" (Some mp) [] (Label.to_id id)
   | IndRef (kn,i) ->
-      let (mp,id) = MutInd.repr2 kn in
+      let (mp,id) = MutInd.repr kn in
       encode_path ?loc "IND" (Some mp) [Label.to_id id]
 	(Id.of_string ("_"^string_of_int i))
   | ConstructRef ((kn,i),j) ->
-      let (mp,id) = MutInd.repr2 kn in
+      let (mp,id) = MutInd.repr kn in
       encode_path ?loc "CSTR" (Some mp)
 	[Label.to_id id;Id.of_string ("_"^string_of_int i)]
 	(Id.of_string ("_"^string_of_int j))

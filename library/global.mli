@@ -91,7 +91,6 @@ val lookup_modtype   : ModPath.t -> Declarations.module_type_body
 val exists_objlabel  : Label.t -> bool
 
 val constant_of_delta_kn : KerName.t -> Constant.t
-val mind_of_delta_kn : KerName.t -> MutInd.t
 
 val opaque_tables : unit -> Opaqueproof.opaquetab
 

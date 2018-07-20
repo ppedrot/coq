@@ -205,7 +205,6 @@ val delta_of_senv :
   safe_environment -> Mod_subst.delta_resolver * Mod_subst.delta_resolver
 
 val constant_of_delta_kn_senv : safe_environment -> KerName.t -> Constant.t
-val mind_of_delta_kn_senv : safe_environment -> KerName.t -> MutInd.t
 
 (** {6 Retroknowledge / Native compiler } *)
 

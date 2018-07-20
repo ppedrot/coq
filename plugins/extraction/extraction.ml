@@ -408,16 +408,17 @@ and extract_really_ind env kn mib =
        we process the original inductive if possible.
        When at toplevel of the monolithic case, we cannot do much
        (cf Vector and bug #2570) *)
+    let alias = Environ.canonical_mind kn env in
     let equiv =
       if lang () != Ocaml ||
 	 (not (modular ()) && at_toplevel (MutInd.modpath kn)) ||
-	 KerName.equal (MutInd.canonical kn) (MutInd.user kn)
+         KerName.equal (MutInd.user alias) (MutInd.user kn)
       then
 	NoEquiv
       else
 	begin
-	  ignore (extract_ind env (MutInd.make1 (MutInd.canonical kn)));
-	  Equiv (MutInd.canonical kn)
+          ignore (extract_ind env alias);
+          Equiv (MutInd.user alias)
 	end
     in
     (* Everything concerning parameters. *)

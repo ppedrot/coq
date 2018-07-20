@@ -391,62 +391,32 @@ module MutInd :
 sig
   type t
 
-  (** Constructors *)
-
-  val make : KerName.t -> KerName.t -> t
-  (** Builds a mutual inductive name from a user and a canonical kernel name. *)
+  (** Constructor and destructor *)
+  val make : ModPath.t -> Label.t -> t
+  val make2 : ModPath.t -> Label.t -> t
+  val repr : t -> ModPath.t * Label.t
 
   val make1 : KerName.t -> t
-  (** Special case of [make] where the user name is canonical.  *)
-
-  val make2 : ModPath.t -> Label.t -> t
-  (** Shortcut for [(make1 (KerName.make2 ...))] *)
+  val user : t -> KerName.t
 
   (** Projections *)
-
-  val user : t -> KerName.t
-  val canonical : t -> KerName.t
-
-  val repr2 : t -> ModPath.t * Label.t
-  (** Shortcut for [KerName.repr (user ...)] *)
-
   val modpath : t -> ModPath.t
-  (** Shortcut for [KerName.modpath (user ...)] *)
-
   val label : t -> Label.t
-  (** Shortcut for [KerName.label (user ...)] *)
+
+  (** Display *)
+  val to_string : t -> string
+
+  val debug_to_string : t -> string
+  (** Same as [to_string], but outputs information related to debug. *)
+
+  val print : t -> Pp.t
+
+  val debug_print : t -> Pp.t
 
   (** Comparisons *)
-
-  module CanOrd : sig
-    val compare : t -> t -> int
-    val equal : t -> t -> bool
-    val hash : t -> int
-  end
-
-  module UserOrd : sig
-    val compare : t -> t -> int
-    val equal : t -> t -> bool
-    val hash : t -> int
-  end
-
-  module SyntacticOrd : sig
-    val compare : t -> t -> int
-    val equal : t -> t -> bool
-    val hash : t -> int
-  end
-
+  val compare : t -> t -> int
   val equal : t -> t -> bool
-  (** Default comparison, alias for [CanOrd.equal] *)
-
   val hash : t -> int
-
-  (** Displaying *)
-
-  val to_string : t -> string
-  val print : t -> Pp.t
-  val debug_to_string : t -> string
-  val debug_print : t -> Pp.t
 
 end
 

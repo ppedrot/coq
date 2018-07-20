@@ -105,7 +105,7 @@ let check_polymorphic_instance error env auctx1 auctx2 =
 
 (* for now we do not allow reorderings *)
 
-let check_inductive cst env mp1 l info1 mp2 mib2 spec2 subst1 subst2 reso1 reso2= 
+let check_inductive cst env mp1 l info1 mp2 mib2 spec2 subst1 subst2 _reso1 reso2=
   let kn1 = KerName.make mp1 l in
   let kn2 = KerName.make mp2 l in
   let error why = error_signature_mismatch l spec2 why in
@@ -191,8 +191,8 @@ let check_inductive cst env mp1 l info1 mp2 mib2 spec2 subst1 subst2 reso1 reso2
   begin
     let kn2' = kn_of_delta reso2 kn2 in
     if KerName.equal kn2 kn2' ||
-       MutInd.equal (mind_of_delta_kn reso1 kn1)
-                    (subst_mind subst2 (MutInd.make kn2 kn2'))
+       MutInd.equal (MutInd.make1 kn1)
+                    (subst_mind subst2 (MutInd.make1 kn2')) (** FIXME *)
     then ()
     else error NotEqualInductiveAliases
   end;

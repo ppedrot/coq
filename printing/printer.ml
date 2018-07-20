@@ -855,7 +855,7 @@ struct
     | Constant k1 , Constant k2 ->
         Constant.CanOrd.compare k1 k2
     | Positive m1 , Positive m2 ->
-        MutInd.CanOrd.compare m1 m2
+        MutInd.compare m1 m2
     | Guarded k1 , Guarded k2 ->
         Constant.CanOrd.compare k1 k2
     | _ , Constant _ -> 1

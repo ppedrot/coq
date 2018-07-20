@@ -143,7 +143,7 @@ let lookup_constant cst =
 
 let rec lookup_mind_in_impl mind =
   try
-    let mp,lab = KerName.repr (MutInd.canonical mind) in
+    let mp,lab = MutInd.repr mind in
     let fields = memoize_fields_of_mp mp in
     begin match search_mind_label lab fields with
     | MindValue mib -> mib

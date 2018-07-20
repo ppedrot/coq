@@ -196,12 +196,6 @@ let constant_of_delta_kn resolve kn =
 let constant_of_deltas_kn resolve1 resolve2 kn =
   Constant.make kn (kn_of_deltas resolve1 resolve2 kn)
 
-let mind_of_delta_kn resolve kn =
-  MutInd.make kn (kn_of_delta resolve kn)
-
-let mind_of_deltas_kn resolve1 resolve2 kn =
-  MutInd.make kn (kn_of_deltas resolve1 resolve2 kn)
-
 let inline_of_delta inline resolver =
   match inline with
     | None -> []
@@ -275,17 +269,11 @@ let progress f x ~orelse =
   if y != x then y else orelse
 
 let subst_mind sub mind =
-  let mpu,l = MutInd.repr2 mind in
-  let mpc = KerName.modpath (MutInd.canonical mind) in
-  try
-    let mpu,mpc,resolve,user = subst_dual_mp sub mpu mpc in
-    let knu = KerName.make mpu l in
-    let knc = if mpu == mpc then knu else KerName.make mpc l in
-    let knc' =
-      progress (kn_of_delta resolve) (if user then knu else knc) ~orelse:knc
-    in
-    MutInd.make knu knc'
-  with No_subst -> mind
+ let mp, l = MutInd.repr mind in
+  match subst_mp0 sub mp with
+     Some (mp',_) ->
+      (MutInd.make mp' l)
+   | None -> mind
 
 let subst_ind sub (ind,i as indi) =
   let ind' = subst_mind sub ind in

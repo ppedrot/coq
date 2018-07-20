@@ -376,6 +376,9 @@ module KerName = struct
     { modpath; knlabel; refhash = -1; }
   let repr kn = (kn.modpath, kn.knlabel)
 
+  let make1 kn = kn
+  let user kn = kn
+
   let make2 = make
   [@@ocaml.deprecated "Please use [KerName.make]"]
 
@@ -390,6 +393,8 @@ module KerName = struct
   let debug_to_string kn = to_string_gen ModPath.debug_to_string kn
 
   let print kn = str (to_string kn)
+
+  let debug_print kp = str (debug_to_string kp)
 
   let compare (kn1 : kernel_name) (kn2 : kernel_name) =
     if kn1 == kn2 then 0
@@ -591,11 +596,11 @@ module Cset_env = Cmap_env.Set
 
 (** {6 Names of mutual inductive types } *)
 
-module MutInd = KerPair
+module MutInd = KerName
 
-module Mindmap = HMap.Make(MutInd.CanOrd)
+module Mindmap = HMap.Make(MutInd)
 module Mindset = Mindmap.Set
-module Mindmap_env = HMap.Make(MutInd.UserOrd)
+module Mindmap_env = HMap.Make(MutInd)
 
 (** Designation of a (particular) inductive type. *)
 type inductive = MutInd.t      (* the name of the inductive type *)
@@ -618,26 +623,26 @@ let index_of_constructor (_ind, i) = i
 
 let eq_ind (m1, i1) (m2, i2) = Int.equal i1 i2 && MutInd.equal m1 m2
 let eq_user_ind (m1, i1) (m2, i2) =
-  Int.equal i1 i2 && MutInd.UserOrd.equal m1 m2
+  Int.equal i1 i2 && MutInd.equal m1 m2
 let eq_syntactic_ind (m1, i1) (m2, i2) =
-  Int.equal i1 i2 && MutInd.SyntacticOrd.equal m1 m2
+  Int.equal i1 i2 && MutInd.equal m1 m2
 
 let ind_ord (m1, i1) (m2, i2) =
   let c = Int.compare i1 i2 in
-  if Int.equal c 0 then MutInd.CanOrd.compare m1 m2 else c
+  if Int.equal c 0 then MutInd.compare m1 m2 else c
 let ind_user_ord (m1, i1) (m2, i2) =
   let c = Int.compare i1 i2 in
-  if Int.equal c 0 then MutInd.UserOrd.compare m1 m2 else c
+  if Int.equal c 0 then MutInd.compare m1 m2 else c
 let ind_syntactic_ord (m1, i1) (m2, i2) =
   let c = Int.compare i1 i2 in
-  if Int.equal c 0 then MutInd.SyntacticOrd.compare m1 m2 else c
+  if Int.equal c 0 then MutInd.compare m1 m2 else c
 
 let ind_hash (m, i) =
   Hashset.Combine.combine (MutInd.hash m) (Int.hash i)
 let ind_user_hash (m, i) =
-  Hashset.Combine.combine (MutInd.UserOrd.hash m) (Int.hash i)
+  Hashset.Combine.combine (MutInd.hash m) (Int.hash i)
 let ind_syntactic_hash (m, i) =
-  Hashset.Combine.combine (MutInd.SyntacticOrd.hash m) (Int.hash i)
+  Hashset.Combine.combine (MutInd.hash m) (Int.hash i)
 
 let eq_constructor (ind1, j1) (ind2, j2) = Int.equal j1 j2 && eq_ind ind1 ind2
 let eq_user_constructor (ind1, j1) (ind2, j2) =
@@ -709,7 +714,7 @@ module Hconstruct = Hashcons.Make(
   end)
 
 let hcons_con = Hashcons.simple_hcons Constant.HashKP.generate Constant.HashKP.hcons KerName.hcons
-let hcons_mind = Hashcons.simple_hcons MutInd.HashKP.generate MutInd.HashKP.hcons KerName.hcons
+let hcons_mind = KerName.hcons
 let hcons_ind = Hashcons.simple_hcons Hind.generate Hind.hcons hcons_mind
 let hcons_construct = Hashcons.simple_hcons Hconstruct.generate Hconstruct.hcons hcons_ind
 
@@ -739,7 +744,7 @@ let eq_table_key f ik1 ik2 =
   | RelKey k1, RelKey k2 -> Int.equal k1 k2
   | _ -> false
 
-let eq_mind_chk = MutInd.UserOrd.equal
+let eq_mind_chk = MutInd.equal
 let eq_ind_chk (kn1,i1) (kn2,i2) = Int.equal i1 i2 && eq_mind_chk kn1 kn2
 
 (*******************************************************************)
@@ -772,7 +777,9 @@ struct
 
     let mind c = fst c.proj_ind
 
-    let constant c = KerPair.change_label (mind c) c.proj_name
+    let constant c =
+      let (mp, _) = KerName.repr (mind c) in
+      Constant.make2 mp c.proj_name
 
     let label c = c.proj_name
 

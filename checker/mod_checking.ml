@@ -90,7 +90,6 @@ and check_structure_field env mp lab res = function
       check_constant_declaration env c cb
   | SFBmind mib ->
       let kn = MutInd.make2 mp lab in
-      let kn = mind_of_delta res kn in
       Indtypes.check_inductive env kn mib
   | SFBmodule msb ->
       let () = check_module env (MPdot(mp,lab)) msb in

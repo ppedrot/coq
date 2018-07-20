@@ -57,7 +57,7 @@ let rec add_structure mp sign resolver env =
   let add_one env (l,elem) =
     let kn = KerName.make mp l in
     let con = Constant.make1 kn in
-    let mind = mind_of_delta resolver (MutInd.make1 kn) in
+    let mind = MutInd.make1 kn in
       match elem with
 	| SFBconst cb ->
 	   (* let con =  constant_of_delta resolver con in*)

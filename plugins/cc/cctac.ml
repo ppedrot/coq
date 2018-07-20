@@ -63,7 +63,7 @@ let rec decompose_term env sigma t=
     | Construct c ->
 	let (((mind,i_ind),i_con),u)= c in 
 	let u = EInstance.kind sigma u in
-	let canon_mind = MutInd.make1 (MutInd.canonical mind) in
+        let canon_mind = Environ.canonical_mind mind env in
 	let canon_ind = canon_mind,i_ind in
 	let (oib,_)=Global.lookup_inductive (canon_ind) in
 	let nargs=constructor_nallargs_env env (canon_ind,i_con) in
@@ -73,14 +73,14 @@ let rec decompose_term env sigma t=
     | Ind c -> 
 	let (mind,i_ind),u = c in 
 	let u = EInstance.kind sigma u in
-	let canon_mind = MutInd.make1 (MutInd.canonical mind) in
+        let canon_mind = Environ.canonical_mind mind env in
 	let canon_ind = canon_mind,i_ind in  (Symb (Constr.mkIndU (canon_ind,u)))
     | Const (c,u) -> 
 	let u = EInstance.kind sigma u in
 	let canon_const = Constant.make1 (Constant.canonical c) in 
 	  (Symb (Constr.mkConstU (canon_const,u)))
     | Proj (p, c) -> 
-        let canon_mind kn = MutInd.make1 (MutInd.canonical kn) in
+        let canon_mind kn = Environ.canonical_mind kn env in
         let p' = Projection.map canon_mind p in
 	let c = Retyping.expand_projection env sigma p' c [] in
 	decompose_term env sigma c

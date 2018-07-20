@@ -534,7 +534,7 @@ let declare_mutual_inductive_with_eliminations mie pl impls =
   end;
   let names = List.map (fun e -> e.mind_entry_typename) mie.mind_entry_inds in
   let (_, kn), prim = declare_mind mie in
-  let mind = Global.mind_of_delta_kn kn in
+  let mind = MutInd.make1 kn in
   List.iteri (fun i (indimpls, constrimpls) ->
               let ind = (mind,i) in
               let gr = IndRef ind in

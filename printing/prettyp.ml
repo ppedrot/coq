@@ -386,13 +386,13 @@ let canonize_ref = function
     if KerName.equal (Constant.user c) kn then None
     else Some (ConstRef (Constant.make1 kn))
   | IndRef (ind,i) ->
-    let kn = MutInd.canonical ind in
-    if KerName.equal (MutInd.user ind) kn then None
-    else Some (IndRef (MutInd.make1 kn, i))
+    let kn = Environ.canonical_mind ind (Global.env ()) in
+    if MutInd.equal ind kn then None
+    else Some (IndRef (kn, i))
   | ConstructRef ((ind,i),j) ->
-    let kn = MutInd.canonical ind in
-    if KerName.equal (MutInd.user ind) kn then None
-    else Some (ConstructRef ((MutInd.make1 kn, i),j))
+    let kn = Environ.canonical_mind ind (Global.env ()) in
+    if MutInd.equal ind kn then None
+    else Some (ConstructRef ((kn, i),j))
   | VarRef _ -> None
 
 let display_alias = function
@@ -728,7 +728,7 @@ let print_full_pure_context env sigma =
                 pr_lconstr_env env sigma (Mod_subst.force_constr c))
           ++ str "." ++ fnl () ++ fnl ()
       | "INDUCTIVE" ->
-	  let mind = Global.mind_of_delta_kn kn in
+          let mind = MutInd.make1 kn in
 	  let mib = Global.lookup_mind mind in
           pr_mutual_inductive_body (Global.env()) mind mib None ++
 	    str "." ++ fnl () ++ fnl ()

@@ -449,10 +449,10 @@ let rec canonize_name sigma c =
 	  let canon_const = Constant.make1 (Constant.canonical kn) in 
 	    (mkConstU (canon_const,u))
       | Ind ((kn,i),u) ->
-	  let canon_mind = MutInd.make1 (MutInd.canonical kn) in
+          let canon_mind = Environ.canonical_mind kn (Global.env ()) in
 	    (mkIndU ((canon_mind,i),u))
       | Construct (((kn,i),j),u) ->
-	  let canon_mind = MutInd.make1 (MutInd.canonical kn) in
+          let canon_mind = Environ.canonical_mind kn (Global.env ()) in
 	    mkConstructU (((canon_mind,i),j),u)
       | Prod (na,t,ct) ->
 	  mkProd (na,func t, func ct)
@@ -464,7 +464,7 @@ let rec canonize_name sigma c =
           mkApp (func ct,Array.Smart.map func l)
       | Proj(p,c) ->
 	let p' = Projection.map (fun kn ->
-          MutInd.make1 (MutInd.canonical kn)) p in
+          Environ.canonical_mind kn (Global.env ())) p in
 	  (mkProj (p', func c))
       | _ -> c
 

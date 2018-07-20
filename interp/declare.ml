@@ -272,7 +272,7 @@ let declare_inductive_argument_scopes kn mie =
 
 let inductive_names sp kn mie =
   let (dp,_) = repr_path sp in
-  let kn = Global.mind_of_delta_kn kn in
+  let kn = MutInd.make1 kn in
   let names, _ =
     List.fold_left
       (fun (names, n) ind ->
@@ -310,7 +310,7 @@ let cache_inductive ((sp,kn),mie) =
   List.iter (fun (sp, ref) -> Nametab.push (Nametab.Until 1) sp ref) names
 
 let discharge_inductive ((sp,kn),mie) =
-  let mind = Global.mind_of_delta_kn kn in
+  let mind = MutInd.make1 kn in
   let mie = Global.lookup_mind mind in
   let repl = replacement_context () in
   let info = section_segment_of_mutual_inductive mind in
@@ -401,7 +401,7 @@ let declare_mind mie =
     | ind::_ -> ind.mind_entry_typename
     | [] -> anomaly (Pp.str "cannot declare an empty list of inductives.") in
   let (sp,kn as oname) = add_leaf id (inInductive mie) in
-  let mind = Global.mind_of_delta_kn kn in
+  let mind = MutInd.make1 kn in
   let isprim = declare_projections mie.mind_entry_universes mind in
   declare_mib_implicits mind;
   declare_inductive_argument_scopes mind mie;

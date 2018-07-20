@@ -82,7 +82,7 @@ let iter_declarations (fn : GlobRef.t -> env -> constr -> unit) =
     let (typ, _) = Typeops.type_of_global_in_context (Global.env ()) gr in
       fn gr env typ
   | "INDUCTIVE" ->
-    let mind = Global.mind_of_delta_kn kn in
+    let mind = MutInd.make1 kn in
     let mib = Global.lookup_mind mind in
     let iter_packet i mip =
       let ind = (mind, i) in

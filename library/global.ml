@@ -149,9 +149,6 @@ let body_of_constant cst = body_of_constant_body (lookup_constant cst)
 let constant_of_delta_kn kn =
   Safe_typing.constant_of_delta_kn_senv (safe_env ()) kn
 
-let mind_of_delta_kn kn =
-  Safe_typing.mind_of_delta_kn_senv (safe_env ()) kn
-
 (** Operations on libraries *)
 
 let start_library dir = globalize (Safe_typing.start_library dir)

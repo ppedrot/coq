@@ -38,7 +38,7 @@ let occur_kn_in_ref kn = function
 let repr_of_r = function
   | ConstRef kn -> Constant.repr2 kn
   | IndRef (kn,_)
-  | ConstructRef ((kn,_),_) -> MutInd.repr2 kn
+  | ConstructRef ((kn,_),_) -> MutInd.repr kn
   | VarRef v -> KerName.repr (Lib.make_kn v)
 
 let modpath_of_r r =
@@ -187,7 +187,7 @@ let recursors = ref KNset.empty
 let init_recursors () = recursors := KNset.empty
 
 let add_recursors env ind =
-  let kn = MutInd.canonical ind in
+  let kn = MutInd.user (Environ.canonical_mind ind env) in
   let mk_kn id =
     KerName.make (KerName.modpath kn) (Label.of_id id)
   in

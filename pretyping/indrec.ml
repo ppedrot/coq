@@ -600,7 +600,7 @@ let make_elimination_ident id s = add_suffix id (elimination_suffix s)
 
 let lookup_eliminator ind_sp s =
   let kn,i = ind_sp in
-  let mp,l = KerName.repr (MutInd.canonical kn) in
+  let mp,l = MutInd.repr (Environ.canonical_mind kn (Global.env ())) in
   let ind_id = (Global.lookup_mind kn).mind_packets.(i).mind_typename in
   let id = add_suffix ind_id (elimination_suffix s) in
   (* Try first to get an eliminator defined in the same section as the *)

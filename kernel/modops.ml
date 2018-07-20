@@ -292,7 +292,7 @@ let rec add_structure mp sign resolver linkinfo env =
       let c = constant_of_delta_kn resolver (KerName.make mp l) in
       Environ.add_constant_key c cb linkinfo env
     |SFBmind (MindValue mib) ->
-      let mind = mind_of_delta_kn resolver (KerName.make mp l) in
+      let mind = MutInd.make2 mp l in
       let mib = 
 	if mib.mind_private != None then 
 	  { mib with mind_private = Some true }
@@ -300,7 +300,7 @@ let rec add_structure mp sign resolver linkinfo env =
       in
       Environ.add_mind_key mind (mib,ref linkinfo) env
     | SFBmind (MindAlias mind0) ->
-      let mind = mind_of_delta_kn resolver (KerName.make mp l) in
+      let mind = MutInd.make2 mp l in
       Environ.add_mind_alias mind mind0 env
     |SFBmodule mb -> add_module mb linkinfo env (* adds components as well *)
     |SFBmodtype mtb -> Environ.add_modtype mtb env

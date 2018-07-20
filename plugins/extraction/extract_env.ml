@@ -210,8 +210,7 @@ let env_for_mtb_with_def env mp me reso idl =
 let make_cst resolver mp l =
   Mod_subst.constant_of_delta_kn resolver (KerName.make mp l)
 
-let make_mind resolver mp l =
-  Mod_subst.mind_of_delta_kn resolver (KerName.make mp l)
+let make_mind resolver mp l = MutInd.make1 (KerName.make mp l)
 
 (* From a [structure_body] (i.e. a list of [structure_field_body])
    to specifications. *)

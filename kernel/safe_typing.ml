@@ -171,9 +171,6 @@ let delta_of_senv senv = senv.modresolver,senv.paramresolver
 let constant_of_delta_kn_senv senv kn =
   Mod_subst.constant_of_deltas_kn senv.paramresolver senv.modresolver kn
 
-let mind_of_delta_kn_senv senv kn =
-  Mod_subst.mind_of_deltas_kn senv.paramresolver senv.modresolver kn
-
 (** The safe_environment state monad *)
 
 type safe_transformer0 = safe_environment -> safe_environment
@@ -802,7 +799,7 @@ let check_mind mie lab =
 
 let add_mind l mie senv =
   let () = check_mind mie l in
-  let kn = MutInd.make2 senv.modpath l in
+  let kn = MutInd.make senv.modpath l in
   let mib = Term_typing.translate_mind senv.env kn mie in
   let mib =
     match mib.mind_hyps with [] -> Declareops.hcons_mind mib | _ -> mib
@@ -1037,9 +1034,9 @@ let add_include me is_module inl senv =
       | SFBconst _ ->
         field, C (Mod_subst.constant_of_delta_kn resolver (KerName.make mp_sup l))
       | SFBmind _ ->
-        let mind = Mod_subst.mind_of_delta_kn resolver (KerName.make mp_sup l) in
-        let kn = MutInd.make1 (MutInd.canonical mind) in
-        (l, SFBmind (MindAlias kn)), I mind
+        let mind = KerName.make mp_sup l in
+        let kn = MutInd.make1 (Mod_subst.kn_of_delta resolver mind) in
+        (l, SFBmind (MindAlias kn)), I (MutInd.make1 mind)
       | SFBmodule _ -> field, M
       | SFBmodtype _ -> field, MT
     in
