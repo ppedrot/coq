@@ -147,19 +147,25 @@ let body_of_constant cst = body_of_constant_body (lookup_constant cst)
 
 (** Operations on kernel names *)
 
+(** Try a 1st resolver, and then a 2nd in case it had no effect *)
+
+let kn_of_deltas resolve1 resolve2 kn =
+  let mp' = Mod_subst.kn_of_delta resolve1 kn in
+  if mp' == KerName.modpath kn then Mod_subst.kn_of_delta resolve2 kn else mp'
+
 let constant_of_delta_kn kn =
   let resolver,resolver_param = Safe_typing.delta_of_senv (safe_env ())
   in
   (* TODO : are resolver and resolver_param orthogonal ?
      the effect of resolver is lost if resolver_param isn't
      trivial at that spot. *)
-  Mod_subst.constant_of_deltas_kn resolver_param resolver kn
+  Constant.make kn (kn_of_deltas resolver_param resolver kn)
 
 let mind_of_delta_kn kn =
   let resolver,resolver_param = Safe_typing.delta_of_senv (safe_env ())
   in
   (* TODO idem *)
-  Mod_subst.mind_of_deltas_kn resolver_param resolver kn
+  MutInd.make kn (kn_of_deltas resolver_param resolver kn)
 
 (** Operations on libraries *)
 

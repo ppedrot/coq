@@ -170,23 +170,11 @@ let kn_of_delta resolve kn =
   try solve_delta_kn resolve kn
   with Change_equiv_to_inline _ -> KerName.modpath kn
 
-(** Try a 1st resolver, and then a 2nd in case it had no effect *)
-
-let kn_of_deltas resolve1 resolve2 kn =
-  let mp' = kn_of_delta resolve1 kn in
-  if mp' == KerName.modpath kn then kn_of_delta resolve2 kn else mp'
-
 let constant_of_delta_kn resolve kn =
   Constant.make kn (kn_of_delta resolve kn)
 
-let constant_of_deltas_kn resolve1 resolve2 kn =
-  Constant.make kn (kn_of_deltas resolve1 resolve2 kn)
-
 let mind_of_delta_kn resolve kn =
   MutInd.make kn (kn_of_delta resolve kn)
-
-let mind_of_deltas_kn resolve1 resolve2 kn =
-  MutInd.make kn (kn_of_deltas resolve1 resolve2 kn)
 
 let inline_of_delta inline resolver =
   match inline with
