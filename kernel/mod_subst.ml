@@ -20,12 +20,14 @@ open Util
 open Names
 open Constr
 
-(* For Inline, the int is an inlining level, and the constr (if present)
-   is the term into which we should inline. *)
+(** - [Equiv mp] means that the canonical kernel name is obtained from the key
+      by replacing its module path with [mp].
+    - For [Inline], the int is an inlining level, and the constr (if present)
+      is the term into which we should inline. *)
 
 type delta_hint =
   | Inline of int * (Univ.AUContext.t * constr) option
-  | Equiv of KerName.t
+  | Equiv of ModPath.t
 
 (* NB: earlier constructor Prefix_equiv of ModPath.t
    is now stored in a separate table, see Deltamap.t below *)
@@ -45,9 +47,6 @@ module Deltamap = struct
     MPmap.fold fmp mm (KNmap.fold fkn km i)
   let join map1 map2 = fold add_mp add_kn map1 map2
 end
-
-(* Invariant: in the [delta_hint] map, an [Equiv] should only
-   relate [KerName.t] with the same label (and section dirpath). *)
 
 type delta_resolver = Deltamap.t
 
@@ -78,7 +77,7 @@ let is_empty_subst = Umap.is_empty
 let string_of_hint = function
   | Inline (_,Some _) -> "inline(Some _)"
   | Inline _ -> "inline()"
-  | Equiv kn -> KerName.to_string kn
+  | Equiv kn -> ModPath.to_string kn
 
 let debug_string_of_delta resolve =
   let kn_to_string kn hint l =
@@ -118,9 +117,7 @@ let debug_pr_subst sub =
 
 let add_inline_delta_resolver kn (lev,oc) = Deltamap.add_kn kn (Inline (lev,oc))
 
-let add_kn_delta_resolver kn mp =
-  let kn' = KerName.make mp (KerName.dirpath kn) (KerName.label kn) in
-  Deltamap.add_kn kn (Equiv kn')
+let add_kn_delta_resolver kn mp = Deltamap.add_kn kn (Equiv mp)
 
 let add_mp_delta_resolver mp1 mp2 = Deltamap.add_mp mp1 mp2
 
@@ -160,24 +157,17 @@ let find_prefix resolve mp =
 
 exception Change_equiv_to_inline of (int * (Univ.AUContext.t * constr))
 
-let find_canonical_mp_kn resolve kn =
+let solve_delta_kn resolve kn =
   try
     match Deltamap.find_kn kn resolve with
-      | Equiv kn1 -> KerName.modpath kn1
+      | Equiv mp -> mp
       | Inline (lev, Some c) ->	raise (Change_equiv_to_inline (lev,c))
       | Inline (_, None) -> raise Not_found
   with Not_found ->
     find_prefix resolve (KerName.modpath kn)
 
-let solve_delta_kn resolve kn =
-  let mp = find_canonical_mp_kn resolve kn in
-  if mp == KerName.modpath kn then kn
-  else
-    let (_, dp, lbl) = KerName.repr kn in
-    KerName.make mp dp lbl
-
 let kn_of_delta resolve kn =
-  try find_canonical_mp_kn resolve kn
+  try solve_delta_kn resolve kn
   with Change_equiv_to_inline _ -> KerName.modpath kn
 
 (** Try a 1st resolver, and then a 2nd in case it had no effect *)
@@ -250,7 +240,7 @@ let subst_kn_delta sub kn =
   match subst_mp0 sub mp with
      Some (mp',resolve) ->
       solve_delta_kn resolve (KerName.make mp' dir l)
-   | None -> kn
+   | None -> mp
 
 
 let subst_kn sub kn =
@@ -485,6 +475,7 @@ let gen_subst_delta_resolver dom subst resolver =
     let kkey' = if dom then subst_kn subst kkey else kkey in
     let hint' = match hint with
       | Equiv kequ ->
+        let kequ = KerName.make kequ (KerName.dirpath kkey) (KerName.label kkey) in
 	  (try Equiv (subst_kn_delta subst kequ)
 	   with Change_equiv_to_inline (lev,c) -> Inline (lev,Some c))
       | Inline (lev,Some (ctx, t)) -> Inline (lev,Some (ctx, subst_mps subst t))
@@ -504,7 +495,8 @@ let update_delta_resolver resolver1 resolver2 =
   let kn_apply_rslv kkey hint1 rslv =
     let hint = match hint1 with
       | Equiv kequ ->
-	(try Equiv (solve_delta_kn resolver2 kequ)
+        let kequ = KerName.make kequ (KerName.dirpath kkey) (KerName.label kkey) in
+        (try Equiv (solve_delta_kn resolver2 kequ)
 	 with Change_equiv_to_inline (lev,c) -> Inline (lev, Some c))
       | Inline (_,Some _) -> hint1
       | Inline (_,None) ->

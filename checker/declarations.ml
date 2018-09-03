@@ -75,22 +75,17 @@ let solve_delta_kn resolve kn =
       | Equiv kn1 -> kn1
       | Inline _ -> raise Not_found
   with Not_found ->
-    let mp,dir,l = KerName.repr kn in
-    let new_mp = find_prefix resolve mp in
-    if mp == new_mp then
-      kn
-    else
-      KerName.make new_mp dir l
+    find_prefix resolve (KerName.modpath kn)
 
 let gen_of_delta resolve x kn fix_can =
   let new_kn = solve_delta_kn resolve kn in
-  if kn == new_kn then x else fix_can new_kn
+  if KerName.modpath kn == new_kn then x else fix_can new_kn
 
 let fix_constant kn kn' =
-  Constant.make kn (KerName.modpath kn')
+  Constant.make kn kn'
 
 let fix_mutind kn kn' =
-  MutInd.make kn (KerName.modpath kn')
+  MutInd.make kn kn'
 
 let constant_of_delta resolve con =
   let kn = Constant.user con in
@@ -149,7 +144,7 @@ let subst_kn_delta sub kn =
   match subst_mp0 sub mp with
      Some (mp',resolve) ->
       solve_delta_kn resolve (KerName.make mp' dir l)
-   | None -> kn
+   | None -> mp
 
 let subst_kn sub kn =
  let mp,dir,l = KerName.repr kn in
@@ -346,7 +341,9 @@ let gen_subst_delta_resolver dom subst resolver =
   let kn_apply_subst kkey hint rslv =
     let kkey' = if dom then subst_kn subst kkey else kkey in
     let hint' = match hint with
-      | Equiv kequ -> Equiv (subst_kn_delta subst kequ)
+      | Equiv kequ ->
+        let kequ = KerName.make kequ (KerName.dirpath kkey) (KerName.label kkey) in
+        Equiv (subst_kn_delta subst kequ)
       | Inline (lev,Some (ctx, t)) -> Inline (lev,Some (ctx, subst_mps subst t))
       | Inline (_,None) -> hint
     in
@@ -366,8 +363,10 @@ let update_delta_resolver resolver1 resolver2 =
     if Deltamap.mem_kn kkey resolver2 then rslv
     else
       let hint' = match hint with
-	| Equiv kequ -> Equiv (solve_delta_kn resolver2 kequ)
-	| _ -> hint
+      | Equiv kequ ->
+        let kequ = KerName.make kequ (KerName.dirpath kkey) (KerName.label kkey) in
+        Equiv (solve_delta_kn resolver2 kequ)
+      | _ -> hint
       in
       Deltamap.add_kn kkey hint' rslv
   in

@@ -128,7 +128,7 @@ type section_context = unit
 
 type delta_hint =
   | Inline of int * (Univ.AUContext.t * constr) option
-  | Equiv of KerName.t
+  | Equiv of ModPath.t
 
 type delta_resolver = ModPath.t MPmap.t * delta_hint KNmap.t
 
