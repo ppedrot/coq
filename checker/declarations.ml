@@ -86,21 +86,27 @@ let gen_of_delta resolve x kn fix_can =
   let new_kn = solve_delta_kn resolve kn in
   if kn == new_kn then x else fix_can new_kn
 
+let fix_constant kn kn' =
+  Constant.make kn (KerName.modpath kn')
+
+let fix_mutind kn kn' =
+  MutInd.make kn (KerName.modpath kn')
+
 let constant_of_delta resolve con =
   let kn = Constant.user con in
-  gen_of_delta resolve con kn (Constant.make kn)
+  gen_of_delta resolve con kn (fix_constant kn)
 
 let constant_of_delta2 resolve con =
   let kn, kn' = Constant.canonical con, Constant.user con in
-  gen_of_delta resolve con kn (Constant.make kn')
+  gen_of_delta resolve con kn (fix_constant kn')
 
 let mind_of_delta resolve mind =
   let kn = MutInd.user mind in
-  gen_of_delta resolve mind kn (MutInd.make kn)
+  gen_of_delta resolve mind kn (fix_mutind kn)
 
 let mind_of_delta2 resolve mind =
   let kn, kn' = MutInd.canonical mind, MutInd.user mind in
-  gen_of_delta resolve mind kn (MutInd.make kn')
+  gen_of_delta resolve mind kn (fix_mutind kn')
 
 let find_inline_of_delta kn resolve =
   match Deltamap.find_kn kn resolve with
@@ -169,7 +175,7 @@ let gen_subst_mp f sub mp1 mp2 =
 let make_mind_equiv mpu mpc dir l =
   let knu = KerName.make mpu dir l in
   if mpu == mpc then MutInd.make1 knu
-  else MutInd.make knu (KerName.make mpc dir l)
+  else MutInd.make knu mpc
 
 let subst_ind sub mind =
   let kn1,kn2 = MutInd.user mind, MutInd.canonical mind in
@@ -186,7 +192,7 @@ let subst_ind sub mind =
 let make_con_equiv mpu mpc dir l =
   let knu = KerName.make mpu dir l in
   if mpu == mpc then Constant.make1 knu
-  else Constant.make knu (KerName.make mpc dir l)
+  else Constant.make knu mpc
 
 let subst_con0 sub con u =
   let kn1,kn2 = Constant.user con, Constant.canonical con in

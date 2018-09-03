@@ -495,13 +495,11 @@ module KerPair = struct
     assert (DirPath.is_empty (KerName.dirpath knu));
     Dual (knu, mpc)
 
-  let make knu knc =
-    if KerName.equal knu knc then Same knc
+  let make knu mpc =
+    if ModPath.equal (KerName.modpath knu) mpc then Same knu
     else
       let () = assert (DirPath.is_empty (KerName.dirpath knu)) in
-      let () = assert (DirPath.is_empty (KerName.dirpath knc)) in
-      let () = assert (Label.equal (KerName.label knu) (KerName.label knc)) in
-      Dual (knu, KerName.modpath knc)
+      Dual (knu, mpc)
 
   let make1 = same
   let make2 mp l = same (KerName.make2 mp l)

@@ -25,7 +25,7 @@ val add_mp_delta_resolver :
   ModPath.t -> ModPath.t -> delta_resolver -> delta_resolver
 
 val add_kn_delta_resolver :
-  KerName.t -> KerName.t -> delta_resolver -> delta_resolver
+  KerName.t -> ModPath.t -> delta_resolver -> delta_resolver
 
 val add_inline_delta_resolver :
   KerName.t -> (int * (Univ.AUContext.t * constr) option) -> delta_resolver -> delta_resolver
@@ -35,7 +35,7 @@ val add_delta_resolver : delta_resolver -> delta_resolver -> delta_resolver
 (** Effect of a [delta_resolver] on a module path, on a kernel name *)
 
 val mp_of_delta : delta_resolver -> ModPath.t -> ModPath.t
-val kn_of_delta : delta_resolver -> KerName.t -> KerName.t
+val kn_of_delta : delta_resolver -> KerName.t -> ModPath.t
 
 (** Build a constant whose canonical part is obtained via a resolver *)
 

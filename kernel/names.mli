@@ -280,6 +280,7 @@ sig
 
   (** Projections *)
   val modpath : t -> ModPath.t
+  val dirpath : t -> DirPath.t
   val label : t -> Label.t
 
   (** Display *)
@@ -308,8 +309,9 @@ sig
 
   (** Constructors *)
 
-  val make : KerName.t -> KerName.t -> t
-  (** Builds a constant name from a user and a canonical kernel name. *)
+  val make : KerName.t -> ModPath.t -> t
+  (** Builds a constant name from a user kernel name and a canonical module
+      path. *)
 
   val make1 : KerName.t -> t
   (** Special case of [make] where the user name is canonical.  *)
@@ -394,8 +396,9 @@ sig
 
   (** Constructors *)
 
-  val make : KerName.t -> KerName.t -> t
-  (** Builds a mutual inductive name from a user and a canonical kernel name. *)
+  val make : KerName.t -> ModPath.t -> t
+  (** Builds a mutual inductive name from a user kernel name and a canonical
+      module path. *)
 
   val make1 : KerName.t -> t
   (** Special case of [make] where the user name is canonical.  *)

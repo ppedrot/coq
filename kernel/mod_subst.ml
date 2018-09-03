@@ -118,8 +118,8 @@ let debug_pr_subst sub =
 
 let add_inline_delta_resolver kn (lev,oc) = Deltamap.add_kn kn (Inline (lev,oc))
 
-let add_kn_delta_resolver kn kn' =
-  assert (Label.equal (KerName.label kn) (KerName.label kn'));
+let add_kn_delta_resolver kn mp =
+  let kn' = KerName.make mp (KerName.dirpath kn) (KerName.label kn) in
   Deltamap.add_kn kn (Equiv kn')
 
 let add_mp_delta_resolver mp1 mp2 = Deltamap.add_mp mp1 mp2
@@ -160,29 +160,31 @@ let find_prefix resolve mp =
 
 exception Change_equiv_to_inline of (int * (Univ.AUContext.t * constr))
 
-let solve_delta_kn resolve kn =
+let find_canonical_mp_kn resolve kn =
   try
     match Deltamap.find_kn kn resolve with
-      | Equiv kn1 -> kn1
+      | Equiv kn1 -> KerName.modpath kn1
       | Inline (lev, Some c) ->	raise (Change_equiv_to_inline (lev,c))
       | Inline (_, None) -> raise Not_found
   with Not_found ->
-    let mp,dir,l = KerName.repr kn in
-    let new_mp = find_prefix resolve mp in
-    if mp == new_mp then
-      kn
-    else
-      KerName.make new_mp dir l
+    find_prefix resolve (KerName.modpath kn)
+
+let solve_delta_kn resolve kn =
+  let mp = find_canonical_mp_kn resolve kn in
+  if mp == KerName.modpath kn then kn
+  else
+    let (_, dp, lbl) = KerName.repr kn in
+    KerName.make mp dp lbl
 
 let kn_of_delta resolve kn =
-  try solve_delta_kn resolve kn
-  with Change_equiv_to_inline _ -> kn
+  try find_canonical_mp_kn resolve kn
+  with Change_equiv_to_inline _ -> KerName.modpath kn
 
 (** Try a 1st resolver, and then a 2nd in case it had no effect *)
 
 let kn_of_deltas resolve1 resolve2 kn =
-  let kn' = kn_of_delta resolve1 kn in
-  if kn' == kn then kn_of_delta resolve2 kn else kn'
+  let mp' = kn_of_delta resolve1 kn in
+  if mp' == KerName.modpath kn then kn_of_delta resolve2 kn else mp'
 
 let constant_of_delta_kn resolve kn =
   Constant.make kn (kn_of_delta resolve kn)
@@ -271,7 +273,7 @@ let subst_dual_mp sub mp1 mp2 =
 
 let progress f x ~orelse =
   let y = f x in
-  if y != x then y else orelse
+  if y != (KerName.modpath x) then y else orelse
 
 let subst_mind sub mind =
   let mpu,dir,l = MutInd.repr3 mind in
@@ -281,7 +283,7 @@ let subst_mind sub mind =
     let knu = KerName.make mpu dir l in
     let knc = if mpu == mpc then knu else KerName.make mpc dir l in
     let knc' =
-      progress (kn_of_delta resolve) (if user then knu else knc) ~orelse:knc
+      progress (kn_of_delta resolve) (if user then knu else knc) ~orelse:mpc
     in
     MutInd.make knu knc'
   with No_subst -> mind
@@ -306,7 +308,7 @@ let subst_con0 sub (cst,u) =
       Constant.make1 knu, Vars.subst_instance_constr u t
     | None ->
       let knc' =
-        progress (kn_of_delta resolve) (if user then knu else knc) ~orelse:knc
+        progress (kn_of_delta resolve) (if user then knu else knc) ~orelse:mpc
       in
       let cst' = Constant.make knu knc' in
       cst', mkConstU (cst',u)
