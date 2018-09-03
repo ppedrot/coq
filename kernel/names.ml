@@ -381,6 +381,7 @@ module KerName = struct
     { modpath; dirpath = DirPath.empty; knlabel; refhash = -1; }
 
   let modpath kn = kn.modpath
+  let dirpath kn = kn.dirpath
   let label kn = kn.knlabel
 
   let to_string_gen mp_to_string kn =
@@ -454,14 +455,13 @@ module KNset = KNmap.Set
 
 (** {6 Kernel pairs } *)
 
-(** For constant and inductive names, we use a kernel name couple (kn1,kn2)
-   where kn1 corresponds to the name used at toplevel (i.e. what the user see)
-   and kn2 corresponds to the canonical kernel name i.e. in the environment
-   we have {% kn1 \rhd_{\delta}^* kn2 \rhd_{\delta} t %}
+(** For constant and inductive names, we use a couple (knu, mpc)
+   where knu corresponds to the name used at toplevel (i.e. what the user see)
+   and mpc corresponds to the canonical module path i.e. in the environment
+   we have {% knu \rhd_{\delta}^* knc \rhd_{\delta} t %} where [knc] is [knu]
+   whose module path has been replaced by [mpc].
 
    Invariants :
-    - the user and canonical kn may differ only on their [module_path],
-      the dirpaths and labels should be the same
     - when user and canonical parts differ, we cannot be in a section
       anymore, hence the dirpath must be empty
     - two pairs with the same user part should have the same canonical part
@@ -476,20 +476,32 @@ module KerPair = struct
 
   type t =
     | Same of KerName.t (** user = canonical *)
-    | Dual of KerName.t * KerName.t (** user then canonical *)
+    | Dual of KerName.t * ModPath.t (** user then canonical *)
 
   type kernel_pair = t
 
   let canonical = function
     | Same kn -> kn
-    | Dual (_,kn) -> kn
+    | Dual (kn0, mp) -> KerName.make2 mp (KerName.label kn0)
 
   let user = function
     | Same kn -> kn
     | Dual (kn,_) -> kn
 
   let same kn = Same kn
-  let make knu knc = if KerName.equal knu knc then Same knc else Dual (knu,knc)
+
+  let dual knu mpc =
+    assert (not (ModPath.equal (KerName.modpath knu) mpc));
+    assert (DirPath.is_empty (KerName.dirpath knu));
+    Dual (knu, mpc)
+
+  let make knu knc =
+    if KerName.equal knu knc then Same knc
+    else
+      let () = assert (DirPath.is_empty (KerName.dirpath knu)) in
+      let () = assert (DirPath.is_empty (KerName.dirpath knc)) in
+      let () = assert (Label.equal (KerName.label knu) (KerName.label knc)) in
+      Dual (knu, KerName.modpath knc)
 
   let make1 = same
   let make2 mp l = same (KerName.make2 mp l)
@@ -499,14 +511,11 @@ module KerPair = struct
   let modpath kp = KerName.modpath (user kp)
 
   let change_label kp lbl =
-    let (mp1,dp1,l1) = KerName.repr (user kp)
-    and (mp2,dp2,l2) = KerName.repr (canonical kp) in
-    assert (String.equal l1 l2 && DirPath.equal dp1 dp2);
+    let (mp1,dp1,l1) = KerName.repr (user kp) in
     if String.equal lbl l1 then kp
-    else
-      let kn = KerName.make mp1 dp1 lbl in
-      if mp1 == mp2 then same kn
-      else make kn (KerName.make mp2 dp2 lbl)
+    else match kp with
+    | Same _ -> same (KerName.make mp1 dp1 lbl)
+    | Dual (_, mp) -> Dual (KerName.make mp1 dp1 lbl, mp)
 
   let to_string kp = KerName.to_string (user kp)
   let print kp = str (to_string kp)
@@ -514,7 +523,7 @@ module KerPair = struct
   let debug_to_string = function
     | Same kn -> "(" ^ KerName.debug_to_string kn ^ ")"
     | Dual (knu,knc) ->
-      "(" ^ KerName.debug_to_string knu ^ "," ^ KerName.debug_to_string knc ^ ")"
+      "(" ^ KerName.debug_to_string knu ^ "," ^ ModPath.debug_to_string knc ^ ")"
 
   let debug_print kp = str (debug_to_string kp)
 
@@ -542,14 +551,14 @@ module KerPair = struct
       | Dual (knux,kncx), Dual (knuy,kncy) ->
         let c = KerName.compare knux knuy in
         if not (Int.equal c 0) then c
-        else KerName.compare kncx kncy
+        else ModPath.compare kncx kncy
       | Same _, _ -> -1
       | Dual _, _ -> 1
     let equal x y = x == y || compare x y = 0
     let hash = function
       | Same kn -> KerName.hash kn
       | Dual (knu, knc) ->
-        Hashset.Combine.combine (KerName.hash knu) (KerName.hash knc)
+        Hashset.Combine.combine (KerName.hash knu) (ModPath.hash knc)
   end
 
   (** Default (logical) comparison and hash is on the canonical part *)
@@ -559,10 +568,10 @@ module KerPair = struct
   module Self_Hashcons =
     struct
       type t = kernel_pair
-      type u = KerName.t -> KerName.t
-      let hashcons hkn = function
+      type u = (KerName.t -> KerName.t) * (ModPath.t -> ModPath.t)
+      let hashcons (hkn, hmp) = function
         | Same kn -> Same (hkn kn)
-        | Dual (knu,knc) -> make (hkn knu) (hkn knc)
+        | Dual (knu,knc) -> dual (hkn knu) (hmp knc)
       let eq x y = (* physical comparison on subterms *)
         x == y ||
         match x,y with
@@ -576,7 +585,7 @@ module KerPair = struct
       let hash = function
       | Same kn -> KerName.hash kn
       | Dual (knu, knc) ->
-        Hashset.Combine.combine (KerName.hash knu) (KerName.hash knc)
+        Hashset.Combine.combine (KerName.hash knu) (ModPath.hash knc)
     end
 
   module HashKP = Hashcons.Make(Self_Hashcons)
@@ -718,8 +727,8 @@ module Hconstruct = Hashcons.Make(
     let hash = constructor_hash
   end)
 
-let hcons_con = Hashcons.simple_hcons Constant.HashKP.generate Constant.HashKP.hcons KerName.hcons
-let hcons_mind = Hashcons.simple_hcons MutInd.HashKP.generate MutInd.HashKP.hcons KerName.hcons
+let hcons_con = Hashcons.simple_hcons Constant.HashKP.generate Constant.HashKP.hcons (KerName.hcons, ModPath.hcons)
+let hcons_mind = Hashcons.simple_hcons MutInd.HashKP.generate MutInd.HashKP.hcons (KerName.hcons, ModPath.hcons)
 let hcons_ind = Hashcons.simple_hcons Hind.generate Hind.hcons hcons_mind
 let hcons_construct = Hashcons.simple_hcons Hconstruct.generate Hconstruct.hcons hcons_ind
 
