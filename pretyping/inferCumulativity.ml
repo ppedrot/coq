@@ -104,15 +104,15 @@ let rec infer_fterm cv_pb infos variances hd stk =
     let variances = infer_table_key infos variances fl in
     infer_stack infos variances stk
   | FProj (_,c) ->
-    let variances = infer_fterm CONV infos variances c [] in
+    let variances = infer_fterm CONV infos variances c Ztop in
     infer_stack infos variances stk
   | FLambda _ ->
     let (_,ty,bd) = destFLambda mk_clos hd in
-    let variances = infer_fterm CONV infos variances ty [] in
-    infer_fterm CONV infos variances bd []
+    let variances = infer_fterm CONV infos variances ty Ztop in
+    infer_fterm CONV infos variances bd Ztop
   | FProd (_,dom,codom) ->
-    let variances = infer_fterm CONV infos variances dom [] in
-    infer_fterm cv_pb infos variances codom []
+    let variances = infer_fterm CONV infos variances dom Ztop in
+    infer_fterm cv_pb infos variances codom Ztop
   | FInd (ind, u) ->
     let variances =
       if Instance.is_empty u then variances
@@ -140,31 +140,31 @@ let rec infer_fterm cv_pb infos variances hd stk =
   | FLOCKED | FCaseT _ | FCast _ | FLetIn _ | FApp _ | FLIFT _ | FCLOS _ -> assert false
 
 and infer_stack infos variances (stk:CClosure.stack) =
+  let open CClosure in
   match stk with
-  | [] -> variances
-  | z :: stk ->
-    let open CClosure in
-    let variances = match z with
-      | Zapp v -> infer_vect infos variances v
-      | Zproj _ -> variances
-      | Zfix (fx,a) ->
-        let variances = infer_fterm CONV infos variances fx [] in
-        infer_stack infos variances a
-      | ZcaseT (ci,p,br,e) ->
-        let variances = infer_fterm CONV infos variances (mk_clos e p) [] in
-        infer_vect infos variances (Array.map (mk_clos e) br)
-      | Zshift _ -> variances
-      | Zupdate _ -> variances
-    in
+  | Ztop -> variances
+  | Zapp (v, stk) ->
+    let variances = infer_vect infos variances v in
+    infer_stack infos variances stk
+  | Zfix (fx, a, stk) ->
+    let variances = infer_fterm CONV infos variances fx Ztop in
+    let variances = infer_stack infos variances a in
+    infer_stack infos variances stk
+  | ZcaseT (ci, p, br, e, stk) ->
+    let variances = infer_fterm CONV infos variances (mk_clos e p) Ztop in
+    let variances = infer_vect infos variances (Array.map (mk_clos e) br) in
+    infer_stack infos variances stk
+  | Zproj (_, stk) | Zshift (_, stk) | Zupdate (_, stk) ->
     infer_stack infos variances stk
 
 and infer_vect infos variances v =
-  Array.fold_left (fun variances c -> infer_fterm CONV infos variances c []) variances v
+  let open CClosure in
+  Array.fold_left (fun variances c -> infer_fterm CONV infos variances c Ztop) variances v
 
 let infer_term cv_pb env variances c =
   let open CClosure in
   let infos = (create_clos_infos all env, create_tab ()) in
-  infer_fterm cv_pb infos variances (CClosure.inject c) []
+  infer_fterm cv_pb infos variances (CClosure.inject c) Ztop
 
 let infer_arity_constructor is_arity env variances arcn =
   let infer_typ typ (env,variances) =

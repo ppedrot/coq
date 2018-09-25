@@ -153,18 +153,16 @@ type fterm =
    [append_stack] one array at a time but popped with [decomp_stack]
    one by one *)
 
-type stack_member =
-  | Zapp of fconstr array
-  | ZcaseT of case_info * constr * constr array * fconstr subs
-  | Zproj of Projection.Repr.t
-  | Zfix of fconstr * stack
-  | Zshift of int
-  | Zupdate of fconstr
-
-and stack = stack_member list
+type stack =
+  | Ztop
+  | Zapp of fconstr array * stack
+  | ZcaseT of case_info * constr * constr array * fconstr subs * stack
+  | Zproj of Projection.Repr.t * stack
+  | Zfix of fconstr * stack * stack
+  | Zshift of int * stack
+  | Zupdate of fconstr * stack
 
 val empty_stack : stack
-val append_stack : fconstr array -> stack -> stack
 
 val decomp_stack : stack -> (fconstr * stack) option
 val array_of_stack : stack -> fconstr array

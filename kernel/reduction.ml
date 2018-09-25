@@ -28,39 +28,38 @@ open Esubst
 open Context.Rel.Declaration
 
 let rec is_empty_stack = function
-  [] -> true
-  | Zupdate _::s -> is_empty_stack s
-  | Zshift _::s -> is_empty_stack s
-  | _ -> false
+| Ztop -> true
+| Zupdate (_, s) -> is_empty_stack s
+| Zshift (_, s) -> is_empty_stack s
+| _ -> false
 
 (* Compute the lift to be performed on a term placed in a given stack *)
 let el_stack el stk =
-  let n =
-    List.fold_left
-      (fun i z ->
-        match z with
-            Zshift n -> i+n
-          | _ -> i)
-      0
-      stk in
+  let rec count i = function
+  | Ztop -> i
+  | Zshift (k, s) -> count (i + k) s
+  | Zapp (_, s) | ZcaseT (_, _, _ ,_, s)
+  | Zproj (_, s) | Zfix (_, _, s) | Zupdate (_, s) -> count i s
+  in
+  let n = count 0 stk in
   el_shft n el
 
 let compare_stack_shape stk1 stk2 =
   let rec compare_rec bal stk1 stk2 =
   match (stk1,stk2) with
-      ([],[]) -> Int.equal bal 0
-    | ((Zupdate _|Zshift _)::s1, _) -> compare_rec bal s1 stk2
-    | (_, (Zupdate _|Zshift _)::s2) -> compare_rec bal stk1 s2
-    | (Zapp l1::s1, _) -> compare_rec (bal+Array.length l1) s1 stk2
-    | (_, Zapp l2::s2) -> compare_rec (bal-Array.length l2) stk1 s2
-    | (Zproj p1::s1, Zproj p2::s2) ->
+      (Ztop, Ztop) -> Int.equal bal 0
+    | ((Zupdate (_, s1) | Zshift (_, s1)), _) -> compare_rec bal s1 stk2
+    | (_, (Zupdate (_, s2) |Zshift (_, s2))) -> compare_rec bal stk1 s2
+    | (Zapp (l1, s1), _) -> compare_rec (bal+Array.length l1) s1 stk2
+    | (_, Zapp (l2, s2)) -> compare_rec (bal-Array.length l2) stk1 s2
+    | (Zproj (p1, s1), Zproj (p2, s2)) ->
         Int.equal bal 0 && compare_rec 0 s1 s2
-    | (ZcaseT(c1,_,_,_)::s1, ZcaseT(c2,_,_,_)::s2) ->
+    | (ZcaseT(c1, _, _, _, s1), ZcaseT (c2, _, _, _, s2)) ->
         Int.equal bal 0 (* && c1.ci_ind  = c2.ci_ind *) && compare_rec 0 s1 s2
-    | (Zfix(_,a1)::s1, Zfix(_,a2)::s2) ->
+    | (Zfix (_, a1, s1), Zfix (_, a2, s2)) ->
         Int.equal bal 0 && compare_rec 0 a1 a2 && compare_rec 0 s1 s2
-    | [], _ :: _
-    | (Zproj _ | ZcaseT _ | Zfix _) :: _, _ -> false
+    | Ztop, _
+    | (Zproj _ | ZcaseT _ | Zfix _), _ -> false
   in
   compare_rec 0 stk1 stk2
 
@@ -87,22 +86,25 @@ let map_lift (l : lift) (v : fconstr array) = match v with
 | v -> Array.Fun1.map (fun l t -> (l, t)) l v
 
 let pure_stack lfts stk =
-  let rec pure_rec lfts stk =
-    match stk with
-        [] -> (lfts,[])
-      | zi::s ->
-          (match (zi,pure_rec lfts s) with
-              (Zupdate _,lpstk)  -> lpstk
-            | (Zshift n,(l,pstk)) -> (el_shft n l, pstk)
-            | (Zapp a, (l,pstk)) ->
-                (l,zlapp (map_lift l a) pstk)
-            | (Zproj p, (l,pstk)) ->
-                (l, Zlproj (p,l)::pstk)
-            | (Zfix(fx,a),(l,pstk)) ->
-                let (lfx,pa) = pure_rec l a in
-                (l, Zlfix((lfx,fx),pa)::pstk)
-            | (ZcaseT(ci,p,br,e),(l,pstk)) ->
-                (l,Zlcase(ci,l,mk_clos e p,Array.map (mk_clos e) br)::pstk))
+  let rec pure_rec lfts stk = match stk with
+  | Ztop -> (lfts, [])
+  | Zupdate (_, s) -> pure_rec lfts s
+  | Zshift (n, s) ->
+    let (l, pstk) = pure_rec lfts s in
+    (el_shft n l, pstk)
+  | Zapp (v, s) ->
+    let (l, pstk) = pure_rec lfts s in
+    (l, zlapp (map_lift l v) pstk)
+  | Zproj (p, s) ->
+    let (l, pstk) = pure_rec lfts s in
+    (l, Zlproj (p,l)::pstk)
+  | Zfix (fx, a, s) ->
+    let (l, pstk) = pure_rec lfts s in
+    let (lfx, pa) = pure_rec l a in
+    (l, Zlfix ((lfx, fx), pa) :: pstk)
+  | ZcaseT (ci, p, br, e, s) ->
+    let (l, pstk) = pure_rec lfts s in
+    (l, Zlcase (ci, l, mk_clos e p, Array.map (mk_clos e) br) :: pstk)
   in
   snd (pure_rec lfts stk)
 
@@ -327,7 +329,7 @@ type conv_tab = {
 
 (* Conversion between  [lft1]term1 and [lft2]term2 *)
 let rec ccnv cv_pb l2r infos lft1 lft2 term1 term2 cuniv =
-  eqappr cv_pb l2r infos (lft1, (term1,[])) (lft2, (term2,[])) cuniv
+  eqappr cv_pb l2r infos (lft1, (term1, Ztop)) (lft2, (term2, Ztop)) cuniv
 
 (* Conversion between [lft1](hd1 v1) and [lft2](hd2 v2) *)
 and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
@@ -402,11 +404,11 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
 	 form *)
       (match unfold_projection infos.cnv_inf p1 with
       | Some s1 ->
-        eqappr cv_pb l2r infos (lft1, (c1, (Zproj s1 :: v1))) appr2 cuniv
+        eqappr cv_pb l2r infos (lft1, (c1, (Zproj (s1, v1)))) appr2 cuniv
       | None ->
         match unfold_projection infos.cnv_inf p2 with
         | Some s2 ->
-          eqappr cv_pb l2r infos appr1 (lft2, (c2, (Zproj s2 :: v2))) cuniv
+          eqappr cv_pb l2r infos appr1 (lft2, (c2, (Zproj (s2, v2)))) cuniv
 	| None -> 
           if Projection.Repr.equal (Projection.repr p1) (Projection.repr p2)
 	     && compare_stack_shape v1 v2 then
@@ -420,7 +422,7 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
     | (FProj (p1,c1), t2) ->
       (match unfold_projection infos.cnv_inf p1 with
       | Some s1 ->
-         eqappr cv_pb l2r infos (lft1, (c1, (Zproj s1 :: v1))) appr2 cuniv
+         eqappr cv_pb l2r infos (lft1, (c1, (Zproj (s1, v1)))) appr2 cuniv
       | None -> 
 	 (match t2 with 
 	  | FFlex fl2 ->
@@ -433,7 +435,7 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
     | (t1, FProj (p2,c2)) ->
       (match unfold_projection infos.cnv_inf p2 with
       | Some s2 ->
-         eqappr cv_pb l2r infos appr1 (lft2, (c2, (Zproj s2 :: v2))) cuniv
+         eqappr cv_pb l2r infos appr1 (lft2, (c2, (Zproj (s2, v2)))) cuniv
       | None -> 
 	 (match t1 with 
 	  | FFlex fl1 ->
@@ -468,22 +470,22 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
     (* Eta-expansion on the fly *)
     | (FLambda _, _) ->
         let () = match v1 with
-        | [] -> ()
+        | Ztop -> ()
         | _ ->
           anomaly (Pp.str "conversion was given unreduced term (FLambda).")
         in
         let (_,_ty1,bd1) = destFLambda mk_clos hd1 in
         eqappr CONV l2r infos
-	  (el_lift lft1, (bd1, [])) (el_lift lft2, (hd2, eta_expand_stack v2)) cuniv
+          (el_lift lft1, (bd1, Ztop)) (el_lift lft2, (hd2, eta_expand_stack v2)) cuniv
     | (_, FLambda _) ->
         let () = match v2 with
-        | [] -> ()
+        | Ztop -> ()
         | _ ->
 	  anomaly (Pp.str "conversion was given unreduced term (FLambda).")
 	in
         let (_,_ty2,bd2) = destFLambda mk_clos hd2 in
         eqappr CONV l2r infos
-	  (el_lift lft1, (hd1, eta_expand_stack v1)) (el_lift lft2, (bd2, [])) cuniv
+          (el_lift lft1, (hd1, eta_expand_stack v1)) (el_lift lft2, (bd2, Ztop)) cuniv
 	
     (* only one constant, defined var or defined rel *)
     | (FFlex fl1, c2)      ->
