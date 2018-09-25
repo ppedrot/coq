@@ -885,7 +885,7 @@ let contract_fix_vect fix =
 let unfold_projection info p =
   if red_projection info.i_flags p
   then
-    Some (Zproj (Projection.repr p))
+    Some (Projection.repr p)
   else None
 
 (*********************************************************************)
@@ -908,7 +908,7 @@ let rec knh info m stk =
     | FProj (p,c) ->
       (match unfold_projection info p with
        | None -> (m, stk)
-       | Some s -> knh info c (s :: zupdate info m stk))
+       | Some s -> knh info c (Zproj s :: zupdate info m stk))
 
 (* cases where knh stops *)
     | (FFlex _|FLetIn _|FConstruct _|FEvar _|

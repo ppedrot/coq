@@ -402,11 +402,11 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
 	 form *)
       (match unfold_projection infos.cnv_inf p1 with
       | Some s1 ->
-        eqappr cv_pb l2r infos (lft1, (c1, (s1 :: v1))) appr2 cuniv
+        eqappr cv_pb l2r infos (lft1, (c1, (Zproj s1 :: v1))) appr2 cuniv
       | None ->
         match unfold_projection infos.cnv_inf p2 with
         | Some s2 ->
-          eqappr cv_pb l2r infos appr1 (lft2, (c2, (s2 :: v2))) cuniv
+          eqappr cv_pb l2r infos appr1 (lft2, (c2, (Zproj s2 :: v2))) cuniv
 	| None -> 
           if Projection.Repr.equal (Projection.repr p1) (Projection.repr p2)
 	     && compare_stack_shape v1 v2 then
@@ -420,7 +420,7 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
     | (FProj (p1,c1), t2) ->
       (match unfold_projection infos.cnv_inf p1 with
       | Some s1 ->
-         eqappr cv_pb l2r infos (lft1, (c1, (s1 :: v1))) appr2 cuniv
+         eqappr cv_pb l2r infos (lft1, (c1, (Zproj s1 :: v1))) appr2 cuniv
       | None -> 
 	 (match t2 with 
 	  | FFlex fl2 ->
@@ -433,7 +433,7 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
     | (t1, FProj (p2,c2)) ->
       (match unfold_projection infos.cnv_inf p2 with
       | Some s2 ->
-         eqappr cv_pb l2r infos appr1 (lft2, (c2, (s2 :: v2))) cuniv
+         eqappr cv_pb l2r infos appr1 (lft2, (c2, (Zproj s2 :: v2))) cuniv
       | None -> 
 	 (match t1 with 
 	  | FFlex fl1 ->
