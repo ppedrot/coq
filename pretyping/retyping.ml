@@ -259,8 +259,31 @@ let expand_projection env sigma pr c args =
 
 let relevance_of_term env sigma c =
   if Environ.sprop_allowed env then
-    let s = get_sort_family_of env sigma (get_type_of env sigma c) in
-    Sorts.relevance_of_sort_family s
+    let rec aux rels c =
+      match kind sigma c with
+      | Rel n -> Retypeops.relevance_of_rel_extra env rels n
+      | Var x -> Retypeops.relevance_of_var env x
+      | Sort _ -> Sorts.Relevant
+      | Cast (c, _, _) -> aux rels c
+      | Prod ({binder_relevance=r}, _, codom) ->
+        aux (r::rels) codom
+      | Lambda ({binder_relevance=r}, _, bdy) ->
+        aux (r::rels) bdy
+      | LetIn ({binder_relevance=r}, _, _, bdy) ->
+        aux (r::rels) bdy
+      | App (c, _) -> aux rels c
+      | Const (c,_) -> Retypeops.relevance_of_constant env c
+      | Ind _ -> Sorts.Relevant
+      | Construct (c,_) -> Retypeops.relevance_of_constructor env c
+      | Case (ci, _, _, _, _) -> ci.ci_relevance
+      | Fix ((_,i),(lna,_,_)) -> (lna.(i)).binder_relevance
+      | CoFix (i,(lna,_,_)) -> (lna.(i)).binder_relevance
+      | Proj (p, _) -> Retypeops.relevance_of_projection env p
+
+      | Meta _ | Evar _ -> Sorts.Relevant
+
+    in
+    aux [] c
   else Sorts.Relevant
 
 let relevance_of_type env sigma t =

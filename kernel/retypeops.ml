@@ -22,11 +22,11 @@ let relevance_of_var env x =
   let decl = lookup_named x env in
   Context.Named.Declaration.get_relevance decl
 
-let relevance_of_constant env (c,_) =
+let relevance_of_constant env c =
   let decl = lookup_constant c env in
   decl.const_relevance
 
-let relevance_of_constructor env (((mi,i),_),_) =
+let relevance_of_constructor env ((mi,i),_) =
   let decl = lookup_mind mi env in
   let packet = decl.mind_packets.(i) in
   packet.mind_relevant
@@ -42,7 +42,7 @@ let rec relevance_of_rel_extra env extra n =
   | _ :: extra -> relevance_of_rel_extra env extra (n-1)
 
 let relevance_of_flex env extra lft = function
-  | ConstKey c -> relevance_of_constant env c
+  | ConstKey (c,_) -> relevance_of_constant env c
   | VarKey x -> relevance_of_var env x
   | RelKey p -> relevance_of_rel_extra env extra (Esubst.reloc_rel p lft)
 
@@ -54,7 +54,7 @@ let rec relevance_of_fterm env extra lft f =
   | FCast (c, _, _) -> relevance_of_fterm env extra lft c
   | FFlex key -> relevance_of_flex env extra lft key
   | FInd _ -> Sorts.Relevant
-  | FConstruct c -> relevance_of_constructor env c
+  | FConstruct (c,_) -> relevance_of_constructor env c
   | FApp (f, _) -> relevance_of_fterm env extra lft f
   | FProj (p, _) -> relevance_of_projection env p
   | FFix (((_,i),(lna,_,_)), _) -> (lna.(i)).binder_relevance
@@ -94,9 +94,9 @@ and relevance_of_term_extra env extra lft subs c =
   | LetIn ({binder_relevance=r}, _, _, bdy) ->
     relevance_of_term_extra env (r::extra) (Esubst.el_lift lft) (Esubst.subs_lift subs) bdy
   | App (c, _) -> relevance_of_term_extra env extra lft subs c
-  | Const c -> relevance_of_constant env c
+  | Const (c,_) -> relevance_of_constant env c
   | Ind _ -> Sorts.Relevant
-  | Construct c -> relevance_of_constructor env c
+  | Construct (c,_) -> relevance_of_constructor env c
   | Case (ci, _, _, _, _) -> ci.ci_relevance
   | Fix ((_,i),(lna,_,_)) -> (lna.(i)).binder_relevance
   | CoFix (i,(lna,_,_)) -> (lna.(i)).binder_relevance
