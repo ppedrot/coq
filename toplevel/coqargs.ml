@@ -117,7 +117,7 @@ let init_args = {
   color = `AUTO;
 
   impredicative_set = Declarations.PredicativeSet;
-  allow_sprop = false;
+  allow_sprop = true;
   cumulative_sprop = false;
   stm_flags    = Stm.AsyncOpts.default_opts;
   debug        = false;
