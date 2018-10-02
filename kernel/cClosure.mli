@@ -192,6 +192,9 @@ val term_of_fconstr : fconstr -> constr
 val destFLambda :
   (fconstr subs -> constr -> fconstr) -> fconstr -> Name.t Constr.binder_annot * fconstr * fconstr
 
+val relevance_of : fconstr -> Sorts.relevance option
+val set_relevance : Sorts.relevance -> fconstr -> unit
+
 (** Global and local constant cache *)
 type clos_infos = fconstr infos
 val create_clos_infos : ?univs:UGraph.t ->

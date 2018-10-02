@@ -355,12 +355,60 @@ let info_relevances infos = infos.i_relevances
 type red_state = Norm | Cstr | Whnf | Red
 
 let neutr = function
-  | (Whnf|Norm) -> Whnf
-  | (Red|Cstr) -> Red
+  | Whnf|Norm -> Whnf
+  | Red|Cstr -> Red
+
+module Mark : sig
+
+  type t
+
+  val mark : red_state -> Sorts.relevance option -> t
+  val relevance : t -> Sorts.relevance option
+  val red_state : t -> red_state
+
+  val neutr : t -> t
+
+  val set_norm : t -> t
+
+end = struct
+  open Sorts
+  type t = int
+
+  let of_state = function
+    | Norm -> 0b00 | Cstr -> 0b01 | Whnf -> 0b10 | Red -> 0b11
+
+  let of_relevance = function
+    | None -> 0
+    | Some Relevant -> 0b01
+    | Some Irrelevant -> 0b10
+
+  let mark state relevance = (of_state state) * 4 + (of_relevance relevance)
+
+  let relevant = Some Relevant
+  let irrelevant = Some Irrelevant
+  let relevance x = match x land 0b11 with
+    | 0b00 -> None
+    | 0b01 -> relevant
+    | 0b10 -> irrelevant
+    | _ -> assert false
+
+  let red_state x = match x land 0b1100 with
+    | 0b0000 -> Norm
+    | 0b0100 -> Cstr
+    | 0b1000 -> Whnf
+    | 0b1100 -> Red
+    | _ -> assert false
+
+  let neutr x = x lor 0b1000 (* Whnf|Norm -> Whnf | Red|Cstr -> Red *)
+
+  let set_norm x = x land 0b0011
+end
+let mark = Mark.mark
 
 type fconstr = {
-  mutable norm: red_state;
-  mutable term: fterm }
+  mutable mark : Mark.t;
+  mutable term: fterm;
+}
 
 and fterm =
   | FRel of int
@@ -386,20 +434,20 @@ and fterm =
 and finvert = Univ.Instance.t * fconstr array * fconstr array
 
 let fterm_of v = v.term
-let set_norm v = v.norm <- Norm
-let is_val v = match v.norm with Norm -> true | _ -> false
+let set_norm v = v.mark <- Mark.set_norm v.mark
+let is_val v = match Mark.red_state v.mark with Norm -> true | _ -> false
 
-let mk_atom c = {norm=Norm;term=FAtom c}
-let mk_red f = {norm=Red;term=f}
+let mk_atom c = {mark=mark Norm None;term=FAtom c}
+let mk_red f = {mark=mark Red None;term=f}
 
 (* Could issue a warning if no is still Red, pointing out that we loose
    sharing. *)
-let update v1 no t =
+let update v1 mark t =
   if !share then
-    (v1.norm <- no;
+    (v1.mark <- mark;
      v1.term <- t;
      v1)
-  else {norm=no;term=t}
+  else {mark;term=t;}
 
 (**********************************************************************)
 (* The type of (machine) stacks (= lambda-bar-calculus' contexts)     *)
@@ -480,14 +528,18 @@ let rec stack_nth s p = match s with
 let rec lft_fconstr n ft =
   match ft.term with
     | (FInd _|FConstruct _|FFlex(ConstKey _|VarKey _)) -> ft
-    | FRel i -> {norm=Norm;term=FRel(i+n)}
-    | FLambda(k,tys,f,e) -> {norm=Cstr; term=FLambda(k,tys,f,subs_shft(n,e))}
-    | FFix(fx,e) -> {norm=Cstr; term=FFix(fx,subs_shft(n,e))}
-    | FCoFix(cfx,e) -> {norm=Cstr; term=FCoFix(cfx,subs_shft(n,e))}
+    | FRel i -> {mark=mark Norm None;term=FRel(i+n)}
+    | FLambda(k,tys,f,e) -> {mark=mark Cstr None; term=FLambda(k,tys,f,subs_shft(n,e))}
+    | FFix(((_,i),(nas,_,_) as fx),e) ->
+      let r = nas.(i).binder_relevance in
+      {mark=mark Cstr (Some r); term=FFix(fx,subs_shft(n,e))}
+    | FCoFix((i,(nas,_,_) as cfx),e) ->
+      let r = nas.(i).binder_relevance in
+      {mark=mark Cstr (Some r); term=FCoFix(cfx,subs_shft(n,e))}
     | FLIFT(k,m) -> lft_fconstr (n+k) m
     | FLOCKED -> assert false
     | FFlex _ | FAtom _ | FCast _ | FApp _ | FProj _ | FCaseT _ | FCaseInvert _ | FProd _
-      | FLetIn _ | FEvar _ | FCLOS _ -> {norm=ft.norm; term=FLIFT(n,ft)}
+      | FLetIn _ | FEvar _ | FCLOS _ -> {mark=ft.mark; term=FLIFT(n,ft)}
 let lift_fconstr k f =
   if Int.equal k 0 then f else lft_fconstr k f
 let lift_fconstr_vect k v =
@@ -496,9 +548,9 @@ let lift_fconstr_vect k v =
 let clos_rel e i =
   match expand_rel i e with
     | Inl(n,mt) -> lift_fconstr n mt
-    | Inr(k,None) -> {norm=Norm; term= FRel k}
+    | Inr(k,None) -> {mark=mark Norm None; term= FRel k}
     | Inr(k,Some p) ->
-        lift_fconstr (k-p) {norm=Red;term=FFlex(RelKey p)}
+        lift_fconstr (k-p) {mark=mark Red None;term=FFlex(RelKey p)}
 
 (* since the head may be reducible, we might introduce lifts of 0 *)
 let compact_stack head stk =
@@ -508,14 +560,14 @@ let compact_stack head stk =
         (* Be sure to create a new cell otherwise sharing would be
            lost by the update operation *)
         let h' = lft_fconstr depth head in
-        let _ = update m h'.norm h'.term in
+        let _ = update m h'.mark h'.term in
         strip_rec depth s
     | stk -> zshift depth stk in
   strip_rec 0 stk
 
 (* Put an update mark in the stack, only if needed *)
 let zupdate m s =
-  if !share && begin match m.norm with Red -> true | _ -> false end
+  if !share && begin match Mark.red_state m.mark with Red -> true | _ -> false end
   then
     let s' = compact_stack m s in
     let _ = m.term <- FLOCKED in
@@ -530,7 +582,7 @@ let destFLambda clos_fun t =
   match t.term with
       FLambda(_,[(na,ty)],b,e) -> (na,clos_fun e ty,clos_fun (subs_lift e) b)
     | FLambda(n,(na,ty)::tys,b,e) ->
-        (na,clos_fun e ty,{norm=Cstr;term=FLambda(n-1,tys,b,subs_lift e)})
+        (na,clos_fun e ty,{mark=t.mark;term=FLambda(n-1,tys,b,subs_lift e)})
     | _ -> assert false
 	(* t must be a FLambda and binding list cannot be empty *)
 
@@ -539,13 +591,13 @@ let destFLambda clos_fun t =
 let mk_clos e t =
   match kind t with
     | Rel i -> clos_rel e i
-    | Var x -> { norm = Red; term = FFlex (VarKey x) }
-    | Const c -> { norm = Red; term = FFlex (ConstKey c) }
-    | Meta _ | Sort _ ->  { norm = Norm; term = FAtom t }
-    | Ind kn -> { norm = Norm; term = FInd kn }
-    | Construct kn -> { norm = Cstr; term = FConstruct kn }
+    | Var x -> {mark = mark Red None; term = FFlex (VarKey x) }
+    | Const c -> {mark = mark Red None; term = FFlex (ConstKey c) }
+    | Meta _ | Sort _ ->  {mark = mark Norm (Some Sorts.Relevant); term = FAtom t }
+    | Ind kn -> {mark = mark Norm (Some Sorts.Relevant); term = FInd kn }
+    | Construct kn -> {mark = mark Cstr None; term = FConstruct kn }
     | (CoFix _|Lambda _|Fix _|Prod _|Evar _|App _|Case _|Cast _|LetIn _|Proj _) ->
-        {norm = Red; term = FCLOS(t,e)}
+        {mark = mark Red None; term = FCLOS(t,e)}
 
 (** Hand-unrolling of the map function to bypass the call to the generic array
     allocation *)
@@ -567,16 +619,18 @@ let mk_clos_deep clos_fun env t =
     | (Rel _|Ind _|Const _|Construct _|Var _|Meta _ | Sort _) ->
         mk_clos env t
     | Cast (a,k,b) ->
-        { norm = Red;
-          term = FCast (clos_fun env a, k, clos_fun env b)}
+      let a = clos_fun env a in
+        { mark = mark Red (Mark.relevance a.mark);
+          term = FCast (a, k, clos_fun env b)}
     | App (f,v) ->
-        { norm = Red;
-          term = FApp (clos_fun env f, Array.Fun1.map clos_fun env v) }
+      let f = clos_fun env f in
+        { mark = mark Red (Mark.relevance f.mark);
+          term = FApp (f, Array.Fun1.map clos_fun env v) }
     | Proj (p,c) ->
-	{ norm = Red;
+        { mark = mark Red None;
 	  term = FProj (p, clos_fun env c) }
     | Case (ci,p,None,c,v) ->
-        { norm = Red;
+        { mark = mark Red (Some ci.ci_relevance);
           term = FCaseT (ci, p, clos_fun env c, v, env) }
     | Case (ci,p,Some is,c,v) ->
       let ind, args = decompose_appvect is in
@@ -586,22 +640,24 @@ let mk_clos_deep clos_fun env t =
         | Ind (_,u) -> u, params, is
         | _ -> assert false
       in
-      { norm = Red;
+      { mark = mark Red (Some ci.ci_relevance);
         term = FCaseInvert (ci, p, inv, clos_fun env c, v, env) }
-    | Fix fx ->
-        { norm = Cstr; term = FFix (fx, env) }
-    | CoFix cfx ->
-        { norm = Cstr; term = FCoFix(cfx,env) }
+    | Fix ((_,i),(nas,_,_) as fx) ->
+      let relevance = Some nas.(i).binder_relevance in
+        {mark = mark Cstr relevance; term = FFix (fx, env) }
+    | CoFix (i, (nas,_,_) as cfx) ->
+      let relevance = Some nas.(i).binder_relevance in
+        {mark = mark Cstr relevance; term = FCoFix(cfx,env) }
     | Lambda _ ->
-        { norm = Cstr; term = mk_lambda env t }
+        {mark = mark Cstr None; term = mk_lambda env t }
     | Prod (n,t,c)   ->
-        { norm = Whnf;
+        { mark = mark Whnf (Some Sorts.Relevant);
           term = FProd (n, clos_fun env t, clos_fun (subs_lift env) c) }
     | LetIn (n,b,t,c) ->
-        { norm = Red;
+        { mark = mark Red None;
           term = FLetIn (n, clos_fun env b, clos_fun env t, c, env) }
     | Evar ev ->
-	{ norm = Red; term = FEvar(ev,env) }
+        { mark = mark Red None; term = FEvar(ev,env) }
 
 (* A better mk_clos? *)
 let mk_clos2 = mk_clos_deep mk_clos
@@ -666,7 +722,7 @@ let rec to_constr constr_fun lfts v =
     | FLIFT (k,a) -> to_constr constr_fun (el_shft k lfts) a
     | FCLOS (t,env) ->
         let fr = mk_clos2 env t in
-        let unfv = update v fr.norm fr.term in
+        let unfv = update v fr.mark fr.term in
         to_constr constr_fun lfts unfv
     | FLOCKED -> assert false (*mkVar(Id.of_string"_LOCK_")*)
 
@@ -697,18 +753,20 @@ let rec fstrong unfreeze_fun lfts v =
 let rec zip m stk =
   match stk with
     | [] -> m
-    | Zapp args :: s -> zip {norm=neutr m.norm; term=FApp(m, args)} s
+    | Zapp args :: s -> zip {mark=Mark.neutr m.mark; term=FApp(m, args)} s
     | ZcaseT(ci,p,br,e)::s ->
-        let t = FCaseT(ci, p, m, br, e) in
-        zip {norm=neutr m.norm; term=t} s
+      let t = FCaseT(ci, p, m, br, e) in
+      let mark = mark (neutr (Mark.red_state m.mark)) (Some ci.ci_relevance)  in
+        zip {mark; term=t} s
     | Zproj (i,j,cst) :: s ->
-        zip {norm=neutr m.norm; term=FProj(Projection.make cst true,m)} s
+      let mark = mark (neutr (Mark.red_state m.mark)) None in
+        zip {mark; term=FProj(Projection.make cst true,m)} s
     | Zfix(fx,par)::s ->
         zip fx (par @ append_stack [|m|] s)
     | Zshift(n)::s ->
         zip (lift_fconstr n m) s
     | Zupdate(rf)::s ->
-        zip (update rf m.norm m.term) s
+        zip (update rf m.mark m.term) s
 
 let fapp_stack (m,stk) = zip m stk
 
@@ -726,33 +784,33 @@ let strip_update_shift_app_red head stk =
         strip_rec (e::rstk) (lift_fconstr k h) (depth+k) s
     | (Zapp args :: s) ->
         strip_rec (Zapp args :: rstk)
-          {norm=h.norm;term=FApp(h,args)} depth s
+          {mark=h.mark;term=FApp(h,args)} depth s
     | Zupdate(m)::s ->
-        strip_rec rstk (update m h.norm h.term) depth s
+        strip_rec rstk (update m h.mark h.term) depth s
     | stk -> (depth,List.rev rstk, stk) in
   strip_rec [] head 0 stk
 
 let strip_update_shift_app head stack =
-  assert (match head.norm with Red -> false | _ -> true);
+  assert (match Mark.red_state head.mark with Red -> false | _ -> true);
   strip_update_shift_app_red head stack
 
 let strip_args_shift h stk =
-  assert (match h.norm with Red -> false | _ -> true);
+  assert (match Mark.red_state h.mark with Red -> false | _ -> true);
   let rec strip_rec h args = function
     | [] -> args
     | Zshift k :: stk ->
       strip_rec (lift_fconstr k h) (Array.map (lift_fconstr k) args) stk
     | Zapp args' :: stk ->
-      strip_rec {norm=h.norm; term=FApp(h,args')} (Array.append args args') stk
+      strip_rec {mark=h.mark; term=FApp(h,args')} (Array.append args args') stk
     | Zupdate m :: stk ->
-      strip_rec (update m h.norm h.term) args stk
+      strip_rec (update m h.mark h.term) args stk
     | (ZcaseT _ | Zproj _ | Zfix _) :: _ -> assert false
   in
   strip_rec h [| |]stk
 
 
 let get_nth_arg head n stk =
-  assert (match head.norm with Red -> false | _ -> true);
+  assert (match Mark.red_state head.mark with Red -> false | _ -> true);
   let rec strip_rec rstk h n = function
     | Zshift(k) as e :: s ->
         strip_rec (e::rstk) (lift_fconstr k h) n s
@@ -760,7 +818,7 @@ let get_nth_arg head n stk =
         let q = Array.length args in
         if n >= q
         then
-          strip_rec (Zapp args::rstk) {norm=h.norm;term=FApp(h,args)} (n-q) s'
+          strip_rec (Zapp args::rstk) {mark=h.mark;term=FApp(h,args)} (n-q) s'
         else
           let bef = Array.sub args 0 n in
           let aft = Array.sub args (n+1) (q-n-1) in
@@ -768,7 +826,7 @@ let get_nth_arg head n stk =
             List.rev (if Int.equal n 0 then rstk else (Zapp bef :: rstk)) in
           (Some (stk', args.(n)), append_stack aft s')
     | Zupdate(m)::s ->
-        strip_rec rstk (update m h.norm h.term) n s
+        strip_rec rstk (update m h.mark h.term) n s
     | s -> (None, List.rev rstk @ s) in
   strip_rec [] head n stk
 
@@ -776,8 +834,8 @@ let get_nth_arg head n stk =
    Since the encountered update marks are removed, h must be a whnf *)
 let rec get_args n tys f e stk =
   match stk with
-      Zupdate r :: s ->
-        let _hd = update r Cstr (FLambda(n,tys,f,e)) in
+    | Zupdate r :: s ->
+        let _hd = update r (mark Cstr (Mark.relevance r.mark)) (FLambda(n,tys,f,e)) in
         get_args n tys f e s
     | Zshift k :: s ->
         get_args n tys f (subs_shft (k,e)) s
@@ -791,7 +849,7 @@ let rec get_args n tys f e stk =
         else (* more lambdas *)
           let etys = List.skipn na tys in
           get_args (n-na) etys f (subs_cons(l,e)) s
-    | _ -> (Inr {norm=Cstr;term=FLambda(n,tys,f,e)}, stk)
+    | _ -> (Inr {mark=mark Cstr None;term=FLambda(n,tys,f,e)}, stk)
 
 (* Eta expansion: add a reference to implicit surrounding lambda at end of stack *)
 let rec eta_expand_stack = function
@@ -799,7 +857,7 @@ let rec eta_expand_stack = function
 	| Zshift _ | Zupdate _ as e) :: s ->
       e :: eta_expand_stack s
   | [] ->
-      [Zshift 1; Zapp [|{norm=Norm; term= FRel 1}|]]
+      [Zshift 1; Zapp [|{mark=mark Norm None; term= FRel 1}|]]
 
 (* Iota reduction: extract the arguments to be passed to the Case
    branches *)
@@ -856,8 +914,10 @@ let eta_expand_ind_stack env ind m s (f, s') =
       let (depth, args, s) = strip_update_shift_app m s in
       (** Try to drop the params, might fail on partially applied constructors. *)
       let argss = try_drop_parameters depth pars args in
-      let hstack = Array.map (fun p -> { norm = Red; (* right can't be a constructor though *)
-					 term = FProj (Projection.make p true, right) }) projs in
+      let hstack = Array.map2 (fun p pb ->
+          { mark = mark Red (Some pb.Declarations.proj_relevance);
+            (* right can't be a constructor though *)
+            term = FProj (Projection.make p true, right) }) projs pbs in
 	argss, [Zapp hstack]
     | _ -> raise Not_found (* disallow eta-exp for non-primitive records *)
 
@@ -883,13 +943,15 @@ let rec project_nth_arg n argstk =
 let contract_fix_vect fix =
   let (thisbody, make_body, env, nfix) =
     match fix with
-      | FFix (((reci,i),(_,_,bds as rdcl)),env) ->
+      | FFix (((reci,i),(nas,_,bds as rdcl)),env) ->
           (bds.(i),
-	   (fun j -> { norm = Cstr; term = FFix (((reci,j),rdcl),env) }),
+           (fun j -> { mark = mark Cstr (Some nas.(j).binder_relevance);
+                       term = FFix (((reci,j),rdcl),env) }),
 	   env, Array.length bds)
-      | FCoFix ((i,(_,_,bds as rdcl)),env) ->
+      | FCoFix ((i,(nas,_,bds as rdcl)),env) ->
           (bds.(i),
-	   (fun j -> { norm = Cstr; term = FCoFix ((j,rdcl),env) }),
+           (fun j -> { mark = mark Cstr (Some nas.(j).binder_relevance);
+                       term = FCoFix ((j,rdcl),env) }),
 	   env, Array.length bds)
       | _ -> assert false
   in
@@ -1183,7 +1245,7 @@ let norm_val info tab v =
 
 let inject c = mk_clos (subs_id 0) c
 
-let whd_stack infos tab m stk = match m.norm with
+let whd_stack infos tab m stk = match Mark.red_state m.mark with
 | Whnf | Norm ->
   (** No need to perform [kni] nor to unlock updates because
       every head subterm of [m] is [Whnf] or [Norm] *)
@@ -1223,3 +1285,6 @@ let unfold_reference info tab key =
       ref_value_cache info tab key
     else None
   | _ -> ref_value_cache info tab key
+
+let relevance_of f = Mark.relevance f.mark
+let set_relevance r f = f.mark <- Mark.mark (Mark.red_state f.mark) (Some r)
