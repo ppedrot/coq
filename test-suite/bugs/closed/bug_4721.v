@@ -2,8 +2,7 @@ Variables S1 S2 : Set.
 
 Goal @eq Type S1 S2 -> @eq Type S1 S2.
 intro H.
-Fail tauto.
-assumption.
+tauto.
 Qed.
 
 (*This is in 8.5pl1, and Matthieq Sozeau says: "That's a regression in tauto indeed, which now requires exact equality of the universes, through a non linear goal pattern matching:
