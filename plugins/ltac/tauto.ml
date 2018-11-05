@@ -253,6 +253,11 @@ let with_flags flags _ ist =
   let ist = { ist with lfun = Id.Map.add x.CAst.v arg ist.lfun } in
   eval_tactic_ist ist (TacArg (CAst.make @@ TacCall (CAst.make (Locus.ArgVar f, [Reference (Locus.ArgVar x)]))))
 
+let is_conv _ ist =
+  let x1 = assoc_var "X1" ist in
+  let x2 = assoc_var "X2" ist in
+  Tactics.convert x1 x2
+
 let register_tauto_tactic tac name0 args =
   let ids = List.map (fun id -> Id.of_string id) args in
   let ids = List.map (fun id -> Name id) ids in
@@ -273,3 +278,4 @@ let () = register_tauto_tactic apply_nnpp "apply_nnpp" []
 let () = register_tauto_tactic reduction_not_iff "reduction_not_iff" []
 let () = register_tauto_tactic (with_flags tauto_uniform_unit_flags) "with_uniform_flags" ["f"]
 let () = register_tauto_tactic (with_flags tauto_power_flags) "with_power_flags" ["f"]
+let () = register_tauto_tactic is_conv "is_conv" ["X1"; "X2"]
