@@ -9,7 +9,6 @@
 (************************************************************************)
 
 open Names
-open Constr
 open EConstr
 open Environ
 open Evd
@@ -101,7 +100,7 @@ val abstract_list_all :
 
 (* For tracing *)
 
-type metabinding = (metavariable * constr * (instance_constraint * instance_typing_status))
+type metabinding
 
 type subst0 =
   (evar_map *
