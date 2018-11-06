@@ -32,16 +32,29 @@ open Locus
 open Locusops
 open Find_subterm
 
+type subst_cache = {
+  sc_meta : metabinding list;
+  sc_evar : (Environ.env * existential * t) list;
+  sc_data : Constr.t;
+}
 
-type metabinding = {
+and metabinding = {
   ms_meta : metavariable;
   ms_constr : EConstr.t;
   ms_inst : (instance_constraint * instance_typing_status);
+  mutable ms_cache : subst_cache;
+}
+
+let mk_binding m c i = {
+  ms_meta = m;
+  ms_constr = c;
+  ms_inst = i;
+  ms_cache = { sc_meta = []; sc_evar = []; sc_data = EConstr.Unsafe.to_constr c };
 }
 
 let retract_coercible_metas evd =
   let metas, evd = retract_coercible_metas evd in
-  let map (m, c, i) = { ms_meta = m; ms_constr = c; ms_inst = i } in
+  let map (m, c, i) = mk_binding m c i in
   (List.map map metas, evd)
 
 type subst0 =
@@ -224,7 +237,7 @@ let solve_pattern_eqn_array (env,nb) f l c (sigma,metasubst,evarsubst : subst0) 
 	let c = solve_pattern_eqn env sigma l c in
 	let pb = (Conv,TypeNotProcessed) in
 	  if noccur_between sigma 1 nb c then
-            sigma, { ms_meta = k; ms_constr= lift (-nb) c; ms_inst = pb }::metasubst,evarsubst
+            sigma, (mk_binding k (lift (-nb) c) pb)::metasubst,evarsubst
 	  else
             let l = List.map of_alias l in
             error_cannot_unify_local env sigma (applist (f, l),c,c)
@@ -614,7 +627,13 @@ let subst_defined_metas_evars sigma (bl,el) c =
   let rec substrec c = match Constr.kind c with
     | Meta i ->
       let select ms = Int.equal i ms.ms_meta in
-      substrec (EConstr.Unsafe.to_constr (List.find select bl).ms_constr)
+      let ms = List.find select bl in
+      let { sc_data = cached; sc_meta = cbl; sc_evar = cel } = ms.ms_cache in
+      if bl == cbl && el == cel then cached
+      else
+        let ans = substrec (EConstr.Unsafe.to_constr ms.ms_constr) in
+        let () = ms.ms_cache <- { sc_data = ans; sc_meta = bl; sc_evar = el } in
+        ans
     | Evar (evk,args) ->
       let eq c1 c2 = Constr.equal c1 (EConstr.Unsafe.to_constr c2) in
       let select (_,(evk',args'),_) = Evar.equal evk evk' && Array.for_all2 eq args args' in
@@ -707,8 +726,8 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst : subst0) conv_at_top e
 		  check_compatibility curenv CUMUL flags substn l r
 	      else sigma
 	    in
-            if k2 < k1 then sigma, {ms_meta=k1; ms_constr= cN; ms_inst= stN}::metasubst,evarsubst
-            else sigma,{ms_meta=k2;ms_constr=cM;ms_inst=stM}::metasubst,evarsubst
+            if k2 < k1 then sigma, (mk_binding k1 cN stN)::metasubst,evarsubst
+            else sigma,(mk_binding k2 cM stM)::metasubst,evarsubst
 	| Meta k, _
             when not (occur_metavariable sigma k cN) (* helps early trying alternatives *) ->
             let sigma = 
@@ -723,10 +742,10 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst : subst0) conv_at_top e
 	    in
 	    (* Here we check that [cN] does not contain any local variables *)
 	    if Int.equal nb 0 then
-              sigma,{ms_meta=k;ms_constr=cN;ms_inst=snd (extract_instance_status pb)}::metasubst,evarsubst
+              sigma,(mk_binding k cN (snd (extract_instance_status pb)))::metasubst,evarsubst
             else if noccur_between sigma 1 nb cN then
               (sigma,
-              {ms_meta=k;ms_constr=lift (-nb) cN;ms_inst=snd (extract_instance_status pb)}::metasubst,
+              (mk_binding k (lift (-nb) cN) (snd (extract_instance_status pb)))::metasubst,
               evarsubst)
 	    else error_cannot_unify_local curenv sigma (m,n,cN)
 	| _, Meta k
@@ -743,10 +762,10 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst : subst0) conv_at_top e
 	  in
 	    (* Here we check that [cM] does not contain any local variables *)
 	    if Int.equal nb 0 then
-              (sigma,{ms_meta=k;ms_constr=cM;ms_inst=fst (extract_instance_status pb)}::metasubst,evarsubst)
+              (sigma,(mk_binding k cM (fst (extract_instance_status pb)))::metasubst,evarsubst)
 	    else if noccur_between sigma 1 nb cM
 	    then
-              (sigma,{ms_meta=k;ms_constr=lift (-nb) cM;ms_inst=fst (extract_instance_status pb)}::metasubst,
+              (sigma,(mk_binding k (lift (-nb) cM) (fst (extract_instance_status pb)))::metasubst,
               evarsubst)
 	    else error_cannot_unify_local curenv sigma (m,n,cM)
 	| Evar (evk,_ as ev), Evar (evk',_)
@@ -1945,13 +1964,13 @@ let secondOrderAbstraction env evd flags typ (p, oplist) =
       (Evd.meta_name evd p) pred typp predtyp;
   | Some evd' ->
   w_merge env false flags.merge_unify_flags
-          (evd',[{ms_meta=p;ms_constr=pred;ms_inst=(Conv,TypeProcessed)}],[])
+          (evd',[mk_binding p pred (Conv,TypeProcessed)],[])
 
 let secondOrderDependentAbstraction env evd flags typ (p, oplist) =
   let typp = Typing.meta_type evd p in
   let evd, pred = abstract_list_all_with_dependencies env evd typp typ oplist in
   w_merge env false flags.merge_unify_flags
-          (evd,[{ms_meta=p;ms_constr=pred;ms_inst=(Conv,TypeProcessed)}],[])
+          (evd,[mk_binding p pred (Conv,TypeProcessed)],[])
 
 
 let secondOrderAbstractionAlgo dep =
