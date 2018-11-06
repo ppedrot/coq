@@ -596,15 +596,22 @@ let isAllowedEvar sigma flags c = match EConstr.kind sigma c with
   | Evar (evk,_) -> not (Evar.Set.mem evk flags.frozen_evars)
   | _ -> false
 
-
 let subst_defined_metas_evars sigma (bl,el) c =
   (** This seems to be performance-critical, and using the evar-insensitive
       primitives blow up the time passed in this function. *)
   let c = EConstr.Unsafe.to_constr c in
+  let bl = List.map (fun (j, c, _) -> (j, ref (false, c))) bl in
   let rec substrec c = match Constr.kind c with
     | Meta i ->
-      let select (j,_,_) = Int.equal i j in
-      substrec (EConstr.Unsafe.to_constr (pi2 (List.find select bl)))
+      let select (j, _) = Int.equal i j in
+      let (_, r) = List.find select bl in
+      let (eval, c) = !r in
+      let c = EConstr.Unsafe.to_constr c in
+      if eval then c
+      else
+        let c = substrec c in
+        let () = r := (true, EConstr.of_constr c) in
+        c
     | Evar (evk,args) ->
       let eq c1 c2 = Constr.equal c1 (EConstr.Unsafe.to_constr c2) in
       let select (_,(evk',args'),_) = Evar.equal evk evk' && Array.for_all2 eq args args' in
