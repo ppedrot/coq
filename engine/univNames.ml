@@ -47,7 +47,7 @@ let cache_ubinder (_,(ref,l)) =
   universe_binders_table := GlobRef.Map.add ref l !universe_binders_table
 
 let subst_ubinder (subst,(ref,l as orig)) =
-  let ref' = fst (Globnames.subst_global subst ref) in
+  let ref' = Globnames.subst_global_reference subst ref in
   if ref == ref' then orig else ref', l
 
 let name_universe lvl =
