@@ -296,6 +296,17 @@ let rec skip_pattern n c =
   | Lambda (_, _, c) -> skip_pattern (pred n) c
   | _ -> raise IrregularPatternShape
 
+let rec skip_app n stk =
+  if Int.equal n 0 then stk
+  else match stk with
+  | Zapp args :: stk ->
+    let len = Array.length args in
+    if len <= n then skip_app (n - len) stk
+    else Zapp (Array.sub args n (len - n)) :: stk
+  | Zupdate _ :: stk -> skip_app n stk
+  | [] | (Zfix _ | Zshift _ | ZcaseT _ | Zproj _) :: _ ->
+    raise IrregularPatternShape
+
 type conv_tab = {
   cnv_inf : clos_infos;
   lft_tab : clos_tab;
@@ -522,17 +533,17 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
 
     | (FConstruct ((ind1,j1),u1), FConstruct ((ind2,j2),u2)) ->
       if Int.equal j1 j2 && eq_ind ind1 ind2 then
+        let mind = Environ.lookup_mind (fst ind1) (info_env infos.cnv_inf) in
         if Univ.Instance.length u1 = 0 || Univ.Instance.length u2 = 0 then
           let cuniv = convert_instances ~flex:false u1 u2 cuniv in
-          convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
+          convert_constructor_stack l2r infos mind lft1 lft2 v1 v2 cuniv
         else
-          let mind = Environ.lookup_mind (fst ind1) (info_env infos.cnv_inf) in
           let nargs = CClosure.stack_args_size v1 in
           if not (Int.equal nargs (CClosure.stack_args_size v2))
           then raise NotConvertible
           else
             let cuniv = convert_constructors (mind, snd ind1, j1) nargs u1 u2 cuniv in
-            convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
+            convert_constructor_stack l2r infos mind lft1 lft2 v1 v2 cuniv
       else raise NotConvertible
 	  
     (* Eta expansion of records *)
@@ -647,6 +658,15 @@ and convert_branches l2r infos ci e1 e2 lft1 lft2 br1 br2 cuniv =
     ccnv CONV l2r infos lft1 lft2 (mk_clos e1 c1) (mk_clos e2 c2) cuniv
   in
   Array.fold_right3 fold ci.ci_cstr_nargs br1 br2 cuniv
+
+and convert_constructor_stack l2r infos mind lft1 lft2 v1 v2 cuniv =
+  let nparams = mind.Declarations.mind_nparams in
+  (** Skip parameters of the constructors, they are irrelevant *)
+  match skip_app nparams v1, skip_app nparams v2 with
+  | v1, v2 ->
+    convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
+  | exception IrregularPatternShape ->
+    convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
 
 let clos_gen_conv trans cv_pb l2r evars env univs t1 t2 =
   let reds = CClosure.RedFlags.red_add_transparent betaiotazeta trans in
