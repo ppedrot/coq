@@ -19,6 +19,12 @@ open Names
  * The default value is [Level 100].
  *)
 type level = Expand | Level of int | Opaque
+
+type answer =
+| Left
+| Right
+| Same
+
 let default = Level 0
 let is_default = function
 | Level 0 -> true
@@ -84,27 +90,33 @@ let fold_strategy f { var_opacity; cst_opacity; _ } accu =
 let get_transp_state { var_trstate; cst_trstate; _ } =
   { TransparentState.tr_var = var_trstate; tr_cst = cst_trstate }
 
-let dep_order l2r k1 k2 = match k1, k2 with
-| RelKey _, RelKey _ -> l2r
-| RelKey _, (VarKey _ | ConstKey _) -> true
-| VarKey _, RelKey _ -> false
-| VarKey _, VarKey _ -> l2r
-| VarKey _, ConstKey _ -> true
-| ConstKey _, (RelKey _ | VarKey _) -> false
-| ConstKey _, ConstKey _ -> l2r
+let dep_order k1 k2 = match k1, k2 with
+| RelKey _, RelKey _ -> Same
+| RelKey _, (VarKey _ | ConstKey _) -> Left
+| VarKey _, RelKey _ -> Right
+| VarKey _, VarKey _ -> Same
+| VarKey _, ConstKey _ -> Left
+| ConstKey _, (RelKey _ | VarKey _) -> Right
+| ConstKey _, ConstKey _ -> Same
 
 (* Unfold the first constant only if it is "more transparent" than the
    second one. In case of tie, use the recommended default. *)
-let oracle_order f o l2r k1 k2 =
+let oracle_compare f o k1 k2 =
   match get_strategy o f k1, get_strategy o f k2 with
-  | Expand, Expand -> dep_order l2r k1 k2
-  | Expand, (Opaque | Level _) -> true
-  | (Opaque | Level _), Expand -> false
-  | Opaque, Opaque -> dep_order l2r k1 k2
-  | Level _, Opaque -> true
-  | Opaque, Level _ -> false
+  | Expand, Expand -> dep_order k1 k2
+  | Expand, (Opaque | Level _) -> Left
+  | (Opaque | Level _), Expand -> Right
+  | Opaque, Opaque -> dep_order k1 k2
+  | Level _, Opaque -> Left
+  | Opaque, Level _ -> Right
   | Level n1, Level n2 ->
-     if Int.equal n1 n2 then dep_order l2r k1 k2
-     else n1 < n2
+     if Int.equal n1 n2 then dep_order k1 k2
+     else if n1 < n2 then Left
+     else Right
+
+let oracle_order f o l2r k1 k2 = match oracle_compare f o k1 k2 with
+| Left -> true
+| Right -> false
+| Same -> l2r
 
 let get_strategy o = get_strategy o (fun x -> x)

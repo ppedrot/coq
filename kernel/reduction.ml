@@ -304,6 +304,21 @@ type conv_tab = {
 (** Invariant: for any tl ∈ lft_tab and tr ∈ rgt_tab, there is no mutable memory
     location contained both in tl and in tr. *)
 
+let oracle_order infos l2r fl1 fl2 =
+  let oracle = CClosure.oracle_of_infos infos.cnv_inf in
+  let order = Conv_oracle.oracle_compare Univ.out_punivs oracle fl1 fl2 in
+  match order with
+  | Conv_oracle.Left -> true
+  | Conv_oracle.Right -> false
+  | Conv_oracle.Same ->
+    match fl1, fl2 with
+    | ConstKey (cst1, _), ConstKey (cst2, _) ->
+      let env = CClosure.info_env infos.cnv_inf in
+      if Cset.mem cst2 (Environ.constant_dependencies env cst1) then true
+      else if Cset.mem cst1 (Environ.constant_dependencies env cst2) then false
+      else l2r
+    | _ -> l2r
+
 (** The same heap separation invariant must hold for the fconstr arguments
     passed to each respective side of the conversion function below. *)
 
@@ -359,9 +374,8 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
            convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
        with NotConvertible | Univ.UniverseInconsistency _ ->
            (* else the oracle tells which constant is to be expanded *)
-         let oracle = CClosure.oracle_of_infos infos.cnv_inf in
          let (app1,app2) =
-           if Conv_oracle.oracle_order Univ.out_punivs oracle l2r fl1 fl2 then
+           if oracle_order infos l2r fl1 fl2 then
              match unfold_reference infos.cnv_inf infos.lft_tab fl1 with
              | Some def1 -> ((lft1, (def1, v1)), appr2)
              | None ->
