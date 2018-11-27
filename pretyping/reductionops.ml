@@ -1287,7 +1287,7 @@ let report_anomaly e =
 
 let f_conv pb ?l2r ?reds env ?evars x y =
   let inj = EConstr.Unsafe.to_constr in
-  Reduction.conv pb ?l2r ?ts:reds env ?evars (inj x) (inj y)
+  Reduction.conv ~typed:false pb ?l2r ?ts:reds env ?evars (inj x) (inj y)
 
 let test_trans_conversion pb reds env sigma x y =
   try
@@ -1363,7 +1363,7 @@ let infer_conv_gen conv_fun ?(catch_incon=true) ?(pb=Reduction.CUMUL)
   | e when is_anomaly e -> report_anomaly e
 
 let infer_conv = infer_conv_gen (fun pb ?ts sigma ->
-      Reduction.generic_conv pb ~l2r:false ~evars:(safe_evar_value sigma) ?ts)
+      Reduction.generic_conv ~typed:false pb ~l2r:false ~evars:(safe_evar_value sigma) ?ts)
 
 (* This reference avoids always having to link C code with the kernel *)
 let vm_infer_conv = ref (infer_conv ~catch_incon:true ~ts:TransparentState.full)

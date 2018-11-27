@@ -294,9 +294,14 @@ type conv_tab = {
   cnv_inf : clos_infos;
   lft_tab : clos_tab;
   rgt_tab : clos_tab;
+  cnv_wty : bool;
 }
 (** Invariant: for any tl ∈ lft_tab and tr ∈ rgt_tab, there is no mutable memory
     location contained both in tl and in tr. *)
+(** [cnv_wty] should be true if the two terms are known to live in a common
+    supertype. While this should be always the case, tactics and unification
+    sometimes happily violate this invariant, leading to strange situations.
+    Thankfully the kernel preserves it, allowing for faster checks. *)
 
 (** The same heap separation invariant must hold for the fconstr arguments
     passed to each respective side of the conversion function below. *)
@@ -642,13 +647,14 @@ and convert_branches l2r infos ci e1 e2 lft1 lft2 br1 br2 cuniv =
   in
   Array.fold_right3 fold ci.ci_cstr_nargs br1 br2 cuniv
 
-let clos_gen_conv trans cv_pb l2r evars env univs t1 t2 =
+let clos_gen_conv typed trans cv_pb l2r evars env univs t1 t2 =
   let reds = CClosure.RedFlags.red_add_transparent betaiotazeta trans in
   let infos = create_clos_infos ~evars reds env in
   let infos = {
     cnv_inf = infos;
     lft_tab = create_tab ();
     rgt_tab = create_tab ();
+    cnv_wty = typed;
   } in
   ccnv cv_pb l2r infos el_id el_id (inject t1) (inject t2) univs
 
@@ -741,7 +747,7 @@ let inferred_universes : (UGraph.t * Univ.Constraint.t) universe_compare =
     compare_instances = infer_convert_instances;
     compare_cumul_instances = infer_inductive_instances; }
 
-let conv cv_pb ?(l2r=false) ?evars ?(ts=TransparentState.full) env t1 t2 =
+let conv ~typed cv_pb ?(l2r=false) ?evars ?(ts=TransparentState.full) env t1 t2 =
   let evars, univs = match evars with
   | None -> (fun _ -> None), universes env
   | Some evars -> evars
@@ -752,10 +758,10 @@ let conv cv_pb ?(l2r=false) ?evars ?(ts=TransparentState.full) env t1 t2 =
   in
     if b then ()
     else 
-      let _ = clos_gen_conv ts cv_pb l2r evars env (univs, checked_universes) t1 t2 in
+      let _ = clos_gen_conv typed ts cv_pb l2r evars env (univs, checked_universes) t1 t2 in
 	()
 
-let infer_conv pb ?(l2r=false) ?(evars=fun _ -> None) ?(ts=TransparentState.full)
+let infer_conv ~typed pb ?(l2r=false) ?(evars=fun _ -> None) ?(ts=TransparentState.full)
     env univs t1 t2 =
   let b, cstrs =
     if pb == CUMUL then Constr.leq_constr_univs_infer univs t1 t2
@@ -764,12 +770,12 @@ let infer_conv pb ?(l2r=false) ?(evars=fun _ -> None) ?(ts=TransparentState.full
     if b then cstrs
     else
       let univs = ((univs, Univ.Constraint.empty), inferred_universes) in
-      let ((_,cstrs), _) = clos_gen_conv ts pb l2r evars env univs t1 t2 in
+      let ((_,cstrs), _) = clos_gen_conv typed ts pb l2r evars env univs t1 t2 in
 	cstrs
 
-let generic_conv cv_pb ?(l2r = false) ?(evars=fun _ -> None) ?(ts=TransparentState.full) env univs t1 t2 =
+let generic_conv ~typed cv_pb ?(l2r = false) ?(evars=fun _ -> None) ?(ts=TransparentState.full) env univs t1 t2 =
   let (s, _) =
-    clos_gen_conv ts cv_pb l2r evars env univs t1 t2
+    clos_gen_conv typed ts cv_pb l2r evars env univs t1 t2
   in s
 
 (* Application with on-the-fly reduction *)

@@ -195,7 +195,7 @@ let param_ccls paramsctxt =
 let check_subtyping_arity_constructor env (subst : constr -> constr) (arcn : types) numparams is_arity =
   let numchecked = ref 0 in
   let basic_check ev tp =
-    if !numchecked < numparams then () else conv CUMUL ev tp (subst tp);
+    if !numchecked < numparams then () else conv ~typed:true CUMUL ev tp (subst tp);
     numchecked := !numchecked + 1
   in
   let check_typ typ typ_env =

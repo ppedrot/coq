@@ -190,7 +190,7 @@ let warn_bytecode_compiler_failed =
 
 let vm_conv_gen cv_pb env univs t1 t2 =
   if not (typing_flags env).Declarations.enable_VM then
-    Reduction.generic_conv cv_pb env univs t1 t2
+    Reduction.generic_conv ~typed:true cv_pb env univs t1 t2
   else
   try
     let v1 = val_of_constr env t1 in
@@ -198,7 +198,7 @@ let vm_conv_gen cv_pb env univs t1 t2 =
     fst (conv_val env cv_pb (nb_rel env) v1 v2 univs)
   with Not_found | Invalid_argument _ ->
     warn_bytecode_compiler_failed ();
-    Reduction.generic_conv cv_pb env univs t1 t2
+    Reduction.generic_conv ~typed:true cv_pb env univs t1 t2
 
 let vm_conv cv_pb env t1 t2 =
   let univs = Environ.universes env in

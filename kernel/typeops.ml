@@ -27,7 +27,7 @@ module NamedDecl = Context.Named.Declaration
 let conv_leq _l2r env t1 t2 =
   (** We voluntarily drop the flag order because without it, the stdlib doesn't
       compile. That deserves a clear FIXME. *)
-  Reduction.conv CUMUL env t1 t2
+  Reduction.conv ~typed:true CUMUL env t1 t2
 
 let conv_leq_vecti env v1 v2 =
   Array.fold_left2_i
@@ -95,7 +95,8 @@ let type_of_variable env id =
    variables of the current env.
    Order does not have to be checked assuming that all names are distinct *)
 let check_hyps_inclusion env ?evars f c sign =
-  let conv env a b = Reduction.conv CONV env ?evars a b in
+  let typed = match evars with None -> true | Some _ -> false in
+  let conv env a b = Reduction.conv ~typed CONV env ?evars a b in
   Context.Named.fold_outside
     (fun d1 () ->
       let open Context.Named.Declaration in

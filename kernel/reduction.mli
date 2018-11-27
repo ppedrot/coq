@@ -66,18 +66,18 @@ val checked_universes : UGraph.t universe_compare
 val inferred_universes : (UGraph.t * Univ.Constraint.t) universe_compare
 
 (** This function can only raise NotConvertible *)
-val conv : conv_pb -> ?l2r:bool -> ?evars:((existential->constr option) * UGraph.t) ->
+val conv : typed:bool -> conv_pb -> ?l2r:bool -> ?evars:((existential->constr option) * UGraph.t) ->
   ?ts:TransparentState.t -> constr kernel_conversion_function
 
 (** This conversion function is used by module subtyping, which needs to infer
     universe constraints inside the kernel *)
-val infer_conv : conv_pb -> ?l2r:bool -> ?evars:(existential->constr option) ->
+val infer_conv : typed:bool -> conv_pb -> ?l2r:bool -> ?evars:(existential->constr option) ->
   ?ts:TransparentState.t -> constr infer_conversion_function
 
 (** Depending on the universe state functions, this might raise
   [UniverseInconsistency] in addition to [NotConvertible] (for better error
   messages). *)
-val generic_conv : conv_pb -> ?l2r:bool -> ?evars:(existential->constr option) ->
+val generic_conv : typed:bool -> conv_pb -> ?l2r:bool -> ?evars:(existential->constr option) ->
   ?ts:TransparentState.t -> (constr,'a) generic_conversion_function
 
 (************************************************************************)

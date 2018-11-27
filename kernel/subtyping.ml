@@ -136,7 +136,7 @@ let check_inductive cst env mp1 l info1 mp2 mib2 spec2 subst1 subst2 reso1 reso2
   let mib2 =  Declareops.subst_mind_body subst2 mib2 in
   let check_inductive_type cst name t1 t2 =
     check_conv (NotConvertibleInductiveField name)
-      cst (inductive_is_polymorphic mib1) (infer_conv CUMUL ?l2r:None ?evars:None ?ts:None) env t1 t2
+      cst (inductive_is_polymorphic mib1) (infer_conv ~typed:true CUMUL ?l2r:None ?evars:None ?ts:None) env t1 t2
   in
 
   let check_packet cst p1 p2 =
@@ -163,7 +163,7 @@ let check_inductive cst env mp1 l info1 mp2 mib2 spec2 subst1 subst2 reso1 reso2
   let check_cons_types _i cst p1 p2 =
     Array.fold_left3
       (fun cst id t1 t2 -> check_conv (NotConvertibleConstructorField id) cst
-        (inductive_is_polymorphic mib1) (infer_conv CONV ?l2r:None ?evars:None ?ts:None) env t1 t2)
+        (inductive_is_polymorphic mib1) (infer_conv ~typed:true CONV ?l2r:None ?evars:None ?ts:None) env t1 t2)
       cst
       p2.mind_consnames
       (arities_of_specif (mind, inst) (mib1, p1))
@@ -227,7 +227,7 @@ let check_constant cst env l info1 cb2 spec2 subst1 subst2 =
   let check_conv cst poly f = check_conv_error error cst poly f in
   let check_type poly cst env t1 t2 =
     let err = NotConvertibleTypeField (env, t1, t2) in
-    check_conv err cst poly (infer_conv CUMUL ?l2r:None ?evars:None ?ts:None) env t1 t2
+    check_conv err cst poly (infer_conv ~typed:true CUMUL ?l2r:None ?evars:None ?ts:None) env t1 t2
   in
   match info1 with
     | Constant cb1 ->
@@ -266,7 +266,7 @@ let check_constant cst env l info1 cb2 spec2 subst1 subst2 =
 		 Anyway [check_conv] will handle that afterwards. *)
 	      let c1 = Mod_subst.force_constr lc1 in
 	      let c2 = Mod_subst.force_constr lc2 in
-              check_conv NotConvertibleBodyField cst poly (infer_conv CONV ?l2r:None ?evars:None ?ts:None) env c1 c2))
+              check_conv NotConvertibleBodyField cst poly (infer_conv ~typed:true CONV ?l2r:None ?evars:None ?ts:None) env c1 c2))
    | IndType ((_kn,_i),_mind1) ->
        CErrors.user_err Pp.(str @@
        "The kernel does not recognize yet that a parameter can be " ^
