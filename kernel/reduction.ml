@@ -175,12 +175,6 @@ let whd_allnolet env t =
 (* functions of this type are called from the kernel *)
 type 'a kernel_conversion_function = env -> 'a -> 'a -> unit
 
-(* functions of this type can be called from outside the kernel *)
-type 'a extended_conversion_function =
-  ?l2r:bool -> ?reds:TransparentState.t -> env ->
-  ?evars:((existential->constr option) * UGraph.t) ->
-  'a -> 'a -> unit
-
 exception NotConvertible
 exception NotConvertibleVect of int
 
@@ -747,72 +741,36 @@ let inferred_universes : (UGraph.t * Univ.Constraint.t) universe_compare =
     compare_instances = infer_convert_instances;
     compare_cumul_instances = infer_inductive_instances; }
 
-let gen_conv cv_pb l2r reds env evars univs t1 t2 =
+let conv cv_pb ?(l2r=false) ?evars ?(ts=TransparentState.full) env t1 t2 =
+  let evars, univs = match evars with
+  | None -> (fun _ -> None), universes env
+  | Some evars -> evars
+  in
   let b = 
     if cv_pb = CUMUL then leq_constr_univs univs t1 t2 
     else eq_constr_univs univs t1 t2
   in
     if b then ()
     else 
-      let _ = clos_gen_conv reds cv_pb l2r evars env (univs, checked_universes) t1 t2 in
+      let _ = clos_gen_conv ts cv_pb l2r evars env (univs, checked_universes) t1 t2 in
 	()
 
-(* Profiling *)
-let gen_conv cv_pb ?(l2r=false) ?(reds=TransparentState.full) env ?(evars=(fun _->None), universes env) =
-  let evars, univs = evars in
-  if Flags.profile then
-    let fconv_universes_key = CProfile.declare_profile "trans_fconv_universes" in
-      CProfile.profile8 fconv_universes_key gen_conv cv_pb l2r reds env evars univs
-  else gen_conv cv_pb l2r reds env evars univs
-
-let conv = gen_conv CONV
-
-let conv_leq = gen_conv CUMUL
-
-let generic_conv cv_pb ~l2r evars reds env univs t1 t2 =
-  let (s, _) = 
-    clos_gen_conv reds cv_pb l2r evars env univs t1 t2 
-  in s
-
-let infer_conv_universes cv_pb l2r evars reds env univs t1 t2 =
+let infer_conv pb ?(l2r=false) ?(evars=fun _ -> None) ?(ts=TransparentState.full)
+    env univs t1 t2 =
   let b, cstrs =
-    if cv_pb == CUMUL then Constr.leq_constr_univs_infer univs t1 t2
+    if pb == CUMUL then Constr.leq_constr_univs_infer univs t1 t2
     else Constr.eq_constr_univs_infer univs t1 t2
   in
     if b then cstrs
     else
       let univs = ((univs, Univ.Constraint.empty), inferred_universes) in
-      let ((_,cstrs), _) = clos_gen_conv reds cv_pb l2r evars env univs t1 t2 in
+      let ((_,cstrs), _) = clos_gen_conv ts pb l2r evars env univs t1 t2 in
 	cstrs
 
-(* Profiling *)
-let infer_conv_universes = 
-  if Flags.profile then 
-    let infer_conv_universes_key = CProfile.declare_profile "infer_conv_universes" in
-      CProfile.profile8 infer_conv_universes_key infer_conv_universes
-  else infer_conv_universes
-
-let infer_conv ?(l2r=false) ?(evars=fun _ -> None) ?(ts=TransparentState.full)
-    env univs t1 t2 = 
-  infer_conv_universes CONV l2r evars ts env univs t1 t2
-
-let infer_conv_leq ?(l2r=false) ?(evars=fun _ -> None) ?(ts=TransparentState.full)
-    env univs t1 t2 = 
-  infer_conv_universes CUMUL l2r evars ts env univs t1 t2
-
-let default_conv cv_pb ?l2r:_ env t1 t2 =
-    gen_conv cv_pb env t1 t2
-
-let default_conv_leq = default_conv CUMUL
-(*
-let convleqkey = CProfile.declare_profile "Kernel_reduction.conv_leq";;
-let conv_leq env t1 t2 =
-  CProfile.profile4 convleqkey conv_leq env t1 t2;;
-
-let convkey = CProfile.declare_profile "Kernel_reduction.conv";;
-let conv env t1 t2 =
-  CProfile.profile4 convleqkey conv env t1 t2;;
-*)
+let generic_conv cv_pb ?(l2r = false) ?(evars=fun _ -> None) ?(ts=TransparentState.full) env univs t1 t2 =
+  let (s, _) =
+    clos_gen_conv ts cv_pb l2r evars env univs t1 t2
+  in s
 
 (* Application with on-the-fly reduction *)
 

@@ -41,11 +41,11 @@ let conv_ctxt_prefix env (ctx1:rel_context) ctx2 =
     let open Context.Rel.Declaration in
     match rctx1, rctx2 with
         (LocalAssum (_,ty1) as d1)::rctx1', LocalAssum (_,ty2)::rctx2' ->
-          Reduction.conv env ty1 ty2;
+          Reduction.conv Reduction.CONV env ty1 ty2;
           chk (push_rel d1 env) rctx1' rctx2'
       | (LocalDef (_,bd1,ty1) as d1)::rctx1', LocalDef (_,bd2,ty2)::rctx2' ->
-          Reduction.conv env ty1 ty2;
-          Reduction.conv env bd1 bd2;
+          Reduction.conv Reduction.CONV env ty1 ty2;
+          Reduction.conv Reduction.CONV env bd1 bd2;
           chk (push_rel d1 env) rctx1' rctx2'
       | [],_ -> ()
       | _ -> failwith "non convertible contexts" in
@@ -59,7 +59,7 @@ let typecheck_arity env params inds =
     | RegularArity mar ->
         let ar = mar.mind_user_arity in
         let _ = Typeops.infer_type env ar in
-        Reduction.conv env (Term.it_mkProd_or_LetIn (Constr.mkSort mar.mind_sort) arctxt) ar;
+        Reduction.conv Reduction.CONV env (Term.it_mkProd_or_LetIn (Constr.mkSort mar.mind_sort) arctxt) ar;
         ar
     | TemplateArity par ->
       check_polymorphic_arity env params par;
@@ -209,7 +209,7 @@ let typecheck_one_inductive env params mip =
   let _ = Array.map (Typeops.infer_type env) mip.mind_user_lc in
   (* mind_nf_lc *)
   let _ = Array.map (Typeops.infer_type env) mip.mind_nf_lc in
-  Array.iter2 (Reduction.conv env) mip.mind_nf_lc mip.mind_user_lc;
+  Array.iter2 (Reduction.conv Reduction.CONV env) mip.mind_nf_lc mip.mind_user_lc;
   (* mind_consnrealdecls *)
   let check_cons_args c n =
     let ctx,_ = Term.decompose_prod_assum c in

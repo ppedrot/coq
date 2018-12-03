@@ -24,7 +24,10 @@ open Type_errors
 module RelDecl = Context.Rel.Declaration
 module NamedDecl = Context.Named.Declaration
 
-let conv_leq l2r env x y = default_conv CUMUL ~l2r env x y
+let conv_leq _l2r env t1 t2 =
+  (** We voluntarily drop the flag order because without it, the stdlib doesn't
+      compile. That deserves a clear FIXME. *)
+  Reduction.conv CUMUL env t1 t2
 
 let conv_leq_vecti env v1 v2 =
   Array.fold_left2_i
@@ -92,7 +95,7 @@ let type_of_variable env id =
    variables of the current env.
    Order does not have to be checked assuming that all names are distinct *)
 let check_hyps_inclusion env ?evars f c sign =
-  let conv env a b = conv env ?evars a b in
+  let conv env a b = Reduction.conv CONV env ?evars a b in
   Context.Named.fold_outside
     (fun d1 () ->
       let open Context.Named.Declaration in
@@ -237,9 +240,9 @@ let check_cast env c ct k expected_type =
     | VMcast ->
       Vconv.vm_conv CUMUL env ct expected_type
     | DEFAULTcast ->
-      default_conv ~l2r:false CUMUL env ct expected_type
+      conv_leq false env ct expected_type
     | REVERTcast ->
-      default_conv ~l2r:true CUMUL env ct expected_type
+      conv_leq true env ct expected_type
     | NATIVEcast ->
       let sigma = Nativelambda.empty_evars in
       Nativeconv.native_conv CUMUL sigma env ct expected_type

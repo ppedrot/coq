@@ -1285,34 +1285,26 @@ let report_anomaly e =
   let e = CErrors.push e in
   iraise e
 
-let f_conv ?l2r ?reds env ?evars x y =
+let f_conv pb ?l2r ?reds env ?evars x y =
   let inj = EConstr.Unsafe.to_constr in
-  Reduction.conv ?l2r ?reds env ?evars (inj x) (inj y)
+  Reduction.conv pb ?l2r ?ts:reds env ?evars (inj x) (inj y)
 
-let f_conv_leq ?l2r ?reds env ?evars x y =
-  let inj = EConstr.Unsafe.to_constr in
-  Reduction.conv_leq ?l2r ?reds env ?evars (inj x) (inj y)
-
-let test_trans_conversion (f: constr Reduction.extended_conversion_function) reds env sigma x y =
+let test_trans_conversion pb reds env sigma x y =
   try
     let evars ev = safe_evar_value sigma ev in
-    let _ = f ~reds env ~evars:(evars, Evd.universes sigma) x y in
+    let _ = f_conv pb ~reds env ~evars:(evars, Evd.universes sigma) x y in
     true
   with Reduction.NotConvertible -> false
     | e when is_anomaly e -> report_anomaly e
 
-let is_conv ?(reds=TransparentState.full) env sigma = test_trans_conversion f_conv reds env sigma
-let is_conv_leq ?(reds=TransparentState.full) env sigma = test_trans_conversion f_conv_leq reds env sigma
+let is_conv ?(reds=TransparentState.full) env sigma = test_trans_conversion Reduction.CONV reds env sigma
+let is_conv_leq ?(reds=TransparentState.full) env sigma = test_trans_conversion Reduction.CUMUL reds env sigma
 let is_fconv ?(reds=TransparentState.full) = function
   | Reduction.CONV -> is_conv ~reds
   | Reduction.CUMUL -> is_conv_leq ~reds
 
 let check_conv ?(pb=Reduction.CUMUL) ?(ts=TransparentState.full) env sigma x y =
-  let f = match pb with
-    | Reduction.CONV -> f_conv
-    | Reduction.CUMUL -> f_conv_leq
-  in
-    try f ~reds:ts env ~evars:(safe_evar_value sigma, Evd.universes sigma) x y; true
+    try f_conv pb ~reds:ts env ~evars:(safe_evar_value sigma, Evd.universes sigma) x y; true
     with Reduction.NotConvertible -> false
     | Univ.UniverseInconsistency _ -> false
     | e when is_anomaly e -> report_anomaly e
@@ -1341,7 +1333,7 @@ let sigma_univ_state =
     compare_cumul_instances = sigma_check_inductive_instances; }
 
 let infer_conv_gen conv_fun ?(catch_incon=true) ?(pb=Reduction.CUMUL)
-    ?(ts=TransparentState.full) env sigma x y =
+    ?ts env sigma x y =
   (** FIXME *)
   try
       let ans = match pb with
@@ -1362,7 +1354,7 @@ let infer_conv_gen conv_fun ?(catch_incon=true) ?(pb=Reduction.CUMUL)
         let x = EConstr.Unsafe.to_constr x in
         let y = EConstr.Unsafe.to_constr y in
 	let sigma' = 
-	  conv_fun pb ~l2r:false sigma ts
+          conv_fun pb ?ts sigma
 	    env (sigma, sigma_univ_state) x y in
         Some sigma'
   with
@@ -1370,8 +1362,8 @@ let infer_conv_gen conv_fun ?(catch_incon=true) ?(pb=Reduction.CUMUL)
   | Univ.UniverseInconsistency _ when catch_incon -> None
   | e when is_anomaly e -> report_anomaly e
 
-let infer_conv = infer_conv_gen (fun pb ~l2r sigma ->
-      Reduction.generic_conv pb ~l2r (safe_evar_value sigma))
+let infer_conv = infer_conv_gen (fun pb ?ts sigma ->
+      Reduction.generic_conv pb ~l2r:false ~evars:(safe_evar_value sigma) ?ts)
 
 (* This reference avoids always having to link C code with the kernel *)
 let vm_infer_conv = ref (infer_conv ~catch_incon:true ~ts:TransparentState.full)

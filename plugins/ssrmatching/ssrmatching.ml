@@ -203,7 +203,7 @@ exception NoProgress
 
 let unif_EQ env sigma p c =
   let evars = existential_opt_value0 sigma, Evd.universes sigma in
-  try let _ = Reduction.conv env p ~evars c in true with _ -> false
+  try let _ = Reduction.conv Reduction.CONV env p ~evars c in true with _ -> false
 
 let unif_EQ_args env sigma pa a =
   let n = Array.length pa in

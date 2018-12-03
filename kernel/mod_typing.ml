@@ -81,12 +81,12 @@ let rec check_with_def env struc (idl,(c,ctx)) mp equiv =
             | Undef _ | OpaqueDef _ ->
               let j = Typeops.infer env' c in
               let typ = cb.const_type in
-              let cst' = Reduction.infer_conv_leq env' (Environ.universes env')
+              let cst' = Reduction.infer_conv Reduction.CUMUL env' (Environ.universes env')
                   j.uj_type typ in
               j.uj_val, cst'
             | Def cs ->
               let c' = Mod_subst.force_constr cs in
-              c, Reduction.infer_conv env' (Environ.universes env') c c'
+              c, Reduction.infer_conv Reduction.CONV env' (Environ.universes env') c c'
           in
           c', Monomorphic_const Univ.ContextSet.empty, cst
         | Polymorphic_const uctx, Some ctx ->
@@ -100,12 +100,12 @@ let rec check_with_def env struc (idl,(c,ctx)) mp equiv =
 	    | Undef _ | OpaqueDef _ ->
 	      let j = Typeops.infer env' c in
 	      let typ = cb.const_type in
-	      let cst' = Reduction.infer_conv_leq env' (Environ.universes env')
+              let cst' = Reduction.infer_conv Reduction.CUMUL env' (Environ.universes env')
 						j.uj_type typ in
 	      cst'
 	    | Def cs ->
 	       let c' = Mod_subst.force_constr cs in
-	       let cst' = Reduction.infer_conv env' (Environ.universes env') c c' in
+               let cst' = Reduction.infer_conv Reduction.CONV env' (Environ.universes env') c c' in
 	        cst'
 	  in
 	    if not (Univ.Constraint.is_empty cst) then

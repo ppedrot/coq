@@ -29,12 +29,6 @@ val nf_betaiota      : env -> constr -> constr
 exception NotConvertible
 exception NotConvertibleVect of int
 
-type 'a kernel_conversion_function = env -> 'a -> 'a -> unit
-type 'a extended_conversion_function = 
-  ?l2r:bool -> ?reds:TransparentState.t -> env ->
-  ?evars:((existential->constr option) * UGraph.t) ->
-  'a -> 'a -> unit
-
 type conv_pb = CONV | CUMUL
 
 type 'a universe_compare =
@@ -45,6 +39,8 @@ type 'a universe_compare =
       Univ.Instance.t -> Univ.Instance.t -> 'a -> 'a }
 
 type 'a universe_state = 'a * 'a universe_compare
+
+type 'a kernel_conversion_function = env -> 'a -> 'a -> unit
 
 type ('a,'b) generic_conversion_function = env -> 'b universe_state -> 'a -> 'a -> 'b
 
@@ -69,26 +65,20 @@ val convert_instances : flex:bool -> Univ.Instance.t -> Univ.Instance.t ->
 val checked_universes : UGraph.t universe_compare
 val inferred_universes : (UGraph.t * Univ.Constraint.t) universe_compare
 
-(** These two functions can only raise NotConvertible *)
-val conv : constr extended_conversion_function
+(** This function can only raise NotConvertible *)
+val conv : conv_pb -> ?l2r:bool -> ?evars:((existential->constr option) * UGraph.t) ->
+  ?ts:TransparentState.t -> constr kernel_conversion_function
 
-val conv_leq : types extended_conversion_function
-
-(** These conversion functions are used by module subtyping, which needs to infer
+(** This conversion function is used by module subtyping, which needs to infer
     universe constraints inside the kernel *)
-val infer_conv : ?l2r:bool -> ?evars:(existential->constr option) -> 
+val infer_conv : conv_pb -> ?l2r:bool -> ?evars:(existential->constr option) ->
   ?ts:TransparentState.t -> constr infer_conversion_function
-val infer_conv_leq : ?l2r:bool -> ?evars:(existential->constr option) -> 
-  ?ts:TransparentState.t -> types infer_conversion_function
 
 (** Depending on the universe state functions, this might raise
   [UniverseInconsistency] in addition to [NotConvertible] (for better error
   messages). *)
-val generic_conv : conv_pb -> l2r:bool -> (existential->constr option) ->
-  TransparentState.t -> (constr,'a) generic_conversion_function
-
-val default_conv     : conv_pb -> ?l2r:bool -> types kernel_conversion_function
-val default_conv_leq : ?l2r:bool -> types kernel_conversion_function
+val generic_conv : conv_pb -> ?l2r:bool -> ?evars:(existential->constr option) ->
+  ?ts:TransparentState.t -> (constr,'a) generic_conversion_function
 
 (************************************************************************)
 
