@@ -164,6 +164,7 @@ val fterm_of : fconstr -> fterm
 val term_of_fconstr : fconstr -> constr
 val destFLambda :
   (fconstr subs -> constr -> fconstr) -> fconstr -> Name.t * fconstr * fconstr
+val skipFLambda : int -> fconstr -> fconstr
 
 (** Global and local constant cache *)
 type clos_infos

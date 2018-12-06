@@ -503,6 +503,16 @@ let mk_clos_vect env v = match v with
   [|mk_clos env v0; mk_clos env v1; mk_clos env v2; mk_clos env v3|]
 | v -> Array.Fun1.map mk_clos env v
 
+let skipFLambda n t = match [@ocaml.warning "-4"] t.term with
+| FLambda (n', tys, b, e) ->
+  if Int.equal n n' then mk_clos (subs_liftn n e) b
+  else
+    let () = assert (n < n') in
+    let tys = List.skipn n tys in
+    let e = subs_liftn n e in
+    { norm = Cstr; term = FLambda (n' - n, tys, b, e) }
+| _ -> assert false
+
 let ref_value_cache ({ i_cache = cache; _ }) tab ref =
   try
     Some (KeyTable.find tab ref)

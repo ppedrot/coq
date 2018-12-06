@@ -425,11 +425,19 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
 	  | _ -> raise NotConvertible))
       
     (* other constructors *)
-    | (FLambda _, FLambda _) ->
+    | (FLambda (n1, _, _, _), FLambda (n2, _, _, _)) ->
         (* Inconsistency: we tolerate that v1, v2 contain shift and update but
            we throw them away *)
         if not (is_empty_stack v1 && is_empty_stack v2) then
 	  anomaly (Pp.str "conversion was given ill-typed terms (FLambda).");
+      if infos.cnv_wty then
+        let n = if n1 < n2 then n1 else n2 in
+        let hd1 = skipFLambda n hd1 in
+        let hd2 = skipFLambda n hd2 in
+        let el1 = el_stack lft1 v1 in
+        let el2 = el_stack lft2 v2 in
+        ccnv CONV l2r infos (el_liftn n el1) (el_liftn n el2) hd1 hd2 cuniv
+      else
         let (_,ty1,bd1) = destFLambda mk_clos hd1 in
         let (_,ty2,bd2) = destFLambda mk_clos hd2 in
         let el1 = el_stack lft1 v1 in
