@@ -20,7 +20,6 @@ Require Coq.Strings.Ascii Coq.Strings.String.
 Export String.StringSyntax Ascii.AsciiSyntax.
 Require Coq.ZArith.BinIntDef Coq.PArith.BinPosDef Coq.NArith.BinNatDef.
 Require Coq.Reals.Rdefinitions.
-Require Coq.Numbers.Cyclic.Int31.Int31.
 Declare ML Module "r_syntax_plugin".
 Declare ML Module "int31_syntax_plugin".
 Numeral Notation BinNums.Z BinIntDef.Z.of_int BinIntDef.Z.to_int : Z_scope.
