@@ -426,17 +426,28 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
 	  | _ -> raise NotConvertible))
       
     (* other constructors *)
-    | (FLambda _, FLambda _) ->
+    | (FLambda (n1, var1, bd1, e1), FLambda (n2, var2, bd2, e2)) ->
         (* Inconsistency: we tolerate that v1, v2 contain shift and update but
            we throw them away *)
         if not (is_empty_stack v1 && is_empty_stack v2) then
 	  anomaly (Pp.str "conversion was given ill-typed terms (FLambda).");
-        let (_,ty1,bd1) = destFLambda mk_clos hd1 in
-        let (_,ty2,bd2) = destFLambda mk_clos hd2 in
         let el1 = el_stack lft1 v1 in
         let el2 = el_stack lft2 v2 in
-        let cuniv = ccnv CONV l2r infos el1 el2 ty1 ty2 cuniv in
-        ccnv CONV l2r infos (el_lift el1) (el_lift el2) bd1 bd2 cuniv
+        let rec conv_lam n var1 var2 cuniv = match var1, var2 with
+        | (_, ty1) :: var1, (_, ty2) :: var2 ->
+          let cuniv =
+            ccnv CONV l2r infos
+              (el_liftn n el1) (el_liftn n el2)
+              (mk_clos (subs_liftn n e1) ty1) (mk_clos (subs_liftn n e2) ty2) cuniv
+          in
+          conv_lam (n + 1) var1 var2 cuniv
+        | [], [] | [], _ :: _ | _ :: _, [] -> cuniv
+        in
+        let cuniv = conv_lam 0 var1 var2 cuniv in
+        let n = if n1 < n2 then n2 else n1 in
+        let st1 = mk_clos (subs_liftn n1 e1) bd1, eta_expand_stack (n - n1) [] in
+        let st2 = mk_clos (subs_liftn n2 e2) bd2, eta_expand_stack (n - n2) [] in
+        eqappr CONV l2r infos (el_liftn n el1, st1) (el_liftn n el2, st2) cuniv
 
     | (FProd (_, c1, c2, e), FProd (_, c'1, c'2, e')) ->
         if not (is_empty_stack v1 && is_empty_stack v2) then
@@ -448,24 +459,22 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
         ccnv cv_pb l2r infos (el_lift el1) (el_lift el2) (mk_clos (subs_lift e) c2) (mk_clos (subs_lift e') c'2) cuniv
 
     (* Eta-expansion on the fly *)
-    | (FLambda _, _) ->
+    | (FLambda (n, _, bd1, e1), _) ->
         let () = match v1 with
         | [] -> ()
         | _ ->
           anomaly (Pp.str "conversion was given unreduced term (FLambda).")
         in
-        let (_,_ty1,bd1) = destFLambda mk_clos hd1 in
         eqappr CONV l2r infos
-	  (el_lift lft1, (bd1, [])) (el_lift lft2, (hd2, eta_expand_stack v2)) cuniv
-    | (_, FLambda _) ->
+          (el_liftn n lft1, (mk_clos (subs_liftn n e1) bd1, [])) (el_liftn n lft2, (hd2, eta_expand_stack n v2)) cuniv
+    | (_, FLambda (n, _, bd2, e2)) ->
         let () = match v2 with
         | [] -> ()
         | _ ->
 	  anomaly (Pp.str "conversion was given unreduced term (FLambda).")
 	in
-        let (_,_ty2,bd2) = destFLambda mk_clos hd2 in
         eqappr CONV l2r infos
-	  (el_lift lft1, (hd1, eta_expand_stack v1)) (el_lift lft2, (bd2, [])) cuniv
+          (el_liftn n lft1, (hd1, eta_expand_stack n v1)) (el_liftn n lft2, (mk_clos (subs_liftn n e2) bd2, [])) cuniv
 	
     (* only one constant, defined var or defined rel *)
     | (FFlex fl1, c2)      ->

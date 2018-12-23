@@ -469,14 +469,6 @@ let mk_lambda env t =
   let (rvars,t') = Term.decompose_lam t in
   FLambda(List.length rvars, List.rev rvars, t', env)
 
-let destFLambda clos_fun t =
-  match [@ocaml.warning "-4"] t.term with
-  | FLambda(_,[(na,ty)],b,e) -> (na,clos_fun e ty,clos_fun (subs_lift e) b)
-  | FLambda(n,(na,ty)::tys,b,e) ->
-    (na,clos_fun e ty,{norm=Cstr;term=FLambda(n-1,tys,b,subs_lift e)})
-  | _ -> assert false
-(* t must be a FLambda and binding list cannot be empty *)
-
 (* Optimization: do not enclose variables in a closure.
    Makes variable access much faster *)
 let mk_clos e t =
@@ -721,13 +713,12 @@ let rec get_args n tys f e = function
     | ((ZcaseT _ | Zproj _ | Zfix _) :: _ | []) as stk ->
       (Inr {norm=Cstr;term=FLambda(n,tys,f,e)}, stk)
 
-(* Eta expansion: add a reference to implicit surrounding lambda at end of stack *)
-let rec eta_expand_stack = function
-  | (Zapp _ | Zfix _ | ZcaseT _ | Zproj _
-	| Zshift _ | Zupdate _ as e) :: s ->
-      e :: eta_expand_stack s
-  | [] ->
-      [Zshift 1; Zapp [|{norm=Norm; term= FRel 1}|]]
+(* Eta expansion: add references to implicit surrounding lambdas at end of stack *)
+let eta_expand_stack n s =
+  if Int.equal n 0 then s
+  else
+    let mk i = { norm = Norm; term = FRel (n - i) } in
+    s @ [Zshift n; Zapp (Array.init n mk)]
 
 (* Iota reduction: extract the arguments to be passed to the Case
    branches *)

@@ -106,10 +106,13 @@ let rec infer_fterm cv_pb infos variances hd stk =
   | FProj (_,c) ->
     let variances = infer_fterm CONV infos variances c [] in
     infer_stack infos variances stk
-  | FLambda _ ->
-    let (_,ty,bd) = destFLambda mk_clos hd in
-    let variances = infer_fterm CONV infos variances ty [] in
-    infer_fterm CONV infos variances bd []
+  | FLambda (_, tys, bd, e) ->
+    let fold (variances, e) (_, ty) =
+      let variances = infer_fterm CONV infos variances (mk_clos e ty) [] in
+      (variances, Esubst.subs_lift e)
+    in
+    let (variances, e) = List.fold_left fold (variances, e) tys in
+    infer_fterm CONV infos variances (mk_clos e bd) []
   | FProd (_,dom,codom,e) ->
     let variances = infer_fterm CONV infos variances dom [] in
     infer_fterm cv_pb infos variances (mk_clos (Esubst.subs_lift e) codom) []
