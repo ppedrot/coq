@@ -48,10 +48,12 @@ type link_info =
 
 type constant_key = constant_body * (link_info ref * key)
 
+type dep_cache = Cset.t option ref
+
 type mind_key = mutual_inductive_body * link_info ref
 
 type globals = {
-  env_constants : constant_key Cmap_env.t;
+  env_constants : (constant_key * dep_cache) Cmap_env.t;
   env_inductives : mind_key Mindmap_env.t;
   env_modules : module_body MPmap.t;
   env_modtypes : module_type_body MPmap.t;
@@ -208,15 +210,15 @@ let lookup_named_ctxt id ctxt =
   fst (Id.Map.find id ctxt.env_named_map)
 
 let fold_constants f env acc =
-  Cmap_env.fold (fun c (body,_) acc -> f c body acc) env.env_globals.env_constants acc
+  Cmap_env.fold (fun c ((body,_),_) acc -> f c body acc) env.env_globals.env_constants acc
 
 (* Global constants *)
 
 let lookup_constant_key kn env =
-  Cmap_env.find kn env.env_globals.env_constants
+  fst (Cmap_env.find kn env.env_globals.env_constants)
 
 let lookup_constant kn env =
-  fst (Cmap_env.find kn env.env_globals.env_constants)
+  fst (fst (Cmap_env.find kn env.env_globals.env_constants))
 
 (* Mutual Inductives *)
 let lookup_mind kn env =
@@ -427,7 +429,7 @@ let no_link_info = NotLinked
 
 let add_constant_key kn cb linkinfo env =
   let new_constants =
-    Cmap_env.add kn (cb,(ref linkinfo, ref None)) env.env_globals.env_constants in
+    Cmap_env.add kn ((cb,(ref linkinfo, ref None)), ref None) env.env_globals.env_constants in
   let new_globals =
     { env.env_globals with
 	env_constants = new_constants } in
@@ -442,6 +444,24 @@ let constant_type env (kn,u) =
   let uctx = Declareops.constant_polymorphic_context cb in
   let csts = Univ.AUContext.instantiate u uctx in
   (subst_instance_constr u cb.const_type, csts)
+
+let rec constant_dependencies env kn =
+  let ((body, _), cache) = Cmap_env.find kn env.env_globals.env_constants in
+  match !cache with
+  | None ->
+    let deps = match body.const_body with
+    | Def c ->
+      let rec compute_dependencies accu c = match kind c with
+      | Const (kn, _) ->
+        Cset.fold Cset.add (constant_dependencies env kn) accu
+      | _ -> Constr.fold compute_dependencies accu c
+      in
+      compute_dependencies Cset.empty (Mod_subst.force_constr c)
+    | Undef _ | OpaqueDef _ -> Cset.empty
+    in
+    let () = cache := Some deps in
+    deps
+  | Some deps -> deps
 
 type const_evaluation_result = NoBody | Opaque
 

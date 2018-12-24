@@ -207,6 +207,8 @@ val constant_value_and_type : env -> Constant.t puniverses ->
     polymorphic *)
 val constant_context : env -> Constant.t -> Univ.AUContext.t
 
+val constant_dependencies : env -> Constant.t -> Cset.t
+
 (** Returns the body of the constant if it has any, and the polymorphic context
     it lives in. For monomorphic constant, the latter is empty, and for
     polymorphic constants, the term contains De Bruijn universe variables that
