@@ -296,6 +296,24 @@ let rec skip_pattern n c =
   | Lambda (_, _, c) -> skip_pattern (pred n) c
   | _ -> raise IrregularPatternShape
 
+let skip_return npar nidx p =
+  let rec skip n c =
+    if Int.equal n 0 then match kind c with
+    | Lambda (_, t, p) -> (t, p)
+    | _ -> raise IrregularPatternShape
+    else match kind c with
+    | Lambda (_, _, c) -> skip (pred n) c
+    | _ -> raise IrregularPatternShape
+  in
+  let (self, p) = skip nidx p in
+  let params =
+    if Int.equal npar 0 then [||]
+    else match kind self with
+    | App (_, args) -> Array.sub args 0 npar
+    | _ -> raise IrregularPatternShape
+  in
+  (params, p)
+
 type conv_tab = {
   cnv_inf : clos_infos;
   lft_tab : clos_tab;
@@ -611,7 +629,7 @@ and convert_stacks l2r infos lft1 lft2 stk1 stk2 cuniv =
             | (Zlcase(ci1,l1,p1,br1,e1),Zlcase(ci2,l2,p2,br2,e2)) ->
                 if not (eq_ind ci1.ci_ind ci2.ci_ind) then
                   raise NotConvertible;
-                let cu2 = f (l1, mk_clos e1 p1) (l2, mk_clos e2 p2) cu1 in
+                let cu2 = convert_return_predicate l2r infos ci1 e1 e2 l1 l2 p1 p2 cu1 in
                 convert_branches l2r infos ci1 e1 e2 l1 l2 br1 br2 cu2
             | _ -> assert false)
       | _ -> cuniv in
@@ -647,6 +665,26 @@ and convert_branches l2r infos ci e1 e2 lft1 lft2 br1 br2 cuniv =
     ccnv CONV l2r infos lft1 lft2 (mk_clos e1 c1) (mk_clos e2 c2) cuniv
   in
   Array.fold_right3 fold ci.ci_cstr_nargs br1 br2 cuniv
+
+and convert_return_predicate l2r infos ci e1 e2 lft1 lft2 p1 p2 cuniv =
+  (** Do not compare the type of indices in the return predicate. The only
+      relevant information are parameters together with the return type. *)
+  let npar = ci.ci_npar in
+  let nidx = List.count not ci.ci_pp_info.ind_tags in
+  match skip_return npar nidx p1, skip_return npar nidx p2 with
+  | (params1, p1), (params2, p2) ->
+    let lft1 = el_liftn nidx lft1 in
+    let lft2 = el_liftn nidx lft2 in
+    let e1 = subs_liftn nidx e1 in
+    let e2 = subs_liftn nidx e2 in
+    let cuniv = convert_vect l2r infos lft1 lft2
+      (Array.map (mk_clos e1) params1)
+      (Array.map (mk_clos e2) params2) cuniv
+    in
+    ccnv CONV l2r infos (el_lift lft1) (el_lift lft2) (mk_clos (subs_lift e1) p1) (mk_clos (subs_lift e2) p2) cuniv
+  | exception IrregularPatternShape ->
+    (** Might happen due to a shape invariant that is not enforced *)
+    ccnv CONV l2r infos lft1 lft2 (mk_clos e1 p1) (mk_clos e2 p2) cuniv
 
 let clos_gen_conv trans cv_pb l2r evars env univs t1 t2 =
   let reds = CClosure.RedFlags.red_add_transparent betaiotazeta trans in
