@@ -32,7 +32,7 @@ let rec mp_from_mexpr = function
 
 let is_modular = function
   | SFBmodule _ | SFBmodtype _ -> true
-  | SFBconst _ | SFBmind _ -> false
+  | SFBconst _ | SFBmind _ | SFBrewrite _ -> false
 
 (** Split a [structure_body] at some label corresponding to
     a modular definition or not. *)

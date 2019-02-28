@@ -491,6 +491,7 @@ let constraints_of_sfb env sfb =
   | SFBmind mib -> globalize_mind_universes mib
   | SFBmodtype mtb -> [Now (false, mtb.mod_constraints)]
   | SFBmodule mb -> [Now (false, mb.mod_constraints)]
+  | SFBrewrite _ -> []
 
 let add_retroknowledge pttc senv =
   { senv with
@@ -505,6 +506,7 @@ type generic_name =
   | I of MutInd.t
   | M (** name already known, cf the mod_mp field *)
   | MT (** name already known, cf the mod_mp field *)
+  | RW
 
 let add_field ?(is_include=false) ((l,sfb) as field) gn senv =
   let mlabs,olabs = match sfb with
@@ -515,6 +517,7 @@ let add_field ?(is_include=false) ((l,sfb) as field) gn senv =
       check_objlabel l senv; (Label.Set.empty, Label.Set.singleton l)
     | SFBmodule _ | SFBmodtype _ ->
       check_modlabel l senv; (Label.Set.singleton l, Label.Set.empty)
+    | SFBrewrite _ -> (Label.Set.empty, Label.Set.empty)
   in
   let senv =
     if is_include then
@@ -533,6 +536,7 @@ let add_field ?(is_include=false) ((l,sfb) as field) gn senv =
     | SFBmind mib, I mind -> Environ.add_mind mind mib senv.env
     | SFBmodtype mtb, MT -> Environ.add_modtype mtb senv.env
     | SFBmodule mb, M -> Modops.add_module mb senv.env
+    | SFBrewrite (cst, rw), RW -> Environ.add_rewrite_rule senv.env cst rw
     | _ -> assert false
   in
   { senv with
@@ -1073,6 +1077,7 @@ let add_include me is_module inl senv =
         I (Mod_subst.mind_of_delta_kn resolver (KerName.make mp_sup l))
       | SFBmodule _ -> M
       | SFBmodtype _ -> MT
+      | SFBrewrite _ -> RW
     in
     add_field ~is_include:true field new_name senv
   in
@@ -1304,3 +1309,75 @@ Would this be correct with respect to undo's and stuff ?
 let set_strategy k l e = { e with env =
    (Environ.set_oracle e.env
       (Conv_oracle.set_strategy (Environ.oracle e.env) k l)) }
+
+(** {5 Rewrite rules} *)
+
+let rec pure_pattern env p =
+  let (hd, args) = decompose_appvect p in
+  match kind hd with
+  | Construct pc ->
+    let args = Array.map (fun c -> pure_pattern env c) args in
+    RwPatConstruct (pc, args)
+  | Rel n ->
+    assert (Array.is_empty args);
+    RwPatPattern (n, [||])
+  | _ -> assert false
+
+let pure_context env stk =
+  let open CClosure in
+  let open Esubst in
+  let rec pure_rec lfts stk = match stk with
+  | [] -> (lfts, RwTrmHole)
+  | zi :: s ->
+    let (l, pstk) = pure_rec lfts s in
+    match zi with
+    | Zupdate _ -> (l, pstk)
+    | Zshift m -> (m + l, pstk)
+    | Zapp a ->
+      let map c = pure_pattern env (to_constr (el_shft l el_id) c) in
+      (l, RwTrmApp (pstk, Array.map map a))
+    | Zproj _p ->
+      (l, assert false)
+    | Zfix (_fx, a) ->
+      let (_lfx, _pa) = pure_rec l a in
+      (l, assert false)
+    | ZcaseT _ ->
+      (l, assert false)
+    | Zprimitive _ ->
+      (l, assert false)
+  in
+  snd (pure_rec 0 stk)
+
+let add_rewrite_rule r senv =
+  let open Entries in
+  let open Univ in
+  let open CClosure in
+  let env = senv.env in
+  let error () = CErrors.user_err (Pp.str "Ill-formed rewrite rule") in
+  let ctx = AUContext.repr r.rwrule_univs in
+  let env = Environ.push_context ~strict:false ctx env in
+  let env = Typeops.check_context env r.rwrule_context in
+  let lj = Typeops.infer env r.rwrule_lhs in
+  let rj = Typeops.infer env r.rwrule_rhs in
+  let () = Reduction.default_conv_leq env rj.Environ.uj_type lj.Environ.uj_type in
+  let (hd, stk) =
+    let flags = Environ.typing_flags env in
+    let flags = { flags with share_reduction = false } in
+    let env = Environ.set_typing_flags flags env in
+    let infos = create_clos_infos RedFlags.no_red env in
+    let tab = create_tab () in
+    whd_stack infos tab (inject r.rwrule_lhs) []
+  in
+  let (kn, _u) = match fterm_of hd with
+  | FFlex (ConstKey kn) -> kn
+  | _ -> error ()
+  in
+  let lhs = pure_context env stk in
+  let rw = {
+    rw_ctx = r.rwrule_univs;
+    rw_env = r.rwrule_context;
+    rw_lhs = lhs;
+    rw_rhs = r.rwrule_rhs;
+  } in
+  let l = Label.make "_" in
+  add_field (l, SFBrewrite (kn, rw)) RW senv

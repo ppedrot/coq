@@ -78,6 +78,7 @@ let make_labmap mp list =
     | SFBmind mib -> { map with objs = add_mib_nameobjects mp l mib map.objs }
     | SFBmodule mb -> { map with mods = Label.Map.add l (Module mb) map.mods }
     | SFBmodtype mtb -> { map with mods = Label.Map.add l (Modtype mtb) map.mods }
+    | SFBrewrite _ -> assert false (* FIXME *)
   in
   CList.fold_right add_one list empty_labmap
 
@@ -295,6 +296,8 @@ and check_signatures cst env mp1 sig1 mp2 sig2 subst1 subst2 reso1 reso2=
 	        (add_module_type mtb1.mod_mp mtb1 env)
             in
 	    check_modtypes cst env mtb1 mtb2 subst1 subst2 true
+        | SFBrewrite _ ->
+          assert false (* FIXME *)
   in
     List.fold_left check_one_body cst sig2
 

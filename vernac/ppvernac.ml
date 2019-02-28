@@ -844,6 +844,13 @@ open Pputils
           hov 2 (keyword "Constraint" ++ spc () ++
                    prlist_with_sep (fun _ -> str",") pr_uconstraint v)
         )
+      | VernacRewrite (u, bl, lhs, rhs) ->
+        return (
+          hov 2 (keyword "Rewrite" ++
+                   pr_universe_decl (Some u) ++ spc () ++
+                   pr_and_type_binders_arg bl ++ spc () ++ str "in" ++ spc () ++
+                   pr_lconstr lhs ++ str "as" ++ spc () ++ pr_lconstr rhs)
+        )
 
       (* Gallina extensions *)
       | VernacBeginSection id ->

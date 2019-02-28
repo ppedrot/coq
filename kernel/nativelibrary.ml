@@ -54,6 +54,8 @@ and translate_field prefix mp env acc (l,x) =
 	in
 	Feedback.msg_debug (Pp.str msg));
      translate_mod prefix mp env mdtyp.mod_type acc
+  | SFBrewrite _ ->
+    [] (* FIXME? *)
 
 let dump_library mp dp env mod_expr =
   if !Flags.debug then Feedback.msg_debug (Pp.str "Compiling library...");

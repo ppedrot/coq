@@ -89,3 +89,5 @@ val declare_universe_context : polymorphic -> Univ.ContextSet.t -> unit
 val do_universe : polymorphic -> lident list -> unit
 val do_constraint : polymorphic -> (Glob_term.glob_level * Univ.constraint_type * Glob_term.glob_level) list ->
                     unit
+
+val declare_rewrite_rule : rewrite_rule_entry -> unit

@@ -225,6 +225,8 @@ GRAMMAR EXTEND Gram
       | IDENT "Universe"; l = LIST1 identref -> { VernacUniverse l }
       | IDENT "Universes"; l = LIST1 identref -> { VernacUniverse l }
       | IDENT "Constraint"; l = LIST1 univ_constraint SEP "," -> { VernacConstraint l }
+      | IDENT "Rewrite"; u = univ_decl; bl = binders; "in"; lhs = lconstr; "as"; rhs = lconstr ->
+        { VernacRewrite (u, bl, lhs, rhs) }
   ] ]
   ;
 

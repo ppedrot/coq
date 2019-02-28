@@ -827,6 +827,9 @@ let vernac_constraint ~poly l =
 		  ++ str " inside sections, use Monomorphic Constraint instead");
   Declare.do_constraint poly l
 
+let vernac_rewrite u bl lhs rhs =
+  ComRewriteRules.add u bl lhs rhs
+
 (**********************)
 (* Modules            *)
 
@@ -2195,6 +2198,8 @@ let interp ?proof ~atts ~st c =
   | VernacCombinedScheme (id, l) -> unsupported_attributes atts; vernac_combined_scheme id l
   | VernacUniverse l -> vernac_universe ~poly:(only_polymorphism atts) l
   | VernacConstraint l -> vernac_constraint ~poly:(only_polymorphism atts) l
+  | VernacRewrite (u, bl, lhs, rhs) ->
+    unsupported_attributes atts; vernac_rewrite u bl lhs rhs
 
   (* Modules *)
   | VernacDeclareModule (export,lid,bl,mtyo) ->

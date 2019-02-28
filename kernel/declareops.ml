@@ -91,6 +91,10 @@ let subst_const_type sub arity =
   if is_empty_subst sub then arity
   else subst_mps sub arity
 
+let subst_typing_flags _sub (t : typing_flags) =
+  (* FIXME *)
+  t
+
 (** No need here to check for physical equality after substitution,
     at least for Def due to the delayed substitution [subst_constr_subst]. *)
 let subst_const_def sub def = match def with
@@ -104,7 +108,9 @@ let subst_const_body sub cb =
   else
     let body' = subst_const_def sub cb.const_body in
     let type' = subst_const_type sub cb.const_type in
+    let flags' = subst_typing_flags sub cb.const_typing_flags in
     if body' == cb.const_body && type' == cb.const_type
+      && flags' == cb.const_typing_flags
     then cb
     else
       { const_hyps = [];
@@ -115,7 +121,7 @@ let subst_const_body sub cb =
         const_universes = cb.const_universes;
         const_private_poly_univs = cb.const_private_poly_univs;
         const_inline_code = cb.const_inline_code;
-        const_typing_flags = cb.const_typing_flags }
+        const_typing_flags = flags' }
 
 (** {7 Hash-consing of constants } *)
 
@@ -129,12 +135,11 @@ let hcons_rel_decl =
 let hcons_rel_context l = List.Smart.map hcons_rel_decl l
 
 let hcons_const_def = function
-  | Undef inl -> Undef inl
   | Primitive p -> Primitive p
   | Def l_constr ->
     let constr = force_constr l_constr in
     Def (from_val (Constr.hcons constr))
-  | OpaqueDef _ as x -> x (* hashconsed when turned indirect *)
+  | Undef _ | OpaqueDef _ as x -> x (* hashconsed when turned indirect *)
 
 let hcons_universes cbu =
   match cbu with
@@ -251,7 +256,7 @@ let subst_mind_body sub mib =
     mind_universes = mib.mind_universes;
     mind_variance = mib.mind_variance;
     mind_private = mib.mind_private;
-    mind_typing_flags = mib.mind_typing_flags;
+    mind_typing_flags = subst_typing_flags sub mib.mind_typing_flags;
   }
 
 let inductive_polymorphic_context mib =
@@ -331,6 +336,8 @@ let hcons_functorize hty he hself f = match f with
 
 let hcons_module_alg_expr me = me
 
+let hcons_rewrite_rule rw = rw (* FIXME *)
+
 let rec hcons_structure_field_body sb = match sb with
 | SFBconst cb ->
   let cb' = hcons_const_body cb in
@@ -344,6 +351,10 @@ let rec hcons_structure_field_body sb = match sb with
 | SFBmodtype mb ->
   let mb' = hcons_module_type mb in
   if mb == mb' then sb else SFBmodtype mb'
+| SFBrewrite (cst, rw) ->
+  let cst' = Names.hcons_con cst in
+  let rw' = hcons_rewrite_rule rw in
+  if cst' == cst && rw' == rw then sb else SFBrewrite (cst', rw')
 
 and hcons_structure_body sb =
   (** FIXME *)

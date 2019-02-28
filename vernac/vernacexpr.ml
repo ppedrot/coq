@@ -283,6 +283,7 @@ type nonrec vernac_expr =
   | VernacCombinedScheme of lident * lident list
   | VernacUniverse of lident list
   | VernacConstraint of Glob_term.glob_constraint list
+  | VernacRewrite of universe_decl_expr * local_binder_expr list * constr_expr * constr_expr
 
   (* Gallina extensions *)
   | VernacBeginSection of lident

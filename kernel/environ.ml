@@ -92,6 +92,7 @@ type env = {
   env_nb_rel        : int;
   env_stratification : stratification;
   env_typing_flags  : typing_flags;
+  env_rewrite_rules : rewrite_rule list Cmap.t;
   retroknowledge : Retroknowledge.retroknowledge;
   indirect_pterms : Opaqueproof.opaquetab;
 }
@@ -119,6 +120,7 @@ let empty_env = {
     env_universes = UGraph.initial_universes;
     env_engagement = PredicativeSet };
   env_typing_flags = Declareops.safe_flags Conv_oracle.empty;
+  env_rewrite_rules = Cmap.empty;
   retroknowledge = Retroknowledge.empty;
   indirect_pterms = Opaqueproof.empty_opaquetab }
 
@@ -762,3 +764,15 @@ let is_type_in_type env r =
   | ConstructRef cstr -> type_in_type_ind (inductive_of_constructor cstr) env
 
 let set_retroknowledge env r = { env with retroknowledge = r }
+
+let add_rewrite_rule env cst r =
+  let rewrite_rules = env.env_rewrite_rules in
+  let rewrite_rules =
+    try Cmap.modify cst (fun _ old -> r :: old) rewrite_rules
+    with Not_found -> Cmap.add cst [r] rewrite_rules
+  in
+  { env with env_rewrite_rules = rewrite_rules }
+
+let lookup_rewrite_rules cst env =
+  let rules = env.env_rewrite_rules in
+  try Cmap.find cst rules with Not_found -> []

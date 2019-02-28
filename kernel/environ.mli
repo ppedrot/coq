@@ -71,6 +71,7 @@ type env = private {
   env_nb_rel        : int;
   env_stratification : stratification;
   env_typing_flags  : typing_flags;
+  env_rewrite_rules : rewrite_rule list Cmap.t;
   retroknowledge : Retroknowledge.retroknowledge;
   indirect_pterms : Opaqueproof.opaquetab;
 }
@@ -353,3 +354,6 @@ val no_link_info : link_info
 
 (** Primitives *)
 val set_retroknowledge : env -> Retroknowledge.retroknowledge -> env
+
+val add_rewrite_rule : env -> Constant.t -> rewrite_rule -> env
+val lookup_rewrite_rules : Constant.t -> env -> rewrite_rule list

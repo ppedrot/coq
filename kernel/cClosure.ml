@@ -327,17 +327,18 @@ let update ~share v1 no t =
 
 (** Reduction cache *)
 
+type clos_tab = fconstr constant_def KeyTable.t
+
 type infos_cache = {
   i_env : env;
   i_sigma : existential -> constr option;
   i_share : bool;
+  i_conv : clos_infos -> clos_tab -> fconstr -> constr -> Univ.Constraint.t option;
 }
 
-type clos_infos = {
+and clos_infos = {
   i_flags : reds;
   i_cache : infos_cache }
-
-type clos_tab = fconstr constant_def KeyTable.t
 
 let info_flags info = info.i_flags
 let info_env info = info.i_cache.i_env
@@ -853,6 +854,60 @@ let unfold_projection info p =
     Some (Zproj (Projection.repr p))
   else None
 
+(** {5 Rewrite rules} *)
+
+exception RewriteFailure
+
+let rec extract_args depth n accu = function
+| Zapp args :: s ->
+  let args = lift_fconstr_vect depth args in
+  let q = Array.length args in
+  if n > q then extract_args depth (n - q) (args :: accu) s
+  else if Int.equal n q then (args :: accu, s)
+  else
+    let args, rem = Array.chop n args in
+    (* is zshift correct? *)
+    (args :: accu, append_stack rem (zshift depth s))
+| Zshift k :: s -> extract_args (depth - k) n accu s
+| [] -> if Int.equal n 0 then accu, [] else raise RewriteFailure
+| (ZcaseT _ | Zproj _ | Zfix _ | Zupdate _ | Zprimitive _) :: _ -> assert false
+  (* strip_update_shift_app only produces Zapp and Zshift items *)
+
+let rec extract_pattern hd pbs stk r = match r with
+| RwTrmHole -> stk, pbs
+| RwTrmApp (r, pats) ->
+  let depth, args, stk = strip_update_shift_app_red hd stk in
+  let args, rem = extract_args depth (Array.length pats) [] args in
+  let stk = rem @ stk in
+  let args = Array.concat (List.rev args) in
+  let hd = { norm = hd.norm; term = FApp (hd, args) } in
+  extract_pattern hd ((pats, args) :: pbs) stk r
+
+(* FIXME: export a primitive in environments to do that *)
+let first_free_uvar infos =
+  let open Univ in
+  let univs = universes infos.i_cache.i_env in
+  let contains i =
+    try
+      let _ = UGraph.check_declared_universes univs (LSet.singleton (Level.var i)) in
+      true
+    with _ -> false
+  in
+  (** First, find an upper bound in log time *)
+  let rec approx n = if contains n then approx (2 * n) else n in
+  let n = if contains 0 then approx 1 else 0 in
+  let () = assert (0 <= n) in
+  (** Then do a dichotomic search *)
+  let n0 = n / 2 in
+  let rec find min max =
+    if Int.equal min max then min
+    else if Int.equal (min + 1) max then max
+    else
+      let n = (min + max) / 2 in
+      if contains n then find n max else find min n
+  in
+  find n0 n
+
 (*********************************************************************)
 (* A machine that inspects the head of a term until it finds an
    atom or a subterm that may produce a redex (abstraction,
@@ -1066,12 +1121,20 @@ let rec knr info tab m stk =
           Inl e', s -> knit info tab e' f s
         | Inr lam, s -> (lam,s))
   | FFlex(ConstKey (kn,_ as c)) when red_set info.i_flags (fCONST kn) ->
-      (match ref_value_cache info tab (ConstKey c) with
+      begin match ref_value_cache info tab (ConstKey c) with
         | Def v -> kni info tab v stk
         | Primitive op when check_native_args op stk ->
           let rargs, a, nargs, stk = get_native_args1 op c stk in
           kni info tab a (Zprimitive(op,c,rargs,nargs)::stk)
-        | Undef _ | OpaqueDef _ | Primitive _ -> (set_norm m; (m,stk)))
+        | Undef _ ->
+          let rules = Environ.lookup_rewrite_rules kn (info_env info) in
+          begin match match_rewrite_rules info tab m stk rules with
+          | None -> (set_norm m; (m,stk))
+          | Some (m, stk) -> knr info tab m stk
+          end
+        | OpaqueDef _ | Primitive _ ->
+          (set_norm m; (m,stk))
+      end
   | FFlex(VarKey id) when red_set info.i_flags (fVAR id) ->
       (match ref_value_cache info tab (VarKey id) with
         | Def v -> kni info tab v stk
@@ -1145,6 +1208,63 @@ and kni info tab m stk =
 and knit info tab e t stk =
   let (ht,s) = knht info e t stk in
   knr info tab ht s
+
+and match_rewrite_rules info tab c stk = function
+| [] -> None
+| r :: rules ->
+  match match_rewrite_rule info tab c stk r with
+  | Some _ as ans -> ans
+  | None -> match_rewrite_rules info tab c stk rules
+  | exception RewriteFailure -> match_rewrite_rules info tab c stk rules
+
+and match_rewrite_rule info tab c stk r =
+  let open Univ in
+  let _stk, pbs = extract_pattern c [] stk r.rw_lhs in
+  let n = first_free_uvar info in
+  let inst = Array.init (AUContext.size r.rw_ctx) (fun i -> Level.var (i + n)) in
+  let inst = Instance.of_array inst in
+  let push_term i t terms =
+    try Int.Map.modify i (fun _ r -> t :: r) terms
+    with Not_found -> Int.Map.add i [t] terms
+  in
+
+  let rec unify_pattern (univs, terms as accu) pat t = match pat with
+  | RwPatPattern (n, rels) ->
+    let () = assert (Array.is_empty rels) in
+    let t = term_of_fconstr t in
+    (univs, push_term n t terms)
+  | RwPatTerm c ->
+    let c = Vars.subst_instance_constr inst c in
+    let csts = match info.i_cache.i_conv info tab t c with
+    | None -> raise RewriteFailure
+    | Some csts -> csts
+    in
+    (Constraint.union csts univs, terms)
+  | RwPatConstruct ((pcstr, _pu), pats) ->
+    let all = RedFlags.red_add_transparent all (RedFlags.red_transparent (info_flags info)) in
+    let hd, stk = kni { info with i_flags = all } tab t [] in
+    let () = match [@ocaml.warning "-4"] fterm_of hd with
+    | FConstruct (cstr, _u) ->
+      if not (eq_constructor pcstr cstr) then raise RewriteFailure
+      (* FIXME: compare universe instances *)
+    | _ -> raise RewriteFailure
+    in
+    let depth, args, stk = strip_update_shift_app_red hd stk in
+    let () = if not (List.is_empty stk) then raise RewriteFailure in
+    let args, rem = extract_args depth (Array.length pats) [] args in
+    let () = if not (List.is_empty rem) then raise RewriteFailure in
+    let args = Array.concat (List.rev args) in
+    Array.fold_left2 unify_pattern accu pats args
+  | RwPatLambda (_t, _pat) ->
+    assert false
+  in
+
+  let fold accu (pats, ts) = Array.fold_left2 unify_pattern accu pats ts in
+  let _univs, terms = List.fold_left fold (Constraint.empty, Int.Map.empty) pbs in
+  let nrels = List.length r.rw_env in
+  let mk_inst i = inject (List.hd (Int.Map.find (nrels - i) terms)) in
+  let subst = Array.init nrels mk_inst in
+  Some (mk_clos (subs_cons (subst, subs_id 0)) r.rw_rhs, [])
 
 let kh info tab v stk = fapp_stack(kni info tab v stk)
 
@@ -1242,12 +1362,15 @@ let whd_stack infos tab m stk = match m.norm with
   let () = if infos.i_cache.i_share then ignore (fapp_stack k) in (* to unlock Zupdates! *)
   k
 
-let create_clos_infos ?(evars=fun _ -> None) flgs env =
+let default_conv _ _ _ _ = None
+
+let create_clos_infos ?(evars=fun _ -> None) ?(conv = default_conv) flgs env =
   let share = (Environ.typing_flags env).Declarations.share_reduction in
   let cache = {
     i_env = env;
     i_sigma = evars;
     i_share = share;
+    i_conv = conv;
   } in
   { i_flags = flgs; i_cache = cache }
 
@@ -1269,3 +1392,10 @@ let unfold_reference info tab key =
       ref_value_cache info tab key
     else Undef None
   | RelKey _ -> ref_value_cache info tab key
+
+let unfold_rewrite_rule info tab fl stk = match fl with
+| ConstKey (kn, _) ->
+  let rules = Environ.lookup_rewrite_rules kn (info_env info) in
+  let m = { norm = Red; term = FFlex fl } in
+  match_rewrite_rules info tab m stk rules
+| VarKey _ | RelKey _ -> None

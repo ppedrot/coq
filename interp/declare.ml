@@ -560,3 +560,20 @@ let do_constraint poly l =
   in
   let uctx = ContextSet.add_constraints constraints ContextSet.empty in
   declare_universe_context poly uctx
+
+type rewrite_rule_obj = rewrite_rule_entry
+
+let cache_rewrite_rule (_, r) = Global.add_rewrite_rule r
+
+let (inRewriteRule : rewrite_rule_obj -> obj) =
+  declare_object { (default_object "REWRITE-RULE") with
+    cache_function = cache_rewrite_rule;
+(*     load_function = load_rewrite_rule; *)
+(*     open_function = open_rewrite_rule; *)
+(*     classify_function = classify_rewrite_rule; *)
+(*     subst_function = subst_rewrite_rule; *)
+(*     discharge_function = discharge_rewrite_rule } *)
+  }
+
+let declare_rewrite_rule r =
+  Lib.add_anonymous_leaf (inRewriteRule r)

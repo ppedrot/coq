@@ -171,7 +171,9 @@ val destFLambda :
 type clos_infos
 type clos_tab
 val create_clos_infos :
-  ?evars:(existential->constr option) -> reds -> env -> clos_infos
+  ?evars:(existential->constr option) ->
+  ?conv:(clos_infos -> clos_tab -> fconstr -> constr -> Univ.Constraint.t option) ->
+  reds -> env -> clos_infos
 val oracle_of_infos : clos_infos -> Conv_oracle.oracle
 
 val create_tab : unit -> clos_tab
@@ -211,6 +213,9 @@ val eta_expand_ind_stack : env -> inductive -> fconstr -> stack ->
 
 (** [unfold_reference] unfolds references in a [fconstr] *)
 val unfold_reference : clos_infos -> clos_tab -> table_key -> fconstr constant_def
+
+val unfold_rewrite_rule : clos_infos -> clos_tab ->
+  table_key -> stack -> (fconstr * stack) option
 
 (***********************************************************************
   i This is for lazy debug *)

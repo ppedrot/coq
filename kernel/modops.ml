@@ -195,6 +195,8 @@ let rec subst_structure sub do_delta sign =
     |SFBmodtype mtb ->
       let mtb' = subst_modtype sub do_delta mtb in
       if mtb==mtb' then orig else (l,SFBmodtype mtb')
+    | SFBrewrite _ ->
+      assert false (* FIXME *)
   in
   List.Smart.map subst_body sign
 
@@ -294,6 +296,7 @@ let rec add_structure mp sign resolver linkinfo env =
       Environ.add_mind_key mind (mib,ref linkinfo) env
     |SFBmodule mb -> add_module mb linkinfo env (* adds components as well *)
     |SFBmodtype mtb -> Environ.add_modtype mtb env
+    |SFBrewrite (cst, rw) -> Environ.add_rewrite_rule env cst rw
   in
   List.fold_left add_one env sign
 
@@ -364,6 +367,8 @@ and strengthen_sig mp_from struc mp_to reso = match struc with
   |(_l,SFBmodtype _mty as item) :: rest ->
     let reso',rest' = strengthen_sig mp_from rest mp_to reso in
     reso',item::rest'
+  |(_,SFBrewrite _) :: _ ->
+    assert false (* FIXME *)
 
 let strengthen mtb mp =
   (* Has mtb already been strengthened ? *)
@@ -509,6 +514,8 @@ and strengthen_and_subst_struct str subst mp_from mp_to alias incl reso =
           else item' :: rest'
         in
 	add_mp_delta_resolver mp_to' mp_to' reso', str'
+    | (_,SFBrewrite _) :: _ ->
+      assert false (* FIXME *)
 
 
 (** Let P be a module path when we write:
@@ -621,7 +628,7 @@ let join_structure except otab s =
     join_signature mb.mod_type
   and join_field (_l,body) = match body with
     |SFBconst sb -> join_constant_body except otab sb
-    |SFBmind _ -> ()
+    |SFBmind _ | SFBrewrite _ -> ()
     |SFBmodule m ->
       implem_iter join_signature join_expression m.mod_expr;
       join_module m

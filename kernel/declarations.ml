@@ -57,6 +57,24 @@ type universes =
   | Monomorphic of Univ.ContextSet.t
   | Polymorphic of Univ.AUContext.t
 
+type rewrite_pattern =
+| RwPatPattern of int * int array
+| RwPatTerm of constr
+| RwPatConstruct of pconstructor * rewrite_pattern array
+| RwPatLambda of types * rewrite_pattern
+
+type rewrite_term =
+| RwTrmHole
+| RwTrmApp of rewrite_term * rewrite_pattern array
+(* | RwTrmCase of inductive * rewrite_pattern * rewrite_term * int array  *)
+
+type rewrite_rule = {
+  rw_ctx : Univ.AUContext.t;
+  rw_env : rel_context;
+  rw_lhs : rewrite_term;
+  rw_rhs : constr;
+}
+
 (** The [typing_flags] are instructions to the type-checker which
     modify its behaviour. The typing flags used in the type-checking
     of a constant are tracked in their {!constant_body} so that they
@@ -83,6 +101,7 @@ type typing_flags = {
 
   indices_matter: bool;
   (** The universe of an inductive type must be above that of its indices. *)
+
 }
 
 (* some contraints are in constant_constraints, some other may be in
@@ -247,6 +266,7 @@ type structure_field_body =
   | SFBmind of mutual_inductive_body
   | SFBmodule of module_body
   | SFBmodtype of module_type_body
+  | SFBrewrite of Constant.t * rewrite_rule
 
 (** A module structure is a list of labeled components.
 

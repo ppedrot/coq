@@ -28,6 +28,7 @@ ComProgramFixpoint
 Classes
 Record
 Assumptions
+ComRewriteRules
 Vernacstate
 Mltop
 Topfmt

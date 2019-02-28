@@ -144,6 +144,8 @@ val set_native_compiler : bool -> safe_transformer0
 
 val check_engagement : Environ.env -> Declarations.set_predicativity -> unit
 
+val add_rewrite_rule : Entries.rewrite_rule_entry -> safe_transformer0
+
 (** {6 Interactive module functions } *)
 
 val start_module : Label.t -> ModPath.t safe_transformer

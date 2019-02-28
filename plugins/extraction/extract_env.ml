@@ -124,6 +124,7 @@ module Visit : VISIT = struct
 end
 
 let add_field_label mp = function
+  | (_, SFBrewrite _) -> () (* FIXME? *)
   | (lab, (SFBconst _|SFBmind _)) -> Visit.add_kn (KerName.make mp lab)
   | (lab, (SFBmodule _|SFBmodtype _)) -> Visit.add_mp_all (MPdot (mp,lab))
 
@@ -238,6 +239,8 @@ let rec extract_structure_spec env mp reso = function
       let specs = extract_structure_spec env mp reso msig in
       let spec = extract_mbody_spec env mtb.mod_mp mtb in
       (l,Smodtype spec) :: specs
+  | (_,SFBrewrite _) :: msig ->
+      extract_structure_spec env mp reso msig
 
 (* From [module_expression] to specifications *)
 
@@ -345,6 +348,8 @@ let rec extract_structure env mp reso ~all = function
       if all || Visit.needed_mp mp then
         (l,SEmodtype (extract_mbody_spec env mp mtb)) :: ms
       else ms
+  | (_,SFBrewrite _) :: struc ->
+      extract_structure env mp reso ~all struc
 
 (* From [module_expr] and [module_expression] to implementations *)
 

@@ -108,6 +108,14 @@ type module_entry =
   | MExpr of
       module_params_entry * module_struct_entry * module_struct_entry option
 
+(** {6 Rewrite rules} *)
+
+type rewrite_rule_entry = {
+  rwrule_univs : Univ.AUContext.t;
+  rwrule_context : rel_context;
+  rwrule_lhs : constr;
+  rwrule_rhs : constr;
+}
 
 type seff_env =
   [ `Nothing

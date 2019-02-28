@@ -306,7 +306,8 @@ let unfold_ref_with_args infos tab fl v =
     let c = match fl with ConstKey c -> c | _ -> assert false in
     let rargs, a, nargs, v = get_native_args1 op c v in
     Some (whd_stack infos tab a (Zupdate a::(Zprimitive(op,c,rargs,nargs)::v)))
-  | Undef _ | OpaqueDef _ | Primitive _ -> None
+  | Undef _ -> unfold_rewrite_rule infos tab fl v
+  | OpaqueDef _ | Primitive _ -> None
 
 type conv_tab = {
   cnv_inf : clos_infos;

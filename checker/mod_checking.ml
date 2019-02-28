@@ -105,6 +105,8 @@ and check_structure_field env mp lab res = function
   | SFBmodtype mty ->
       check_module_type env mty;
       add_modtype mty env
+  | SFBrewrite _ ->
+      assert false (* FIXME *)
 
 and check_mexpr env mse mp_mse res = match mse with
   | MEident mp ->

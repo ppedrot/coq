@@ -155,6 +155,7 @@ val set_share_reduction : bool -> unit
 
 val set_VM : bool -> unit
 val set_native_compiler : bool -> unit
+val add_rewrite_rule : Entries.rewrite_rule_entry -> unit
 
 (* Modifies the global state, registering new universes *)
 
