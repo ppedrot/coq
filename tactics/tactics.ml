@@ -724,7 +724,8 @@ type hyp_conversion =
 | LocalHypConv (** Same as above plus no dependence on the named environment *)
 
 let e_change_in_hyps ~check ~reorder f args =
-  Proofview.Goal.enter begin fun gl ->
+  if List.is_empty args then Proofview.tclUNIT ()
+  else Proofview.Goal.enter begin fun gl ->
     let env = Proofview.Goal.env gl in
     let sigma = Tacmach.New.project gl in
     let (env, sigma) = match reorder with
