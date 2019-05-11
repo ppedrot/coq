@@ -2711,11 +2711,12 @@ let letin_tac_gen with_eq (id,depdecls,lastlhyp,ccl,c) ty =
       | None ->
           (sigma, (mkNamedLetIn (make_annot id Sorts.Relevant) c t ccl, Proofview.tclUNIT ()))
     in
+    let change decl = NamedDecl.get_id decl, (fun _ sigma _ -> sigma, decl) in
       Tacticals.New.tclTHENLIST
       [ Proofview.Unsafe.tclEVARS sigma;
         convert_concl ~check:false newcl DEFAULTcast;
         intro_gen (NamingMustBe (CAst.make id)) (decode_hyp lastlhyp) true false;
-        Tacticals.New.tclMAP (convert_hyp ~check:false ~reorder:false) depdecls;
+        e_change_in_hyps ~check:false ~reorder:LocalHypConv change depdecls;
         eq_tac ]
   end
 
