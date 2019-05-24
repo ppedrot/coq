@@ -196,3 +196,5 @@ let set_share_reduction b =
 
 let set_VM b = globalize0 (Safe_typing.set_VM b)
 let set_native_compiler b = globalize0 (Safe_typing.set_native_compiler b)
+
+let purge_indirect () = globalize (Safe_typing.purge_indirect)

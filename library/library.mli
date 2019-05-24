@@ -30,13 +30,17 @@ val require_library_from_dirpath
 
 (** {6 Start the compilation of a library } *)
 
+type 'a cypher =
+| Binary of string
+| Clear of 'a
+
 (** Segments of a library *)
 type seg_sum
 type seg_lib
 type seg_univ = (* cst, all_cst, finished? *)
   Univ.ContextSet.t option array * Univ.ContextSet.t * bool
 type seg_discharge = Opaqueproof.cooking_info list array
-type seg_proofs = Constr.constr option array
+type seg_proofs = Constr.constr cypher option array
 
 (** Open a module (or a library); if the boolean is true then it's also
    an export otherwise just a simple import *)
@@ -76,3 +80,7 @@ val native_name_from_filename : string -> string
 
 (** {6 Opaque accessors} *)
 val indirect_accessor : Opaqueproof.indirect_accessor
+
+val start_opaque_file : unit -> unit
+val stop_opaque_file : unit -> unit
+val unload_indirect : (DirPath.t * int * string) list -> unit

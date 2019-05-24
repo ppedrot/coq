@@ -168,6 +168,8 @@ let define_constant ?role ?(export_seff=false) id cd =
     | _ -> [], ConstantEntry (EffectEntry, cd)
   in
   let kn, eff = Global.add_constant ?role ~in_section id decl in
+  let del = Global.purge_indirect () in
+  let () = Library.unload_indirect del in
   kn, eff, export
 
 let declare_constant ?(internal = UserIndividualRequest) ?(local = false) id ?(export_seff=false) (cd, kind) =

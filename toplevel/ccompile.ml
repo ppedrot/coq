@@ -118,6 +118,7 @@ let compile opts copts ~echo ~f_in ~f_out =
       let state = { doc; sid; proof = None; time = opts.time } in
       let state = load_init_vernaculars opts ~state in
       let ldir = Stm.get_ldir ~doc:state.doc in
+      let () = Library.start_opaque_file () in
       Aux_file.(start_aux_file
         ~aux_file:(aux_file_name_for long_f_dot_vo)
         ~v_file:long_f_dot_v);
@@ -133,6 +134,7 @@ let compile opts copts ~echo ~f_in ~f_out =
       Aux_file.record_in_aux_at "vo_compile_time"
         (Printf.sprintf "%.3f" (wall_clock2 -. wall_clock1));
       Aux_file.stop_aux_file ();
+      let () = Library.stop_opaque_file () in
       Dumpglob.end_dump_glob ()
 
   | BuildVio ->
@@ -141,6 +143,8 @@ let compile opts copts ~echo ~f_in ~f_out =
 
       let long_f_dot_v, long_f_dot_vio =
         ensure_exists_with_prefix f_in f_out ".v" ".vio" in
+
+      let () = Library.start_opaque_file () in
 
       (* We need to disable error resiliency, otherwise some errors
          will be ignored in batch mode. c.f. #6707
@@ -168,7 +172,8 @@ let compile opts copts ~echo ~f_in ~f_out =
       let doc = Stm.finish ~doc:state.doc in
       check_pending_proofs ();
       let () = ignore (Stm.snapshot_vio ~doc ~output_native_objects ldir long_f_dot_vio) in
-      Stm.reset_task_queue ()
+      Stm.reset_task_queue ();
+      Library.stop_opaque_file ()
 
   | Vio2Vo ->
 

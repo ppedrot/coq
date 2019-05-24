@@ -1297,3 +1297,9 @@ Would this be correct with respect to undo's and stuff ?
 let set_strategy k l e = { e with env =
    (Environ.set_oracle e.env
       (Conv_oracle.set_strategy (Environ.oracle e.env) k l)) }
+
+let purge_indirect senv =
+  let opaque = Environ.opaque_tables senv.env in
+  let opaque, ans = Opaqueproof.purge_indirect opaque in
+  let newenv = Environ.set_opaque_tables senv.env opaque in
+  ans, { senv with env = newenv }

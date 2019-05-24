@@ -383,6 +383,8 @@ let v_libsum =
 let v_lib =
   Tuple ("library",[|v_compiled_lib;v_libraryobjs|])
 
-let v_opaques = Array (Opt v_constr)
+let v_cypher c = Sum ("cypher", 0, [| [| String |]; [| c |] |])
+
+let v_opaques = Array (Opt (v_cypher v_constr))
 let v_univopaques =
   Opt (Tuple ("univopaques",[|Array (Opt v_context_set);v_context_set;v_bool|]))

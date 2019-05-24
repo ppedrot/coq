@@ -50,7 +50,13 @@ let pr_path sp =
 
 type compilation_unit_name = DirPath.t
 
-type seg_proofs = Constr.constr option array
+type 'a cypher =
+| Binary of string
+| Clear of 'a
+
+let _ = [Binary ""; Clear ()]
+
+type seg_proofs = Constr.constr cypher option array
 
 type library_t = {
   library_name : compilation_unit_name;
@@ -98,7 +104,10 @@ let access_opaque_table dp i =
     with Not_found -> assert false
   in
   assert (i < Array.length t);
-  t.(i)
+  match t.(i) with
+  | None -> None
+  | Some (Clear v) -> Some v
+  | Some (Binary s) -> Some (Marshal.from_string s 0) (* FIXME: check well-formedness *)
 
 let () = Mod_checking.set_indirect_accessor access_opaque_table
 

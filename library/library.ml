@@ -275,12 +275,35 @@ let in_import_library : DirPath.t list * bool -> obj =
 
 (** Delayed / available tables of opaque terms *)
 
+module OpaqueMap = Map.Make(String)
+
+let opaque_file = ref None
+let opaque_link = ref OpaqueMap.empty
+(* Position of the file where the opaque object starts *)
+
+let start_opaque_file () =
+  let () = assert (Option.is_empty !opaque_file) in
+  let f, chan = Filename.open_temp_file ~mode:[Open_binary] "coq" "opaque" in
+  opaque_file := Some (f, Unix.descr_of_out_channel chan);
+  opaque_link := OpaqueMap.empty
+
+let stop_opaque_file () = match !opaque_file with
+| None -> assert false
+| Some (f, c) ->
+  let () = try Unix.close c; Unix.unlink f with _ -> () in
+  opaque_file := None;
+  opaque_link := OpaqueMap.empty;
+
 type 'a table_status =
   | ToFetch of 'a option array delayed
   | Fetched of 'a option array
 
+type 'a cypher =
+| Binary of string
+| Clear of 'a
+
 let opaque_tables =
-  ref (LibraryMap.empty : (Constr.constr table_status) LibraryMap.t)
+  ref (LibraryMap.empty : (Constr.constr cypher table_status) LibraryMap.t)
 let univ_tables =
   ref (LibraryMap.empty : (Univ.ContextSet.t table_status) LibraryMap.t)
 
@@ -308,9 +331,25 @@ let access_table what tables dp i =
   in
   assert (i < Array.length t); t.(i)
 
+let access_local_opaque dg =
+  let (pos, len) = OpaqueMap.find dg !opaque_link in
+  let f = match !opaque_file with None -> assert false | Some (f, _) -> f in
+  let buf = Buffer.create 256 in
+  let chan = open_in f in
+  let _ = seek_in chan pos in
+  let () = Buffer.add_channel buf chan len in
+  let () = close_in chan in
+  Buffer.contents buf
+
 let access_opaque_table dp i =
   let what = "opaque proofs" in
-  access_table what opaque_tables dp i
+  match access_table what opaque_tables dp i with
+  | None -> None
+  | Some (Clear v) -> Some v
+  | Some (Binary s) -> Some (Marshal.from_string s 0 : Constr.constr)
+
+let access_digest dg =
+  (Marshal.from_string (access_local_opaque dg) 0 : Constr.constr)
 
 let access_univ_table dp i =
   try
@@ -320,8 +359,24 @@ let access_univ_table dp i =
 
 let indirect_accessor = {
   Opaqueproof.access_proof = access_opaque_table;
+  Opaqueproof.access_digest = access_digest;
   Opaqueproof.access_constraints = access_univ_table;
 }
+
+let unload_indirect defs =
+  let chan = match !opaque_file with
+  | None -> assert false
+  | Some (_, ch) -> ch
+  in
+  let _ = Unix.lseek chan 0 Unix.SEEK_END in
+  let iter (_, _, s) =
+    let d = Digest.string s in
+    let pos = Unix.lseek chan 0 Unix.SEEK_CUR in
+    let len = String.length s in
+    let _ = Unix.write_substring chan s 0 len in
+    opaque_link := OpaqueMap.add d (pos, len) !opaque_link
+  in
+  List.iter iter defs
 
 (************************************************************************)
 (* Internalise libraries *)
@@ -331,7 +386,7 @@ type seg_lib = library_disk
 type seg_univ = (* true = vivo, false = vi *)
   Univ.ContextSet.t option array * Univ.ContextSet.t * bool
 type seg_discharge = Opaqueproof.cooking_info list array
-type seg_proofs = Constr.constr option array
+type seg_proofs = Constr.constr cypher option array
 
 let mk_library sd md digests univs =
   {
@@ -590,8 +645,17 @@ let save_library_to ?todo ~output_native_objects dir f otab =
         assert(Filename.check_suffix f ".vio");
         List.fold_left (fun e (r,_) -> Future.UUIDSet.add r.Stateid.uuid e)
           Future.UUIDSet.empty l in
+  let del = Global.purge_indirect () in
+  let () = unload_indirect del in
   let cenv, seg, ast = Declaremods.end_library ~output_native_objects ~except dir in
   let opaque_table, univ_table, disch_table, f2t_map = Opaqueproof.dump ~except otab in
+  let map = function
+  | None -> None
+  | Some (Util.Inl c) -> Some (Clear c)
+  | Some (Util.Inr dg) -> Some (Binary (access_local_opaque dg))
+  in
+  let opaque_table = Array.map map opaque_table in
+  let () = opaque_link := OpaqueMap.empty in
   let tasks, utab, dtab =
     match todo with
     | None -> None, None, None

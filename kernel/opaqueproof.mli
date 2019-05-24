@@ -35,8 +35,11 @@ val create : proofterm -> opaque
   used so far *)
 val turn_indirect : DirPath.t -> opaque -> opaquetab -> opaque * opaquetab
 
+val purge_indirect : opaquetab -> opaquetab * (DirPath.t * int * string) list
+
 type indirect_accessor = {
   access_proof : DirPath.t -> int -> constr option;
+  access_digest : Digest.t -> constr;
   access_constraints : DirPath.t -> int -> Univ.ContextSet.t option;
 }
 (** When stored indirectly, opaque terms are indexed by their library
@@ -69,7 +72,7 @@ val discharge_direct_opaque :
 val join_opaque : ?except:Future.UUIDSet.t -> opaquetab -> opaque -> unit
 
 val dump : ?except:Future.UUIDSet.t -> opaquetab ->
-  Constr.t option array *
+  (Constr.t, Digest.t) Util.union option array *
   Univ.ContextSet.t option array *
   cooking_info list array *
   int Future.UUIDMap.t

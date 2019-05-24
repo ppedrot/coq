@@ -1847,7 +1847,7 @@ end = struct (* {{{ *)
         let pr = discharge pr in
         let pr = Constr.hcons pr in
         u.(bucket) <- Some uc;
-        p.(bucket) <- Some pr;
+        p.(bucket) <- Some (Library.Clear pr);
         u, Univ.ContextSet.union cst uc, false
 
   let check_task name l i =
