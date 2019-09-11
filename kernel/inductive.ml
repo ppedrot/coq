@@ -457,6 +457,25 @@ let contract_case env (ci, p, iv, c, br) =
   in
   (ci, u, pms, p, iv, c, Array.mapi map br)
 
+(* Given a coinductive pattern-matching, check that its return clause depends
+   only strictly on its "self" argument, i.e. all occurences of the variable of
+   the coinductive type being eliminated are wrapped inside a pattern-matching.
+   For this, we construct a dummy cofixpoint whose body is exactly the "self"
+   variable, and we check that the predicate is stable by this expansion. *)
+let check_strict_predicate env ind (_, mip as specif) params pj =
+  let arity, _ = get_instantiated_arity ind specif params in
+  let self = build_dependent_inductive ind specif params in
+  let na = Context.make_annot Anonymous mip.mind_relevance in
+  let narity = LocalAssum (na, self) :: arity in
+  let nenv = push_rel_context narity env in
+  let cofix = mkCoFix (0, ([|na|], [|self|], [|mkRel 2|])) in
+  let p = lift (mip.mind_nrealdecls + 1) pj.uj_val in
+  let p1 = mkApp (p, Context.Rel.to_extended_vect mkRel 0 narity) in
+  let p2 = mkApp (mkApp (p, Context.Rel.to_extended_vect mkRel 1 arity), [|cofix|]) in
+  (* Check that [i, x : Ind p i |- P i x = P i (cofix _ := x)] *)
+  try conv nenv p1 p2
+  with NotConvertible -> error_lax_coinductive_predicate env pj
+
 (************************************************************************)
 (* Type of case branches *)
 
@@ -483,14 +502,17 @@ let build_branches_type (ind,u) (_,mip as specif) params p =
 let build_case_type env n p c realargs =
   whd_betaiota env (Term.lambda_appvect_assum (n+1) p (Array.of_list (realargs@[c])))
 
-let type_case_branches env ((ind, _ as pind),largs) pj c =
+let type_case_branches ~lax_coind env ((ind, _ as pind),largs) pj c =
   let specif = lookup_mind_specif env ind in
+  let is_cofinite = (fst specif).mind_finite == CoFinite in
+  let () = assert (not lax_coind || is_cofinite) in
   let nparams = inductive_params specif in
   let (params,realargs) = List.chop nparams largs in
   let p = pj.uj_val in
   let pind = check_correct_arity env c pj pind specif params in
   let lc = build_branches_type pind specif params p in
   let ty = build_case_type env (snd specif).mind_nrealdecls p c realargs in
+  let () = if not lax_coind && is_cofinite then check_strict_predicate env pind specif params pj in
   (lc, ty)
 
 (************************************************************************)
@@ -504,7 +526,8 @@ let check_case_info env (indsp,u) r ci =
     not (Array.equal Int.equal mip.mind_consnrealdecls ci.ci_cstr_ndecls) ||
     not (Array.equal Int.equal mip.mind_consnrealargs ci.ci_cstr_nargs) ||
     not (ci.ci_relevance == r) ||
-    is_primitive_record spec
+    is_primitive_record spec ||
+    (ci.ci_lax_coind && mib.mind_finite != CoFinite)
   then raise (TypeError(env,WrongCaseInfo((indsp,u),ci)))
 
 (************************************************************************)

@@ -756,6 +756,11 @@ let explain_bad_variance env sigma ~lev ~expected ~actual =
   str": expected " ++ Univ.Variance.pr expected ++
   str " but cannot be less restrictive than " ++ Univ.Variance.pr actual ++ str "."
 
+let explain_lax_coinductive_predicate env sigma j =
+  let pc = pr_leconstr_env env sigma j.uj_val in
+  str "Pattern-matching over a positive coinductive term has a non-strict \
+    return type" ++ spc () ++ pc ++ str "."
+
 let explain_type_error env sigma err =
   let env = make_all_name_different env sigma in
   match err with
@@ -801,6 +806,7 @@ let explain_type_error env sigma err =
   | BadRelevance -> explain_bad_relevance env
   | BadInvert -> explain_bad_invert env
   | BadVariance {lev;expected;actual} -> explain_bad_variance env sigma ~lev ~expected ~actual
+  | LaxCoInductivePredicate j -> explain_lax_coinductive_predicate env sigma j
 
 let pr_position (cl,pos) =
   let clpos = match cl with

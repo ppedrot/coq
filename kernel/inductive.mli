@@ -102,9 +102,11 @@ val instantiate_context : Instance.t -> Vars.substl -> Name.t Context.binder_ann
    It computes the type of every branch (pattern variables are
    introduced by products), the type for the whole expression, and
    the universe constraints generated.
+   Assuming [I] is a positive coinductive type, setting the [lax_coind] flag
+   allows the pattern-matching to be non-strict, otherwise an error is raised.
  *)
 val type_case_branches :
-  env -> pinductive * constr list -> unsafe_judgment -> constr
+  lax_coind:bool -> env -> pinductive * constr list -> unsafe_judgment -> constr
     -> types array * types
 
 val build_branches_type :

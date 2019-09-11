@@ -71,6 +71,7 @@ type ('constr, 'types) ptype_error =
   | BadRelevance
   | BadInvert
   | BadVariance of { lev : Level.t; expected : Variance.t; actual : Variance.t }
+  | LaxCoInductivePredicate of ('constr, 'types) punsafe_judgment
 
 type type_error = (constr, types) ptype_error
 
@@ -148,6 +149,8 @@ val error_bad_relevance : env -> 'a
 val error_bad_invert : env -> 'a
 
 val error_bad_variance : env -> lev:Level.t -> expected:Variance.t -> actual:Variance.t -> 'a
+
+val error_lax_coinductive_predicate : env -> unsafe_judgment -> 'a
 
 val map_pguard_error : ('c -> 'd) -> 'c pguard_error -> 'd pguard_error
 val map_ptype_error : ('c -> 'd) -> ('c, 'c) ptype_error -> ('d, 'd) ptype_error
