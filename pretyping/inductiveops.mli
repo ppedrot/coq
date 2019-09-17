@@ -204,6 +204,9 @@ val arity_of_case_predicate :
 val type_case_branches_with_names :
   env -> evar_map -> pinductive * EConstr.constr list -> constr -> constr -> EConstr.types array * types
 
+val check_strict_predicate :
+  env -> evar_map -> pinductive * EConstr.constr list -> EConstr.unsafe_judgment -> unit
+
 (** Annotation for cases *)
 val make_case_info : env -> inductive -> Sorts.relevance -> case_style -> case_info
 
