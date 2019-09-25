@@ -27,6 +27,7 @@ Set Implicit Arguments.
  * As a side note, by dropping the polymorphism, one gets small, yet noticeable, speed-up.
  *)
 
+#[universes(template)]
 Inductive t {A} : Type :=
 | Empty : t
 | Elt : A -> t

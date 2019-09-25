@@ -534,12 +534,7 @@ Qed.
 
 End ALMOST_RING.
 
-Section AddRing.
-
-(* Variable R : Type.
- Variable (rO rI : R) (radd rmul rsub: R->R->R) (ropp : R -> R).
- Variable req : R -> R -> Prop. *)
-
+#[universes(template)]
 Inductive ring_kind : Type :=
 | Abstract
 | Computational
@@ -557,9 +552,6 @@ Inductive ring_kind : Type :=
     phi
     (_ : ring_morph rO rI radd rmul rsub ropp req
                     cO cI cadd cmul csub copp ceqb phi).
-
-End AddRing.
-
 
 (** Some simplification tactics*)
 Ltac gen_reflexivity Rsth := apply (Seq_refl _ _ Rsth).

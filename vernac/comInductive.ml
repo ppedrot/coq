@@ -488,6 +488,27 @@ let interp_mutual_inductive_gen env0 ~template udecl (uparamsl,paramsl,indl) not
       })
       indl arities arityconcl constructors
   in
+  (* Replace template inductive types that cannot be lowered to Prop on the fly
+     with cumulative polymorphic inductive types. *)
+  let entries, poly, cumulative, uctx =
+    let explicit_template = Option.has_some template in
+    let is_set_template mip =
+      mip.mind_entry_template && List.length mip.mind_entry_consnames > 1
+    in
+    if not explicit_template && List.for_all is_set_template entries then
+      let map mip = { mip with mind_entry_template = false } in
+      let uctx = match uctx with
+      | Entries.Monomorphic_entry uctx ->
+        let uctx = Univ.ContextSet.to_context uctx in
+        let nas = Array.make (Univ.UContext.size uctx) Anonymous in
+        Entries.Polymorphic_entry (nas, uctx)
+      | Entries.Polymorphic_entry _ ->
+        assert false
+      in
+      List.map map entries, true, true, uctx
+    else
+      entries, poly, cumulative, uctx
+  in
   let impls =
       List.map2 (fun indimpls (_,_,cimpls) ->
         indimpls, List.map (fun impls ->
