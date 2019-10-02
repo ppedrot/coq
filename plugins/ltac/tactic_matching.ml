@@ -199,12 +199,14 @@ module PatternMatching (E:StaticEnvironment) = struct
     m.stream eval ctx
 
   (** Chooses in a list, in the same order as the list *)
-  let rec pick (l:'a list) (e, info) : 'a m = match l with
+  let rec pick f (l:'a list) (e, info) : 'a m = match l with
   | [] -> { stream = fun _ _ -> Proofview.tclZERO ~info e }
   | x :: l ->
-    { stream = fun k ctx -> Proofview.tclOR (k x ctx) (fun e -> (pick l e).stream k ctx) }
+    if f x then
+      { stream = fun k ctx -> Proofview.tclOR (k x ctx) (fun e -> (pick f l e).stream k ctx) }
+    else pick f l (e, info)
 
-  let pick l = pick l imatching_error
+  let pick f l = pick f l imatching_error
 
   (** Declares a substitution, a context substitution and a term substitution. *)
   let put subst context terms : unit m =
@@ -278,6 +280,8 @@ module PatternMatching (E:StaticEnvironment) = struct
       Proofview.tclOR (head.stream k ctx) (fun e -> (tail e).stream k ctx)
     }
 
+  let pick (hyps, set) =
+    pick (fun d -> not (Id.Set.mem (NamedDecl.get_id d) set)) hyps
 
   (** [hyp_match_type hypname pat hyps] matches a single
       hypothesis pattern [hypname:pat] against the hypotheses in
@@ -324,8 +328,7 @@ module PatternMatching (E:StaticEnvironment) = struct
         (* spiwack: alternatively it is possible to return the list
            with the matched hypothesis removed directly in
            [hyp_match]. *)
-        let select_matched_hyp decl = Id.equal (NamedDecl.get_id decl) matched_hyp in
-        let hyps = CList.remove_first select_matched_hyp hyps in
+        let hyps = (fst hyps, Id.Set.add matched_hyp (snd hyps)) in
         hyp_pattern_list_match pats hyps lhs
     | [] -> return lhs
 
@@ -377,4 +380,5 @@ let match_goal env sigma hyps concl rules =
     let sigma = sigma
   end in
   let module M = PatternMatching(E) in
+  let hyps = (hyps, Id.Set.empty) in
   M.run (M.match_goal imatching_error hyps concl rules)
