@@ -86,11 +86,12 @@ end with type 'a Entry.e = 'a Extend.entry = struct
       let c = Entry.parse e p in
       state := CLexer.get_lexer_state ();
       c
-    with Ploc.Exc (loc,e) ->
+    with Ploc.Exc (loc,e) as e0 ->
+      let (_, info) = CErrors.push e0 in
       CLexer.drop_lexer_state ();
       let loc' = Loc.get_loc (Exninfo.info e) in
       let loc = match loc' with None -> loc | Some loc -> loc in
-      Loc.raise ~loc e
+      Exninfo.iraise (e, Loc.add_loc info loc)
 
   let comment_state (p,state) =
     CLexer.get_comment_state !state
