@@ -416,9 +416,10 @@ let push_modtype vis sp kn =
 
 (* This is to remember absolute Section/Module names and to avoid redundancy *)
 let push_dir vis dir dir_ref =
+  let open GlobDirRef in
   the_dirtab := DirTab.push vis dir dir_ref !the_dirtab;
   match dir_ref with
-  | GlobDirRef.DirModule { obj_mp; _ } -> the_modrevtab := MPmap.add obj_mp dir !the_modrevtab
+  | DirModule p | DirOpenModule p -> the_modrevtab := MPmap.add p.obj_mp dir !the_modrevtab
   | _ -> ()
 
 (* This is for global universe names *)
