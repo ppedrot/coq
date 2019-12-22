@@ -1006,7 +1006,9 @@ let register_library dir cenv (objs:library_objects) digest univ =
 let start_library dir =
   let mp = Global.start_library dir in
   openmod_info := default_module_info;
-  Lib.start_compilation dir mp
+  let prefix = Lib.start_compilation dir mp in
+  let () = Nametab.(push_dir (Until 1) (prefix.obj_dir) (GlobDirRef.DirOpenModule prefix)) in
+  ()
 
 let end_library_hook = ref ignore
 let append_end_library_hook f =

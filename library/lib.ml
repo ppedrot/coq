@@ -327,7 +327,8 @@ let start_compilation s mp =
   let prefix = Nametab.{ obj_dir = s; obj_mp = mp } in
   add_anonymous_entry (CompilingLibrary prefix);
   lib_state := { !lib_state with comp_name = Some s;
-                                 path_prefix = prefix }
+                                 path_prefix = prefix };
+  prefix
 
 let open_blocks_message es =
   let open_block_name = function

@@ -128,7 +128,7 @@ val end_modtype :
 
 (** {6 Compilation units } *)
 
-val start_compilation : DirPath.t -> ModPath.t -> unit
+val start_compilation : DirPath.t -> ModPath.t -> Nametab.object_prefix
 val end_compilation_checks : DirPath.t -> Libobject.object_name
 val end_compilation :
   Libobject.object_name-> Nametab.object_prefix * library_segment
