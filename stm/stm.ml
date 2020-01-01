@@ -1742,7 +1742,7 @@ end = struct (* {{{ *)
           let () = assert (Int.equal (Univ.AUContext.size ctx) univs) in
           assert (Univ.ContextSet.is_empty uctx)
         in
-        let pr = Constr.hcons pr in
+        let pr = Ancient.make pr in
         let dummy = p.(bucket) in
         let () = assert (Option.is_empty dummy) in
         p.(bucket) <- Some (pr, priv);
