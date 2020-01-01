@@ -39,7 +39,7 @@ type cooking_info = {
   modlist : work_list;
   abstract : Constr.named_context * Univ.Instance.t * Univ.AUContext.t }
 
-type opaque_proofterm = (Constr.t * unit delayed_universes) option
+type opaque_proofterm = (Constr.t Ancient.t * unit delayed_universes) option
 
 type indirect_accessor = {
   access_proof : DirPath.t -> int -> opaque_proofterm;

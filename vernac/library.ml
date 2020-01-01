@@ -451,6 +451,10 @@ type ('document,'counters) todo_proofs =
  | ProofsTodoSomeEmpty of Future.UUIDSet.t (* for .vos *)
  | ProofsTodoSome of Future.UUIDSet.t * ((Future.UUID.t,'document) Stateid.request * bool) list * 'counters (* for .vio *)
 
+let finalize_opaque (o : Opaqueproof.opaque_proofterm) = match o with
+| None -> ()
+| Some (c, _) -> Ancient.delete c
+
 let save_library_to todo_proofs ~output_native_objects dir f otab =
   assert(
     let expected_extension = match todo_proofs with
@@ -492,6 +496,7 @@ let save_library_to todo_proofs ~output_native_objects dir f otab =
     error_recursively_dependent_library dir;
   (* Writing vo payload *)
   save_library_base f sd md utab tasks opaque_table;
+  Array.iter finalize_opaque opaque_table;
   (* Writing native code files *)
   if output_native_objects then
     let fn = Filename.dirname f ^"/"^ Nativecode.mod_uid_of_dirpath dir in

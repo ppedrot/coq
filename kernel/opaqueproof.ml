@@ -24,7 +24,7 @@ type 'a delayed_universes =
 | PrivateMonomorphic of 'a
 | PrivatePolymorphic of int * Univ.ContextSet.t
 
-type opaque_proofterm = (Constr.t * unit delayed_universes) option
+type opaque_proofterm = (Constr.t Ancient.t * unit delayed_universes) option
 
 type indirect_accessor = {
   access_proof : DirPath.t -> int -> opaque_proofterm;
@@ -37,11 +37,13 @@ let drop_mono = function
 
 type proofterm = (constr * Univ.ContextSet.t delayed_universes) Future.computation
 
+type opaque_val = (constr Ancient.t * Univ.ContextSet.t delayed_universes) Future.computation
+
 type opaque =
 | Indirect of substitution list * cooking_info list * DirPath.t * int (* subst, discharge, lib, index *)
 
 type opaquetab = {
-  opaque_val : proofterm Int.Map.t;
+  opaque_val : opaque_val Int.Map.t;
   (** Actual proof terms *)
   opaque_len : int;
   (** Size of the above map *)
@@ -58,7 +60,7 @@ let not_here () =
 
 let create dp cu tab =
   let hcons (c, u) =
-    let c = Constr.hcons c in
+    let c = Ancient.make c in
     let u = match u with
     | PrivateMonomorphic u -> PrivateMonomorphic (Univ.hcons_universe_context_set u)
     | PrivatePolymorphic (n, u) -> PrivatePolymorphic (n, Univ.hcons_universe_context_set u)
@@ -103,12 +105,15 @@ let force_proof access { opaque_val = prfs; opaque_dir = odp; _ } = function
         then
           let cu = Int.Map.find i prfs in
           let (c, u) = Future.force cu in
+          let c = Ancient.get c in
           access.access_discharge d (c, drop_mono u)
         else
           let cu = access.access_proof dp i in
           match cu with
           | None -> not_here ()
-          | Some (c, u) -> access.access_discharge d (c, u)
+          | Some (c, u) ->
+            let c = Ancient.get c in
+            access.access_discharge d (c, u)
       in
       let c = force_constr (List.fold_right subst_substituted l (from_val c)) in
       (c, u)
