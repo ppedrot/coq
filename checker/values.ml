@@ -36,6 +36,7 @@ type value =
   | Proxy of value ref
   | Int64
   | Float64
+  | Ancient of value
 
 let fix (f : value -> value) : value =
   let self = ref Any in
@@ -69,6 +70,8 @@ let v_hset v = v_map Int (v_set v)
 let v_hmap vk vd = v_map Int (v_map vk vd)
 
 let v_pred v = v_pair v_bool (v_set v)
+
+let v_ancient v = v_pair (Ancient v) Any
 
 (** kernel/names *)
 
@@ -425,6 +428,6 @@ let v_lib =
 let v_delayed_universes =
   Sum ("delayed_universes", 0, [| [| v_unit |]; [| Int; v_context_set |] |])
 
-let v_opaquetable = Array (Opt (v_pair v_constr v_delayed_universes))
+let v_opaquetable = Array (Opt (v_pair (v_ancient v_constr) v_delayed_universes))
 let v_univopaques =
   Opt (Tuple ("univopaques",[|v_context_set;v_bool|]))

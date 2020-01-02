@@ -5,11 +5,15 @@ type data =
 | Atm of int (* tag *)
 | Fun of int (* address *)
 
+(* We only support one-dimensional char bigarrays *)
+type bigarray = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+
 type obj =
 | Struct of int * data array (* tag × data *)
 | Int64 of Int64.t (* Primitive integer *)
 | Float64 of float (* Primitive float *)
 | String of string
+| Bigarray of bigarray
 
 module LargeArray :
 sig

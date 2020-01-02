@@ -40,6 +40,9 @@ type value =
 
   | Int64
   | Float64
+  | Ancient of value
+  (** An OCaml bigarray containing the serialized representation of the
+      underlying type. *)
 
 (** NB: List and Opt have their own constructors to make it easy to
    define eg [let rec foo = List foo]. *)

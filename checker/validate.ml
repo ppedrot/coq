@@ -31,6 +31,7 @@ let rec pr_obj_rec mem o = match o with
     Format.print_string ")"
   | String s ->
     Format.print_string ("\""^String.escaped s^"\"")
+  | Bigarray _
   | Int64 _
   | Float64 _ ->
     Format.print_string "?"
@@ -71,14 +72,14 @@ let is_int64 mem o = match o with
 | Ptr p ->
   match LargeArray.get mem p with
   | Int64 _ -> true
-  | Float64 _ | Struct _ | String _ -> false
+  | Float64 _ | Struct _ | String _ | Bigarray _ -> false
 
 let is_float64 mem o = match o with
 | Int _ | Fun _ | Atm _ -> false
 | Ptr p ->
   match LargeArray.get mem p with
   | Float64 _ -> true
-  | Int64 _ | Struct _ | String _ -> false
+  | Int64 _ | Struct _ | String _ | Bigarray _ -> false
 
 let get_int _mem = function
 | Int i -> i
@@ -93,7 +94,8 @@ let tag mem o = match o with
   | Struct (tag, _) -> tag
   | String _ -> Obj.string_tag
   | Float64 _ -> Obj.double_tag
-  | Int64 _ -> Obj.custom_tag
+  | Int64 _  -> Obj.custom_tag
+  | Bigarray _  -> Obj.custom_tag
 
 let size mem o = match o with
 | Atm _ -> 0
@@ -101,14 +103,14 @@ let size mem o = match o with
 | Ptr p ->
   match LargeArray.get mem p with
   | Struct (tag, blk) -> Array.length blk
-  | String _ | Float64 _ | Int64 _ -> assert false
+  | String _ | Float64 _ | Int64 _ | Bigarray _ -> assert false
 
 let field mem o i = match o with
 | Atm _ | Fun _ | Int _ -> assert false
 | Ptr p ->
   match LargeArray.get mem p with
   | Struct (tag, blk) -> Array.get blk i
-  | String _ | Float64 _ | Int64 _ -> assert false
+  | String _ | Float64 _ | Int64 _ | Bigarray _ -> assert false
 
 (* Check that object o is a block with tag t *)
 let val_tag t mem ctx o =
@@ -147,6 +149,7 @@ let rec val_gen v mem ctx o = match v with
   | Proxy { contents = v } -> val_gen v mem ctx o
   | Int64 -> val_int64 mem ctx o
   | Float64 -> val_float64 mem ctx o
+  | Ancient v -> val_ancient mem ctx v o
 
 (* Check that an object is a tuple (or a record). vs is an array of
    value representation for each field. Its size corresponds to the
@@ -201,6 +204,11 @@ and val_int64 mem ctx o =
 and val_float64 mem ctx o =
   if not (is_float64 mem o) then
     fail mem ctx o "not a 64-bit float"
+
+and val_ancient mem ctx v o =
+  if true then
+    () (* FIXME *)
+  else fail mem ctx o "not an ancient block"
 
 let print_frame = function
 | CtxType t -> t

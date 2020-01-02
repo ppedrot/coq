@@ -49,6 +49,21 @@ type code_descr =
 | CODE_CUSTOM
 | CODE_BLOCK64
 
+type bigarray_flag =
+| CAML_BA_FLOAT32
+| CAML_BA_FLOAT64
+| CAML_BA_SINT8
+| CAML_BA_UINT8
+| CAML_BA_SINT16
+| CAML_BA_UINT16
+| CAML_BA_INT32
+| CAML_BA_INT64
+| CAML_BA_CAML_INT
+| CAML_BA_NATIVE_INT
+| CAML_BA_COMPLEX32
+| CAML_BA_COMPLEX64
+| CAML_BA_CHAR
+
 let code_max = 0x13
 
 let magic_number = "\132\149\166\190"
@@ -104,6 +119,9 @@ struct
 
 end
 
+(* We only support one-dimensional char bigarrays *)
+type bigarray = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+
 type repr =
 | RInt of int
 | Rint64 of Int64.t
@@ -112,6 +130,7 @@ type repr =
 | RString of string
 | RPointer of int
 | RCode of int
+| RBigarray of bigarray
 
 type data =
 | Int of int (* value *)
@@ -124,6 +143,7 @@ type obj =
 | Int64 of Int64.t (* Primitive integer *)
 | Float64 of float (* Primitive float *)
 | String of string
+| Bigarray of bigarray
 
 module type Input =
 sig
@@ -300,6 +320,27 @@ let input_double_little chan : float =
     (l lsl 24) lor (k lsl 16) lor (j lsl 8) lor (Int64.of_int i) in
   Int64.float_of_bits bits
 
+let input_bigarray chan : bigarray =
+  let dims = input_binary_int chan in
+  let flags = input_binary_int chan in
+  let lens = Array.make dims 0 in
+  for i = 0 to dims - 1 do
+    lens.(i) <- input_binary_int chan
+  done;
+  match (Obj.magic (flags land 0xFF) : bigarray_flag) with
+  | CAML_BA_CHAR ->
+    let () = assert (dims == 1) in
+    let len = lens.(0) in
+    let v = Bigarray.Array1.create Bigarray.Char Bigarray.C_layout len in
+    for i = 0 to len - 1 do
+      v.{i} <- input_char chan
+    done;
+    v
+  | CAML_BA_FLOAT32 | CAML_BA_FLOAT64 | CAML_BA_SINT8 | CAML_BA_UINT8
+  | CAML_BA_SINT16 | CAML_BA_UINT16 | CAML_BA_INT32 | CAML_BA_INT64
+  | CAML_BA_CAML_INT | CAML_BA_NATIVE_INT | CAML_BA_COMPLEX32 | CAML_BA_COMPLEX64 ->
+    assert false
+
 let parse_object chan =
   let data = input_byte chan in
   if prefix_small_block <= data then
@@ -345,6 +386,7 @@ let parse_object chan =
   | CODE_CUSTOM ->
     begin match input_cstring chan with
     | "_j" -> Rint64 (input_intL chan)
+    | "_bigarray" -> RBigarray (input_bigarray chan)
     | s -> Printf.eprintf "Unhandled custom code: %s" s; assert false
     end
   | CODE_DOUBLE_BIG ->
@@ -396,6 +438,11 @@ let parse chan =
   | RFloat64 f ->
     let data = Ptr !current_object in
     let () = LargeArray.set memory !current_object (Float64 f) in
+    let () = incr current_object in
+    data, None
+  | RBigarray v ->
+    let data = Ptr !current_object in
+    let () = LargeArray.set memory !current_object (Bigarray v) in
     let () = incr current_object in
     data, None
   in
@@ -464,6 +511,7 @@ let instantiate (p, mem) =
     | Int64 i -> Obj.repr i
     | Float64 f -> Obj.repr f
     | String str -> Obj.repr str
+    | Bigarray v -> Obj.repr v
     in
     LargeArray.set ans i obj
   done;
@@ -481,6 +529,7 @@ let instantiate (p, mem) =
       for k = 0 to Array.length blk - 1 do
         Obj.set_field obj k (get_data blk.(k))
       done
+    | Bigarray _
     | Int64 _
     | Float64 _
     | String _ -> ()

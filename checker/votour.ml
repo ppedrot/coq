@@ -100,6 +100,10 @@ struct
             init_size seen (fun n -> fold (succ i) (accu + 1 + n) k) os.(i)
         in
         fold 0 1 (fun size -> let () = LargeArray.set !sizes p size in k size)
+      | Bigarray v ->
+        let size = 6 + (Bigarray.Array1.dim v / ws) in
+        let () = LargeArray.set !sizes p size in
+        k size
       | Int64 _ -> k 0
       | Float64 _ -> k 0
       | String s ->
@@ -121,6 +125,7 @@ struct
     | Int64 _ -> OTHER (* TODO: pretty-print int63 values *)
     | Float64 _ -> OTHER (* TODO: pretty-print float64 values *)
     | String s -> STRING s
+    | Bigarray v -> OTHER (* TODO: pretty-print bigarrays *)
 
   let input ch =
     let obj, mem = parse_channel ch in
@@ -159,6 +164,7 @@ let rec get_name ?(extra=false) = function
   | Proxy v -> get_name ~extra !v
   | Int64 -> "Int64"
   | Float64 -> "Float64"
+  | Ancient v -> "ancient"^(if extra then "/"^get_name ~extra v else "")
 
 (** For tuples, its quite handy to display the inner 1st string (if any).
     Cf. [structure_body] for instance *)
@@ -265,6 +271,7 @@ let rec get_children v o pos = match v with
   | Proxy v -> get_children !v o pos
   | Int64 -> raise Exit
   | Float64 -> raise Exit
+  | Ancient v -> raise Exit (* TODO: properly handle that *)
 
 let get_children v o pos =
   try get_children v o pos
