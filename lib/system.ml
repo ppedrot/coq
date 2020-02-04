@@ -211,13 +211,15 @@ let marshal_out_segment f ch v =
 let marshal_in_segment f ch =
   let stop = (input_binary_int f ch : int) in
   let v = marshal_in f ch in
+  let pos = pos_in ch in
+  let () = assert (Int.equal pos stop) in
   let digest = digest_in f ch in
-  v, stop, digest
+  v, digest
 
 let skip_in_segment f ch =
   let stop = (input_binary_int f ch : int) in
   seek_in ch stop;
-  stop, digest_in f ch
+  digest_in f ch
 
 type magic_number_error = {filename: string; actual: int; expected: int}
 exception Bad_magic_number of magic_number_error
