@@ -81,20 +81,9 @@ val intern_state : int -> string -> 'a
 
 val with_magic_number_check : ('a -> 'b) -> 'a -> 'b
 
-(** Clones of Marshal.to_channel (with flush) and
-    Marshal.from_channel (with nice error message) *)
-
-val marshal_out : out_channel -> 'a -> unit
-val marshal_in : string -> in_channel -> 'a
-
-(** Clones of Digest.output and Digest.input (with nice error message) *)
-
-val digest_out : out_channel -> Digest.t -> unit
-val digest_in : string -> in_channel -> Digest.t
-
 val marshal_out_segment : string -> out_channel -> 'a -> unit
-val marshal_in_segment : string -> in_channel -> 'a * int * Digest.t
-val skip_in_segment : string -> in_channel -> int * Digest.t
+val marshal_in_segment : string -> in_channel -> 'a * Digest.t
+val skip_in_segment : string -> in_channel -> Digest.t
 
 (** {6 Time stamps.} *)
 

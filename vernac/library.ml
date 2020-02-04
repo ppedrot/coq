@@ -49,7 +49,7 @@ type 'a delayed = {
 
 let in_delayed f ch =
   let pos = pos_in ch in
-  let _, digest = System.skip_in_segment f ch in
+  let digest = System.skip_in_segment f ch in
   ({ del_file = f; del_digest = digest; del_off = pos; }, digest)
 
 (** Fetching a table of opaque terms at position [pos] in file [f],
@@ -60,7 +60,7 @@ let fetch_delayed del =
   try
     let ch = raw_intern_library f in
     let () = seek_in ch pos in
-    let obj, _, digest' = System.marshal_in_segment f ch in
+    let obj, digest' = System.marshal_in_segment f ch in
     let () = close_in ch in
     if not (String.equal digest digest') then raise (Faulty f);
     obj
@@ -245,9 +245,9 @@ let mk_summary m = {
 
 let intern_from_file f =
   let ch = raw_intern_library f in
-  let (lsd : seg_sum), _, digest_lsd = System.marshal_in_segment f ch in
+  let (lsd : seg_sum), digest_lsd = System.marshal_in_segment f ch in
   let ((lmd : seg_lib delayed), digest_lmd) = in_delayed f ch in
-  let (univs : seg_univ option), _, digest_u = System.marshal_in_segment f ch in
+  let (univs : seg_univ option), digest_u = System.marshal_in_segment f ch in
   let _ = System.skip_in_segment f ch in
   let ((del_opaque : seg_proofs delayed),_) = in_delayed f ch in
   close_in ch;
@@ -302,7 +302,7 @@ let rec_intern_library ~lib_resolver libs (dir, f) =
 
 let native_name_from_filename f =
   let ch = raw_intern_library f in
-  let (lmd : seg_sum), pos, digest_lmd = System.marshal_in_segment f ch in
+  let (lmd : seg_sum), digest_lmd = System.marshal_in_segment f ch in
   Nativecode.mod_uid_of_dirpath lmd.md_name
 
 (**********************************************************************)
@@ -392,11 +392,11 @@ let require_library_from_dirpath ~lib_resolver modrefl export =
 
 let load_library_todo f =
   let ch = raw_intern_library f in
-  let (s0 : seg_sum), _, _ = System.marshal_in_segment f ch in
-  let (s1 : seg_lib), _, _ = System.marshal_in_segment f ch in
-  let (s2 : seg_univ option), _, _ = System.marshal_in_segment f ch in
-  let tasks, _, _ = System.marshal_in_segment f ch in
-  let (s4 : seg_proofs), _, _ = System.marshal_in_segment f ch in
+  let (s0 : seg_sum), _ = System.marshal_in_segment f ch in
+  let (s1 : seg_lib), _ = System.marshal_in_segment f ch in
+  let (s2 : seg_univ option), _ = System.marshal_in_segment f ch in
+  let tasks, _ = System.marshal_in_segment f ch in
+  let (s4 : seg_proofs), _ = System.marshal_in_segment f ch in
   close_in ch;
   if tasks = None then user_err ~hdr:"restart" (str"not a .vio file");
   if s2 = None then user_err ~hdr:"restart" (str"not a .vio file");

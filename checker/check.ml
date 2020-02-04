@@ -296,18 +296,18 @@ let depgraph = ref LibraryMap.empty
 
 let marshal_in_segment ~validate ~value f ch =
   if validate then
-    let v, stop, digest =
+    let v, digest =
       try
-        let stop = input_binary_int ch in
+        let _ = input_binary_int ch in
         let v = Analyze.parse_channel ch in
         let digest = Digest.input ch in
-        v, stop, digest
+        v, digest
       with _ ->
         user_err (str "Corrupted file " ++ quote (str f))
     in
     let () = Validate.validate ~debug:!Flags.debug value v in
     let v = Analyze.instantiate v in
-    Obj.obj v, stop, digest
+    Obj.obj v, digest
   else
     System.marshal_in_segment f ch
 
@@ -316,17 +316,17 @@ let skip_in_segment f ch =
     let stop = (input_binary_int ch : int) in
     seek_in ch stop;
     let digest = Digest.input ch in
-    stop, digest
+    digest
   with _ ->
     user_err (str "Corrupted file " ++ quote (str f))
 
 let marshal_or_skip ~validate ~value f ch =
   if validate then
-    let v, pos, digest = marshal_in_segment ~validate ~value f ch in
-    Some v, pos, digest
+    let v, digest = marshal_in_segment ~validate ~value f ch in
+    Some v, digest
   else
-    let pos, digest = skip_in_segment f ch in
-    None, pos, digest
+    let digest = skip_in_segment f ch in
+    None, digest
 
 let intern_from_file ~intern_mode (dir, f) =
   let validate = intern_mode <> Dep in
@@ -334,13 +334,14 @@ let intern_from_file ~intern_mode (dir, f) =
   let (sd,md,table,opaque_csts,digest) =
     try
       let ch = System.with_magic_number_check raw_intern_library f in
-      let (sd:summary_disk), _, digest = marshal_in_segment ~validate ~value:Values.v_libsum f ch in
-      let (md:library_disk), _, digest = marshal_in_segment ~validate ~value:Values.v_lib f ch in
-      let (opaque_csts:seg_univ option), _, udg = marshal_in_segment ~validate ~value:Values.v_univopaques f ch in
-      let (tasks:'a option), _, _ = marshal_in_segment ~validate ~value:Values.(Opt Any) f ch in
-      let (table:seg_proofs option), pos, checksum =
+      let (sd:summary_disk), digest = marshal_in_segment ~validate ~value:Values.v_libsum f ch in
+      let (md:library_disk), digest = marshal_in_segment ~validate ~value:Values.v_lib f ch in
+      let (opaque_csts:seg_univ option), udg = marshal_in_segment ~validate ~value:Values.v_univopaques f ch in
+      let (tasks:'a option), _ = marshal_in_segment ~validate ~value:Values.(Opt Any) f ch in
+      let (table:seg_proofs option), checksum =
         marshal_or_skip ~validate ~value:Values.v_opaquetable f ch in
       (* Verification of the final checksum *)
+      let pos = pos_in ch - String.length checksum in
       let () = close_in ch in
       let ch = open_in_bin f in
       if not (String.equal (Digest.channel ch pos) checksum) then
