@@ -191,35 +191,78 @@ let marshal_in filename ch =
   | End_of_file -> error_corrupted filename "premature end of file"
   | Failure s -> error_corrupted filename s
 
-let digest_out = Digest.output
-let digest_in filename ch =
-  try Digest.input ch
-  with
-  | End_of_file -> error_corrupted filename "premature end of file"
-  | Failure s -> error_corrupted filename s
+type out_file = {
+  out_file : string;
+  out_zip : Zip.out_file;
+}
 
-let marshal_out_segment f ch v =
-  let start = pos_out ch in
-  output_binary_int ch 0;  (* dummy value for stop *)
-  marshal_out ch v;
-  let stop = pos_out ch in
-  seek_out ch start;
-  output_binary_int ch stop;
-  seek_out ch stop;
-  digest_out ch (Digest.file f)
+type in_file = {
+  in_file : string;
+  in_zip : Zip.in_file;
+}
 
-let marshal_in_segment f ch =
-  let stop = (input_binary_int f ch : int) in
-  let v = marshal_in f ch in
-  let pos = pos_in ch in
-  let () = assert (Int.equal pos stop) in
-  let digest = digest_in f ch in
-  v, digest
+let open_out_file magic filename =
+  let channel = Zip.open_out filename in
+  let data = string_of_int magic in
+  let () = Zip.add_entry data channel "magic" in
+  { out_zip = channel; out_file = filename }
 
-let skip_in_segment f ch =
-  let stop = (input_binary_int f ch : int) in
-  seek_in ch stop;
-  digest_in f ch
+let open_in_file magic filename =
+  let channel = Zip.open_in filename in
+  (* FIXME: check magic *)
+  { in_zip = channel; in_file = filename }
+
+let close_out_file f =
+  Zip.close_out f.out_zip
+
+let close_in_file f =
+  Zip.close_in f.in_zip
+
+let marshal_out_segment ~name f v =
+  let (tmp, ch) = Filename.open_temp_file ~mode:[Open_binary] "coq" "marshal" in
+  let () = Marshal.to_channel ch v [] in
+  let () = flush ch in
+  let () = close_out ch in
+  let ch = open_in tmp in
+  let () = Zip.copy_channel_to_entry ch f.out_zip name in
+  let () = close_in ch in
+  let () = Sys.remove tmp in
+  ()
+
+let get_entry name f =
+  try Zip.find_entry f.in_zip name
+  with Not_found -> error_corrupted f.in_file ("missing segment: " ^ name)
+
+let with_in_channel ~name f k =
+  let e = get_entry name f in
+  let (tmp, ch) = Filename.open_temp_file ~mode:[Open_binary] "coq" "marshal" in
+  let () = Zip.copy_entry_to_channel f.in_zip e ch in
+  let () = flush ch in
+  let () = close_out ch in
+  let ch = open_in tmp in
+  match k ch with
+  | v ->
+    let () = close_in ch in
+    let () = Sys.remove tmp in
+    v
+  | exception e ->
+    let reraise = CErrors.push e in
+    let () = close_in ch in
+    let () = Sys.remove tmp in
+    iraise reraise
+
+let marshal_in_segment ~name f =
+  with_in_channel ~name f begin fun ch ->
+    let digest = Digest.channel ch (-1) in
+    let () = seek_in ch 0 in
+    let v = Marshal.from_channel ch in
+    (v, digest)
+  end
+
+let skip_in_segment ~name f =
+  with_in_channel ~name f begin fun ch ->
+    Digest.channel ch (-1)
+  end
 
 type magic_number_error = {filename: string; actual: int; expected: int}
 exception Bad_magic_number of magic_number_error

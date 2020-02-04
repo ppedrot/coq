@@ -71,19 +71,27 @@ val file_exists_respecting_case : string -> string -> bool
 type magic_number_error = {filename: string; actual: int; expected: int}
 exception Bad_magic_number of magic_number_error
 
-val raw_extern_state : int -> string -> out_channel
-
-val raw_intern_state : int -> string -> in_channel
-
 val extern_state : int -> string -> 'a -> unit
 
 val intern_state : int -> string -> 'a
 
 val with_magic_number_check : ('a -> 'b) -> 'a -> 'b
 
-val marshal_out_segment : string -> out_channel -> 'a -> unit
-val marshal_in_segment : string -> in_channel -> 'a * Digest.t
-val skip_in_segment : string -> in_channel -> Digest.t
+(* {6 Coq object files} *)
+
+type out_file
+type in_file
+
+val open_out_file : int -> string -> out_file
+val open_in_file : int -> string -> in_file
+
+val marshal_out_segment : name:string -> out_file -> 'a -> unit
+val marshal_in_segment : name:string -> in_file -> 'a * Digest.t
+val skip_in_segment : name:string -> in_file -> Digest.t
+val with_in_channel : name:string -> in_file -> (in_channel -> 'a) -> 'a
+
+val close_in_file : in_file -> unit
+val close_out_file : out_file -> unit
 
 (** {6 Time stamps.} *)
 

@@ -20,11 +20,11 @@ open Libobject
 (*s Low-level interning/externing of libraries to files *)
 
 let raw_extern_library f =
-  System.raw_extern_state Coq_config.vo_magic_number f
+  System.open_out_file Coq_config.vo_magic_number f
 
 let raw_intern_library f =
   System.with_magic_number_check
-    (System.raw_intern_state Coq_config.vo_magic_number) f
+    (System.open_in_file Coq_config.vo_magic_number) f
 
 (************************************************************************)
 (** Serialized objects loaded on-the-fly *)
@@ -35,7 +35,7 @@ module Delayed :
 sig
 
 type 'a delayed
-val in_delayed : string -> in_channel -> 'a delayed * Digest.t
+val in_delayed : file:string -> name:string -> System.in_file -> 'a delayed * Digest.t
 val fetch_delayed : 'a delayed -> 'a
 
 end =
@@ -43,25 +43,23 @@ struct
 
 type 'a delayed = {
   del_file : string;
-  del_off : int;
+  del_name : string;
   del_digest : Digest.t;
 }
 
-let in_delayed f ch =
-  let pos = pos_in ch in
-  let digest = System.skip_in_segment f ch in
-  ({ del_file = f; del_digest = digest; del_off = pos; }, digest)
+let in_delayed ~file ~name ch =
+  let digest = System.skip_in_segment ~name ch in
+  ({ del_file = file; del_digest = digest; del_name = name; }, digest)
 
 (** Fetching a table of opaque terms at position [pos] in file [f],
     expecting to find first a copy of [digest]. *)
 
 let fetch_delayed del =
-  let { del_digest = digest; del_file = f; del_off = pos; } = del in
+  let { del_digest = digest; del_file = f; del_name = name; } = del in
   try
     let ch = raw_intern_library f in
-    let () = seek_in ch pos in
-    let obj, digest' = System.marshal_in_segment f ch in
-    let () = close_in ch in
+    let obj, digest' = System.marshal_in_segment ~name ch in
+    let () = System.close_in_file ch in
     if not (String.equal digest digest') then raise (Faulty f);
     obj
   with e when CErrors.noncritical e -> raise (Faulty f)
@@ -245,12 +243,12 @@ let mk_summary m = {
 
 let intern_from_file f =
   let ch = raw_intern_library f in
-  let (lsd : seg_sum), digest_lsd = System.marshal_in_segment f ch in
-  let ((lmd : seg_lib delayed), digest_lmd) = in_delayed f ch in
-  let (univs : seg_univ option), digest_u = System.marshal_in_segment f ch in
-  let _ = System.skip_in_segment f ch in
-  let ((del_opaque : seg_proofs delayed),_) = in_delayed f ch in
-  close_in ch;
+  let (lsd : seg_sum), digest_lsd = System.marshal_in_segment ~name:"summary" ch in
+  let ((lmd : seg_lib delayed), digest_lmd) = in_delayed ~file:f ~name:"library" ch in
+  let (univs : seg_univ option), digest_u = System.marshal_in_segment ~name:"universes" ch in
+(*   let _ = System.skip_in_segment f ch in *)
+  let ((del_opaque : seg_proofs delayed),_) = in_delayed ~file:f ~name:"opaques" ch in
+  System.close_in_file ch;
   register_library_filename lsd.md_name f;
   add_opaque_table lsd.md_name (ToFetch del_opaque);
   let open Safe_typing in
@@ -302,7 +300,7 @@ let rec_intern_library ~lib_resolver libs (dir, f) =
 
 let native_name_from_filename f =
   let ch = raw_intern_library f in
-  let (lmd : seg_sum), digest_lmd = System.marshal_in_segment f ch in
+  let (lmd : seg_sum), digest_lmd = System.marshal_in_segment ~name:"summary" ch in
   Nativecode.mod_uid_of_dirpath lmd.md_name
 
 (**********************************************************************)
@@ -392,12 +390,12 @@ let require_library_from_dirpath ~lib_resolver modrefl export =
 
 let load_library_todo f =
   let ch = raw_intern_library f in
-  let (s0 : seg_sum), _ = System.marshal_in_segment f ch in
-  let (s1 : seg_lib), _ = System.marshal_in_segment f ch in
-  let (s2 : seg_univ option), _ = System.marshal_in_segment f ch in
-  let tasks, _ = System.marshal_in_segment f ch in
-  let (s4 : seg_proofs), _ = System.marshal_in_segment f ch in
-  close_in ch;
+  let (s0 : seg_sum), _ = System.marshal_in_segment ~name:"summary" ch in
+  let (s1 : seg_lib), _ = System.marshal_in_segment ~name:"library" ch in
+  let (s2 : seg_univ option), _ = System.marshal_in_segment ~name:"universes" ch in
+  let tasks, _ = System.marshal_in_segment ~name:"tasks" ch in
+  let (s4 : seg_proofs), _ = System.marshal_in_segment ~name:"opaques" ch in
+  System.close_in_file ch;
   if tasks = None then user_err ~hdr:"restart" (str"not a .vio file");
   if s2 = None then user_err ~hdr:"restart" (str"not a .vio file");
   if snd (Option.get s2) then user_err ~hdr:"restart" (str"not a .vio file");
@@ -433,15 +431,15 @@ let error_recursively_dependent_library dir =
 let save_library_base f sum lib univs tasks proofs =
   let ch = raw_extern_library f in
   try
-    System.marshal_out_segment f ch (sum    : seg_sum);
-    System.marshal_out_segment f ch (lib    : seg_lib);
-    System.marshal_out_segment f ch (univs  : seg_univ option);
-    System.marshal_out_segment f ch (tasks  : 'tasks option);
-    System.marshal_out_segment f ch (proofs : seg_proofs);
-    close_out ch
+    System.marshal_out_segment ~name:"summary" ch (sum    : seg_sum);
+    System.marshal_out_segment ~name:"library" ch (lib    : seg_lib);
+    System.marshal_out_segment ~name:"universes" ch (univs  : seg_univ option);
+    System.marshal_out_segment ~name:"tasks" ch (tasks  : 'tasks option);
+    System.marshal_out_segment ~name:"opaques" ch (proofs : seg_proofs);
+    System.close_out_file ch
   with reraise ->
     let reraise = CErrors.push reraise in
-    close_out ch;
+    System.close_out_file ch;
     Feedback.msg_warning (str "Removed file " ++ str f);
     Sys.remove f;
     iraise reraise
