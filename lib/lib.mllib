@@ -13,6 +13,7 @@ CWarnings
 
 AcyclicGraph
 Rtree
+Zip
 System
 Explore
 CProfile
