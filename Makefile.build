@@ -210,7 +210,7 @@ COQOPTS=$(NATIVECOMPUTE) $(COQWARNERROR) $(COQUSERFLAGS)
 BOOTCOQC=$(TIMER) $(COQC) -coqlib . -q $(COQOPTS)
 
 LOCALINCLUDES=$(addprefix -I ,$(SRCDIRS))
-MLINCLUDES=$(LOCALINCLUDES)
+MLINCLUDES=$(LOCALINCLUDES) -package camlzip
 
 USERCONTRIBINCLUDES=$(addprefix -I user-contrib/,$(USERCONTRIBDIRS))
 
@@ -271,7 +271,7 @@ $(OCAMLC) $(MLINCLUDES) $(BYTEFLAGS) $(CUSTOM) -o $@ -linkpkg $(1) $^
 endef
 
 # Main packages linked by Coq.
-SYSMOD:=-package num,str,unix,dynlink,threads
+SYSMOD:=-package num,str,unix,dynlink,threads,camlzip
 
 ###########################################################################
 # Infrastructure for the rest of the Makefile
