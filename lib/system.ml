@@ -191,35 +191,59 @@ let marshal_in filename ch =
   | End_of_file -> error_corrupted filename "premature end of file"
   | Failure s -> error_corrupted filename s
 
-let digest_out = Digest.output
-let digest_in filename ch =
-  try Digest.input ch
-  with
-  | End_of_file -> error_corrupted filename "premature end of file"
-  | Failure s -> error_corrupted filename s
+type out_file = {
+  out_file : string;
+  out_zip : Zip.out_file;
+}
 
-let marshal_out_segment f ch v =
-  let start = pos_out ch in
-  output_binary_int ch 0;  (* dummy value for stop *)
-  marshal_out ch v;
-  let stop = pos_out ch in
-  seek_out ch start;
-  output_binary_int ch stop;
-  seek_out ch stop;
-  digest_out ch (Digest.file f)
+type in_file = {
+  in_file : string;
+  in_zip : Zip.in_file;
+}
 
-let marshal_in_segment f ch =
-  let stop = (input_binary_int f ch : int) in
-  let v = marshal_in f ch in
+let open_out_file magic filename =
+  let channel = Zip.open_out filename in
+  let data = string_of_int magic in
+  let () = Zip.add_entry data channel "magic" in
+  { out_zip = channel; out_file = filename }
+
+let open_in_file magic filename =
+  let channel = Zip.open_in filename in
+  (* FIXME: check magic *)
+  { in_zip = channel; in_file = filename }
+
+let close_out_file f =
+  Zip.close_out f.out_zip
+
+let close_in_file f =
+  Zip.close_in f.in_zip
+
+let marshal_out_segment ~name f v =
+  let v = Marshal.to_string v [] in
+  let d = Digest.string v in
+  Zip.add_entry (v ^ d) f.out_zip name
+
+let get_entry name f =
+  try Zip.find_entry f.in_zip name
+  with Not_found -> error_corrupted f.in_file ("missing segment: " ^ name)
+
+let with_in_channel ~name f k =
+  let e = get_entry name f in
+  k (Zip.seek_entry f.in_zip e)
+
+let marshal_in_segment ~name f =
+  with_in_channel ~name f begin fun ch ->
+    let v = Marshal.from_channel ch in
+    let digest = Digest.input ch in
+    (v, digest)
+  end
+
+let skip_in_segment ~name f =
+  let e = get_entry name f in
+  let ch = Zip.seek_entry f.in_zip e in
   let pos = pos_in ch in
-  let () = assert (Int.equal pos stop) in
-  let digest = digest_in f ch in
-  v, digest
-
-let skip_in_segment f ch =
-  let stop = (input_binary_int f ch : int) in
-  seek_in ch stop;
-  digest_in f ch
+  let () = seek_in ch (pos + e.Zip.compressed_size - 16) in
+  pos, Digest.input ch
 
 type magic_number_error = {filename: string; actual: int; expected: int}
 exception Bad_magic_number of magic_number_error
