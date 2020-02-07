@@ -279,53 +279,6 @@ let seek_entry ifile e =
   with End_of_file ->
     raise (Error(ifile.if_filename, e.filename, "truncated data"))
 
-let read_entry ifile e =
-  try
-    goto_entry ifile e;
-    let res = Bytes.create e.uncompressed_size in
-        if e.compressed_size <> e.uncompressed_size then
-          raise (Error(ifile.if_filename, e.filename,
-                       "wrong size for stored entry"));
-        really_input ifile.if_channel res 0 e.uncompressed_size;
-        Bytes.unsafe_to_string res
-  with End_of_file ->
-    raise (Error(ifile.if_filename, e.filename, "truncated data"))
-
-(* Write the contents of an entry into an out channel *)
-
-let copy_entry_to_channel ifile e oc =
-  try
-    goto_entry ifile e;
-        if e.compressed_size <> e.uncompressed_size then
-          raise (Error(ifile.if_filename, e.filename,
-                       "wrong size for stored entry"));
-        let buf = Bytes.create 4096 in
-        let rec copy n =
-          if n > 0 then begin
-            let r = input ifile.if_channel buf 0 (min n (Bytes.length buf)) in
-            output oc buf 0 r;
-            copy (n - r)
-          end in
-        copy e.uncompressed_size
-  with End_of_file ->
-    raise (Error(ifile.if_filename, e.filename, "truncated data"))
-
-(* Write the contents of an entry to a file *)
-
-let copy_entry_to_file ifile e outfilename =
-  let oc = open_out_bin outfilename in
-  try
-    copy_entry_to_channel ifile e oc;
-    close_out oc;
-    begin try
-      Unix.utimes outfilename e.mtime e.mtime
-    with Unix.Unix_error(_, _, _) | Invalid_argument _ -> ()
-    end
-  with x ->
-    close_out oc;
-    Sys.remove outfilename;
-    raise x
-
 (* Open a ZIP file for writing *)
 
 let open_out ?(comment = "") filename =
@@ -462,50 +415,3 @@ let copy_channel_to_entry ic ofile ?(extra = "") ?(comment = "")
   in
   let e' = add_data_descriptor ofile !crc compr_size uncompr_size e in
   ofile.of_entries <- e' :: ofile.of_entries
-
-(* Add an entry with the contents of a file *)
-
-let copy_file_to_entry infilename ofile ?(extra = "") ?(comment = "")
-                                        ?mtime name =
-  let ic = open_in_bin infilename in
-  let mtime' =
-    match mtime with
-      Some t -> mtime
-    | None ->
-        try Some((Unix.stat infilename).Unix.st_mtime)
-        with Unix.Unix_error(_,_,_) -> None in
-  try
-    copy_channel_to_entry ic ofile ~extra ~comment ?mtime:mtime' name;
-    Pervasives.close_in ic
-  with x ->
-    Pervasives.close_in ic; raise x
-
-
-(* Add an entry whose content will be produced by the caller *)
-
-let add_entry_generator ofile ?(extra = "") ?(comment = "")
-                         ?(mtime = Unix.time()) name =
-  let e = add_entry_header ofile extra comment mtime name in
-  let crc = ref Int32.zero in
-  let compr_size = ref 0 in
-  let uncompr_size = ref 0 in
-  let finished = ref false in
-  let check () =
-    if !finished then
-      raise (Error(ofile.of_filename, name, "entry already finished"))
-  in
-  let finish () =
-    finished := true;
-    let e' = add_data_descriptor ofile !crc !compr_size !uncompr_size e in
-    ofile.of_entries <- e' :: ofile.of_entries
-  in
-      (fun buf pos len ->
-        check ();
-        output ofile.of_channel buf pos len;
-        compr_size := !compr_size + len;
-        uncompr_size := !uncompr_size + len
-      ),
-      (fun () ->
-        check ();
-        finish ()
-      )

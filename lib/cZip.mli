@@ -69,25 +69,6 @@ val find_entry: in_file -> string -> entry
               separator.  The name of a directory must end with a trailing
               [/] (slash). *)
 
-val read_entry: in_file -> entry -> string
-          (** [Zip.read_entry zf e] reads and uncompresses the data
-              (file contents) associated with entry [e] of ZIP file [zf].
-              The data is returned as a character string. *)
-
-val copy_entry_to_channel: in_file -> entry -> out_channel -> unit
-          (** [Zip.copy_entry_to_channel zf e oc] reads and uncompresses
-              the data associated with entry [e] of ZIP file [zf].
-              It then writes this data to the output channel [oc]. *)
-
-val copy_entry_to_file: in_file -> entry -> string -> unit
-          (** [Zip.copy_entry_to_file zf e destfile] reads and uncompresses
-              the data associated with entry [e] of ZIP file [zf].
-              It then writes this data to the file named [destfile].
-              The file [destfile] is created if it does not exist,
-              and overwritten otherwise.  The last modification date of
-              the file is set to that indicated in the ZIP entry [e],
-              if possible. *)
-
 val seek_entry : in_file -> entry -> in_channel
 
 val close_in: in_file -> unit
@@ -141,34 +122,6 @@ val copy_channel_to_entry:
           (** Same as [Zip.add_entry], but the data associated with the
               entry is read from the input channel given as first argument.
               The channel is read up to end of file. *)
-
-val copy_file_to_entry:
-  string -> out_file ->
-    ?extra: string -> ?comment: string ->
-    ?mtime: float -> string -> unit
-          (** Same as [Zip.add_entry], but the data associated with the
-              entry is read from the file whose name is given as first
-              argument.  Also, the default value for the [mtime]
-              optional parameter is the time of last modification of the
-              file. *)
-
-val add_entry_generator:
-  out_file ->
-    ?extra: string -> ?comment: string ->
-    ?mtime: float -> string -> (bytes -> int -> int -> unit) * (unit -> unit)
-          (** [Zip.add_entry_generator zf name] returns a pair of functions
-              [(add, finish)].  It adds a new entry to the
-              ZIP file [zf].  The file name stored along with this entry
-              is [name].  Initially, no data is stored in this entry.
-              To store data in this entry, the program must repeatedly call
-              the [add] function returned by [Zip.add_entry_generator].
-              An invocation [add s ofs len] stores [len] characters of
-              byte sequence [s] starting at offset [ofs] in the ZIP entry.
-              When all the data forming the entry has been sent, the
-              program must call the [finish] function returned by
-              [Zip.add_entry_generator].  [finish] must be called exactly once.
-              The optional arguments to [Zip.add_entry_generator]
-              are as described in {!Zip.add_entry}. *)
 
 val close_out: out_file -> unit
           (** Finish writing the ZIP archive by adding the table of
