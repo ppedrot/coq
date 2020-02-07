@@ -269,6 +269,16 @@ let goto_entry ifile e =
 
 (* Read the contents of an entry as a string *)
 
+let seek_entry ifile e =
+  try
+    goto_entry ifile e;
+    if e.compressed_size <> e.uncompressed_size then
+      raise (Error(ifile.if_filename, e.filename,
+                    "wrong size for stored entry"));
+    ifile.if_channel
+  with End_of_file ->
+    raise (Error(ifile.if_filename, e.filename, "truncated data"))
+
 let read_entry ifile e =
   try
     goto_entry ifile e;

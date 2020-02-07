@@ -224,6 +224,8 @@ let marshal_out_segment ~name f v =
   let (tmp, ch) = Filename.open_temp_file ~mode:[Open_binary] "coq" "marshal" in
   let () = Marshal.to_channel ch v [] in
   let () = flush ch in
+  let () = Digest.output ch (Digest.file tmp) in
+  let () = flush ch in
   let () = close_out ch in
   let ch = open_in tmp in
   let () = Zip.copy_channel_to_entry ch f.out_zip name in
@@ -237,34 +239,21 @@ let get_entry name f =
 
 let with_in_channel ~name f k =
   let e = get_entry name f in
-  let (tmp, ch) = Filename.open_temp_file ~mode:[Open_binary] "coq" "marshal" in
-  let () = Zip.copy_entry_to_channel f.in_zip e ch in
-  let () = flush ch in
-  let () = close_out ch in
-  let ch = open_in tmp in
-  match k ch with
-  | v ->
-    let () = close_in ch in
-    let () = Sys.remove tmp in
-    v
-  | exception e ->
-    let reraise = CErrors.push e in
-    let () = close_in ch in
-    let () = Sys.remove tmp in
-    iraise reraise
+  k (Zip.seek_entry f.in_zip e)
 
 let marshal_in_segment ~name f =
   with_in_channel ~name f begin fun ch ->
-    let digest = Digest.channel ch (-1) in
-    let () = seek_in ch 0 in
     let v = Marshal.from_channel ch in
+    let digest = Digest.input ch in
     (v, digest)
   end
 
 let skip_in_segment ~name f =
-  with_in_channel ~name f begin fun ch ->
-    Digest.channel ch (-1)
-  end
+  let e = get_entry name f in
+  let ch = Zip.seek_entry f.in_zip e in
+  let pos = pos_in ch in
+  let () = seek_in ch (pos + e.Zip.compressed_size - 16) in
+  Digest.input ch
 
 type magic_number_error = {filename: string; actual: int; expected: int}
 exception Bad_magic_number of magic_number_error

@@ -299,9 +299,8 @@ let marshal_in_segment ~validate ~value ~file ~name ch =
     let v, digest =
       try
         System.with_in_channel ~name ch begin fun ch ->
-          let digest = Digest.channel ch (-1) in
-          let () = seek_in ch 0 in
           let v = Analyze.parse_channel ch in
+          let digest = Digest.input ch in
           v, digest
         end
       with _ ->

@@ -88,6 +88,8 @@ val copy_entry_to_file: in_file -> entry -> string -> unit
               the file is set to that indicated in the ZIP entry [e],
               if possible. *)
 
+val seek_entry : in_file -> entry -> in_channel
+
 val close_in: in_file -> unit
           (** Close the given ZIP file handle.  If the ZIP file handle was
               created by [open_in_channel], the underlying input channel
