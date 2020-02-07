@@ -191,6 +191,8 @@ let marshal_in filename ch =
   | End_of_file -> error_corrupted filename "premature end of file"
   | Failure s -> error_corrupted filename s
 
+module Zip = CZip
+
 type out_file = {
   out_file : string;
   out_zip : Zip.out_file;
