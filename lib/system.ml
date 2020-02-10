@@ -221,17 +221,9 @@ let close_in_file f =
   Zip.close_in f.in_zip
 
 let marshal_out_segment ~name f v =
-  let (tmp, ch) = Filename.open_temp_file ~mode:[Open_binary] "coq" "marshal" in
-  let () = Marshal.to_channel ch v [] in
-  let () = flush ch in
-  let () = Digest.output ch (Digest.file tmp) in
-  let () = flush ch in
-  let () = close_out ch in
-  let ch = open_in tmp in
-  let () = Zip.copy_channel_to_entry ch f.out_zip name in
-  let () = close_in ch in
-  let () = Sys.remove tmp in
-  ()
+  let v = Marshal.to_string v [] in
+  let d = Digest.string v in
+  Zip.add_entry (v ^ d) f.out_zip name
 
 let get_entry name f =
   try Zip.find_entry f.in_zip name
