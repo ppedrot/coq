@@ -245,7 +245,7 @@ let skip_in_segment ~name f =
   let ch = Zip.seek_entry f.in_zip e in
   let pos = pos_in ch in
   let () = seek_in ch (pos + e.Zip.compressed_size - 16) in
-  Digest.input ch
+  pos, Digest.input ch
 
 type magic_number_error = {filename: string; actual: int; expected: int}
 exception Bad_magic_number of magic_number_error

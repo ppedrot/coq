@@ -314,7 +314,7 @@ let marshal_in_segment ~validate ~value ~file ~name ch =
 
 let skip_in_segment ~file ~name ch =
   try
-    System.skip_in_segment ~name ch
+    snd @@ System.skip_in_segment ~name ch
   with _ ->
     user_err (str "Corrupted file " ++ quote (str file))
 

@@ -87,7 +87,7 @@ val open_in_file : int -> string -> in_file
 
 val marshal_out_segment : name:string -> out_file -> 'a -> unit
 val marshal_in_segment : name:string -> in_file -> 'a * Digest.t
-val skip_in_segment : name:string -> in_file -> Digest.t
+val skip_in_segment : name:string -> in_file -> int * Digest.t
 val with_in_channel : name:string -> in_file -> (in_channel -> 'a) -> 'a
 
 val close_in_file : in_file -> unit

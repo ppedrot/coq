@@ -43,23 +43,25 @@ struct
 
 type 'a delayed = {
   del_file : string;
-  del_name : string;
+  del_off : int;
   del_digest : Digest.t;
 }
 
 let in_delayed ~file ~name ch =
-  let digest = System.skip_in_segment ~name ch in
-  ({ del_file = file; del_digest = digest; del_name = name; }, digest)
+  let pos, digest = System.skip_in_segment ~name ch in
+  ({ del_file = file; del_digest = digest; del_off = pos; }, digest)
 
 (** Fetching a table of opaque terms at position [pos] in file [f],
     expecting to find first a copy of [digest]. *)
 
 let fetch_delayed del =
-  let { del_digest = digest; del_file = f; del_name = name; } = del in
+  let { del_digest = digest; del_file = f; del_off = pos; } = del in
   try
-    let ch = raw_intern_library f in
-    let obj, digest' = System.marshal_in_segment ~name ch in
-    let () = System.close_in_file ch in
+    let ch = open_in_bin f in
+    let () = seek_in ch pos in
+    let obj = Marshal.from_channel ch in
+    let digest' = Digest.input ch in
+    let () = close_in ch in
     if not (String.equal digest digest') then raise (Faulty f);
     obj
   with e when CErrors.noncritical e -> raise (Faulty f)
