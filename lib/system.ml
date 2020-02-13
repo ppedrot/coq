@@ -223,6 +223,10 @@ let marshal_out_segment ~name f v =
   let d = Digest.string v in
   Zip.add_entry (v ^ d) f.out_zip name
 
+let has_segment ~name f =
+  try let _ = Zip.find_entry f.in_zip name in true
+  with Not_found -> false
+
 let get_entry name f =
   try Zip.find_entry f.in_zip name
   with Not_found -> error_corrupted f.in_file ("missing segment: " ^ name)

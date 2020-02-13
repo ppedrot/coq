@@ -376,7 +376,7 @@ let visit_vo f =
     make_seg "library" Values.v_lib;
     make_seg "univ constraints of opaque proofs" Values.v_univopaques;
     make_seg "STM tasks" (Opt Values.v_stm_seg);
-    make_seg "opaque proofs" Values.v_opaquetable;
+(*     make_seg "opaque proofs" Values.v_opaquetable; *) (* FIXME *)
   |] in
   let repr =
     if Sys.word_size = 64 then (module ReprMem : S) else (module ReprObj : S)

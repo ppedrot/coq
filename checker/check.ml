@@ -312,19 +312,17 @@ let marshal_in_segment ~validate ~value ~file ~name ch =
   else
     System.marshal_in_segment ~name ch
 
-let skip_in_segment ~file ~name ch =
-  try
-    snd @@ System.skip_in_segment ~name ch
-  with _ ->
-    user_err (str "Corrupted file " ++ quote (str file))
-
-let marshal_or_skip ~validate ~value ~file ~name ch =
-  if validate then
-    let v, digest = marshal_in_segment ~validate ~value ~file ~name ch in
-    Some v, digest
-  else
-    let digest = skip_in_segment ~file ~name ch in
-    None, digest
+let get_opaques ~validate ~file ch =
+  let rec get_opaques accu file ch i =
+    let name = Printf.sprintf "opaques/%i" i in
+    if System.has_segment ~name ch then
+      let v, _ = marshal_in_segment ~validate ~value:Values.v_opaqueproof ~file ~name ch in
+      get_opaques (v :: accu) file ch (i + 1)
+    else
+      Array.rev_of_list accu
+  in
+  if validate then Some (get_opaques [] file ch 0)
+  else None
 
 let intern_from_file ~intern_mode (dir, f) =
   let validate = intern_mode <> Dep in
@@ -337,8 +335,7 @@ let intern_from_file ~intern_mode (dir, f) =
       let (md:library_disk), digest = marshal_in_segment ~validate ~value:Values.v_lib ~file ~name:"library" ch in
       let (opaque_csts:seg_univ option), udg = marshal_in_segment ~validate ~value:Values.v_univopaques ~file ~name:"universes" ch in
       let (tasks:'a option), _ = marshal_in_segment ~validate ~value:Values.(Opt Any) ~file ~name:"tasks" ch in
-      let (table:seg_proofs option), checksum =
-        marshal_or_skip ~validate ~value:Values.v_opaquetable ~file ~name:"opaques" ch in
+      let (table:seg_proofs option) = get_opaques ~validate ~file ch in
       (* Verification of the final checksum *)
       (* FIXME *)
 (*       let ch = open_in_bin f in *)

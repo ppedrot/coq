@@ -183,19 +183,21 @@ let register_loaded_library m =
 (** Delayed / available tables of opaque terms *)
 
 type 'a table_status =
-  | ToFetch of 'a array delayed
-  | Fetched of 'a array
+  | ToFetch of 'a delayed
+  | Fetched of 'a
 
 let opaque_tables =
-  ref (LibraryMap.empty : (Opaqueproof.opaque_proofterm table_status) LibraryMap.t)
+  ref (LibraryMap.empty : (Opaqueproof.opaque_proofterm table_status array) LibraryMap.t)
 
 let add_opaque_table dp st =
   opaque_tables := LibraryMap.add dp st !opaque_tables
 
-let access_table what tables dp i =
-  let t = match LibraryMap.find dp !tables with
+let access_opaque_table dp i =
+  let table = LibraryMap.find dp !opaque_tables in
+  match table.(i) with
     | Fetched t -> t
     | ToFetch f ->
+      let what = "opaque proofs" in
       let dir_path = Names.DirPath.to_string dp in
       Flags.if_verbose Feedback.msg_info (str"Fetching " ++ str what++str" from disk for " ++ str dir_path);
       let t =
@@ -206,14 +208,8 @@ let access_table what tables dp i =
              str ") is inaccessible or corrupted,\ncannot load some " ++
              str what ++ str " in it.\n")
       in
-      tables := LibraryMap.add dp (Fetched t) !tables;
+      table.(i) <- (Fetched t);
       t
-  in
-  assert (i < Array.length t); t.(i)
-
-let access_opaque_table dp i =
-  let what = "opaque proofs" in
-  access_table what opaque_tables dp i
 
 let indirect_accessor = {
   Opaqueproof.access_proof = access_opaque_table;
@@ -243,16 +239,24 @@ let mk_summary m = {
   libsum_digests = m.library_digests;
 }
 
+let rec get_opaques accu file ch i =
+  let name = Printf.sprintf "opaques/%i" i in
+  if System.has_segment ~name ch then
+    let v, _ = in_delayed ~file ~name ch in
+    get_opaques (ToFetch v :: accu) file ch (i + 1)
+  else
+    Array.rev_of_list accu
+
 let intern_from_file f =
   let ch = raw_intern_library f in
   let (lsd : seg_sum), digest_lsd = System.marshal_in_segment ~name:"summary" ch in
   let ((lmd : seg_lib delayed), digest_lmd) = in_delayed ~file:f ~name:"library" ch in
   let (univs : seg_univ option), digest_u = System.marshal_in_segment ~name:"universes" ch in
 (*   let _ = System.skip_in_segment f ch in *)
-  let ((del_opaque : seg_proofs delayed),_) = in_delayed ~file:f ~name:"opaques" ch in
+  let del_opaque = get_opaques [] f ch 0 in
   System.close_in_file ch;
   register_library_filename lsd.md_name f;
-  add_opaque_table lsd.md_name (ToFetch del_opaque);
+  add_opaque_table lsd.md_name del_opaque;
   let open Safe_typing in
   match univs with
   | None -> mk_library lsd lmd (Dvo_or_vi digest_lmd) Univ.ContextSet.empty
@@ -430,14 +434,17 @@ let error_recursively_dependent_library dir =
 (* Security weakness: file might have been changed on disk between
    writing the content and computing the checksum... *)
 
-let save_library_base f sum lib univs tasks proofs =
+let save_library_base f sum lib univs tasks (proofs : seg_proofs) =
   let ch = raw_extern_library f in
   try
     System.marshal_out_segment ~name:"summary" ch (sum    : seg_sum);
     System.marshal_out_segment ~name:"library" ch (lib    : seg_lib);
     System.marshal_out_segment ~name:"universes" ch (univs  : seg_univ option);
     System.marshal_out_segment ~name:"tasks" ch (tasks  : 'tasks option);
-    System.marshal_out_segment ~name:"opaques" ch (proofs : seg_proofs);
+    for i = 0 to Array.length proofs - 1 do
+      let name = Printf.sprintf "opaques/%i" i in
+      System.marshal_out_segment ~name ch proofs.(i);
+    done;
     System.close_out_file ch
   with reraise ->
     let reraise = CErrors.push reraise in

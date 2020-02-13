@@ -428,6 +428,6 @@ let v_lib =
 let v_delayed_universes =
   Sum ("delayed_universes", 0, [| [| v_unit |]; [| Int; v_context_set |] |])
 
-let v_opaquetable = Array (Opt (v_pair (v_ancient v_constr) v_delayed_universes))
+let v_opaqueproof = Opt (v_pair (v_ancient v_constr) v_delayed_universes)
 let v_univopaques =
   Opt (Tuple ("univopaques",[|v_context_set;v_bool|]))
