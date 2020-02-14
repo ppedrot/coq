@@ -190,19 +190,22 @@ let recheck_applications unify flags env evdref t =
     | App (f, args) ->
        let () = aux env f in
        let fty = Retyping.get_type_of env !evdref f in
-       let argsty = Array.map (fun x -> aux env x; Retyping.get_type_of env !evdref x) args in
-       let rec aux i ty =
-         if i < Array.length argsty then
+       let () = Array.iter (fun arg -> aux env arg) args in
+       let rec iter i ty =
+         if i < Array.length args then
+         let argty = Retyping.get_type_of env !evdref args.(i) in
          match EConstr.kind !evdref (whd_all env !evdref ty) with
          | Prod (na, dom, codom) ->
-            (match unify flags TypeUnification env !evdref Reduction.CUMUL argsty.(i) dom with
-             | Success evd -> evdref := evd;
-                             aux (succ i) (subst1 args.(i) codom)
+            (match unify flags TypeUnification env !evdref Reduction.CUMUL argty dom with
+             | Success evd ->
+                let () = evdref := evd in
+                iter (succ i) (mkLetIn (na, args.(i), argty, codom))
              | UnifFailure (evd, reason) ->
-                Pretype_errors.error_cannot_unify env evd ~reason (argsty.(i), dom))
-         | _ -> raise (IllTypedInstance (env, ty, argsty.(i)))
-       else ()
-     in aux 0 fty
+                Pretype_errors.error_cannot_unify env evd ~reason (argty, dom))
+         | _ -> raise (IllTypedInstance (env, ty, argty))
+        else ()
+      in
+      iter 0 fty
     | _ ->
        iter_with_full_binders !evdref (fun d env -> push_rel d env) aux env t
   in aux env t
