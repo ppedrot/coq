@@ -67,12 +67,22 @@ let get_type_from_constraints env sigma t =
     | _ -> raise Not_found
   else raise Not_found
 
-let rec subst_type env sigma typ = function
-  | [] -> typ
-  | h::rest ->
-      match EConstr.kind sigma (whd_all env sigma typ) with
-        | Prod (na,c1,c2) -> subst_type env sigma (subst1 h c2) rest
-        | _ -> retype_error NonFunctionalConstruction
+let subst_type env sigma typ args =
+  let evars ev = safe_evar_value sigma ev in
+  let info = CClosure.create_clos_infos ~evars CClosure.all env in
+  let tab = CClosure.create_tab () in
+  let rec fold ty = function
+  | [] -> EConstr.of_constr @@ CClosure.to_constr Esubst.el_id ty
+  | h :: rest ->
+    let (ty, stk) = CClosure.whd_stack info tab ty [] in
+    match CClosure.fterm_of ty with
+    | CClosure.FProd (_, _, codom, e) ->
+      let h = CClosure.inject (EConstr.Unsafe.to_constr h) in
+      let e = Esubst.subs_cons ([|h|], e) in
+      fold (CClosure.mk_clos e codom) rest
+    | _ -> retype_error NonFunctionalConstruction
+  in
+  fold (CClosure.inject @@ EConstr.Unsafe.to_constr typ) args
 
 (* If ft is the type of f which itself is applied to args, *)
 (* [sort_of_atomic_type] computes ft[args] which has to be a sort *)
