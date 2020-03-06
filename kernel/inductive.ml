@@ -186,6 +186,10 @@ let make_subst =
 exception SingletonInductiveBecomesProp of Id.t
 
 let instantiate_universes ctx ar args =
+  if Univ.is_small_univ ar.template_level then
+    Sorts.sort_of_univ ar.template_level
+  else
+  let ctx = List.rev ctx in
   let subst = make_subst (ctx,ar.template_param_levels,args) in
   let level = Univ.subst_univs_universe (Univ.make_subst subst) ar.template_level in
   let ty =
@@ -196,7 +200,7 @@ let instantiate_universes ctx ar args =
     (* This is a Type with constraints *)
     else Sorts.sort_of_univ level
   in
-    (ctx, ty)
+  ty
 
 (* Type of an inductive type *)
 
@@ -215,14 +219,13 @@ let type_of_inductive_gen ?(polyprop=true) ((mib,mip),u) paramtyps =
   match mip.mind_arity with
   | RegularArity a -> subst_instance_constr u a.mind_user_arity
   | TemplateArity ar ->
-    let ctx = List.rev mip.mind_arity_ctxt in
-    let ctx,s = instantiate_universes ctx ar paramtyps in
+    let s = instantiate_universes mip.mind_arity_ctxt ar paramtyps in
       (* The Ocaml extraction cannot handle (yet?) "Prop-polymorphism", i.e.
          the situation where a non-Prop singleton inductive becomes Prop
          when applied to Prop params *)
       if not polyprop && not (is_type0m_univ ar.template_level) && Sorts.is_prop s
       then raise (SingletonInductiveBecomesProp mip.mind_typename);
-      Term.mkArity (List.rev ctx,s)
+      Term.mkArity (mip.mind_arity_ctxt, s)
 
 let type_of_inductive pind =
   type_of_inductive_gen pind []
