@@ -2791,8 +2791,13 @@ let letin_pat_tac with_evars with_eq id c occs =
     let sigma = Proofview.Goal.sigma gl in
     let env = Proofview.Goal.env gl in
     let ccl = Proofview.Goal.concl gl in
-    let check t = true in
-    let abs = AbstractPattern (false,check,id,c,occs,false) in
+    let abs =
+      if is_ground_term sigma (snd c) then
+        AbstractExact (id, snd c, None, occs, false)
+      else
+        let check t = true in
+        AbstractPattern (false, check, id, c, occs, false)
+    in
     let (id,_,depdecls,lastlhyp,ccl,res) = make_abstraction env sigma ccl abs in
     let (sigma, c) = match res with
     | None -> finish_evar_resolution ~flags:(tactic_infer_flags with_evars) env sigma c
