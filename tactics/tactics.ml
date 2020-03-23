@@ -1071,18 +1071,52 @@ let rec intros_using = function
 let intros = Tacticals.New.tclREPEAT intro
 
 let intro_forthcoming_then_gen name_flag move_flag dep_flag n bound tac =
-  Proofview.Goal.enter begin fun gl ->
-  let rec aux n ids =
-    (* Note: we always use the bound when there is one for "*" and "**" *)
-    if (match bound with None -> true | Some (_,p) -> n < p) then
-      find_intro name_flag false dep_flag >>= function
-      | Some id ->
-        build_intro_tac id move_flag <*> aux (n+1) (id::ids)
-      | None -> Proofview.tclUNIT ids
-    else
-      Proofview.tclUNIT ids
+  let check = match bound with
+  | None -> fun _ -> true
+  | Some (_, p) -> fun n -> n < p
   in
-  aux n [] >>= tac
+  Proofview.Goal.enter begin fun gl ->
+    let open Context.Rel.Declaration in
+    let env = Proofview.Goal.env gl in
+    let sigma = Proofview.Goal.sigma gl in
+    let concl = Proofview.Goal.concl gl in
+    (* Find all toplevel binders at once *)
+    let annot id name = Context.map_annot (fun _ -> id) name in
+    let rec find_intros env sigma n rdecls ndecls subs concl =
+      if check n then match EConstr.kind sigma concl with
+      | Prod (name, t, u) when not dep_flag || not (noccurn sigma 1 u) ->
+        let ndecl = LocalAssum (name, substl subs t) in
+        let id = find_name env sigma false ndecl name_flag in
+        let rdecl = LocalAssum (annot (Name id) name, t) in
+        let ndecl = of_rel_decl (fun _ -> id) ndecl in
+        find_intros (push_named ndecl env) sigma (n + 1) (rdecl :: rdecls) (ndecl :: ndecls) (mkVar id :: subs) u
+      | LetIn (name, b, t, u) when not dep_flag || not (noccurn sigma 1 u) ->
+        let ndecl = LocalDef (name, substl subs b, substl subs t) in
+        let id = find_name env sigma false ndecl name_flag in
+        let rdecl = LocalDef (annot (Name id) name, b, t) in
+        let ndecl = of_rel_decl (fun _ -> id) ndecl in
+        find_intros (push_named ndecl env) sigma (n + 1) (rdecl :: rdecls) (ndecl :: ndecls) (mkVar id :: subs) u
+      | _ ->
+        rdecls, ndecls, substl subs concl
+      else
+        rdecls, ndecls, substl subs concl
+    in
+    let rdecls, ndecls, concl = find_intros env sigma n [] [] [] concl in
+    let ids = List.map NamedDecl.get_id ndecls in
+    Refine.refine ~typecheck:false begin fun sigma ->
+      let ctx = named_context_val env in
+      let nctx = List.fold_right push_named_context_val ndecls ctx in
+      let inst = List.map (NamedDecl.get_id %> mkVar) (named_context env) in
+      let ninst = List.mapi (fun i _ -> mkRel (i + 1)) ndecls @ inst in
+      let (sigma, ev) = new_evar_instance nctx sigma concl ~principal:true ninst in
+      let p = List.fold_left (fun accu decl -> mkLambda_or_LetIn decl accu) ev rdecls in
+      (sigma, p)
+    end <*>
+    begin match move_flag with
+    | MoveLast -> Proofview.tclUNIT ()
+    | _ -> Tacticals.New.tclMAP (fun id -> move_hyp id move_flag) (List.rev ids)
+    end <*>
+    tac ids
   end
 
 let intro_replacing id =
