@@ -1000,10 +1000,9 @@ let find_intro_names ctxt gl =
     ctxt (pf_env gl, [], Id.Set.empty) in
   List.rev res
 
-let build_intro_tac id dest tac = match dest with
-  | MoveLast -> Tacticals.New.tclTHEN (introduction id) (tac id)
-  | dest -> Tacticals.New.tclTHENLIST
-    [introduction id; move_hyp id dest; tac id]
+let build_intro_tac id dest = match dest with
+  | MoveLast -> introduction id
+  | dest -> introduction id <*> move_hyp id dest
 
 (* Expects to be focussed *)
 let rec find_intro name_flag force_flag dep_flag =
@@ -1045,7 +1044,7 @@ let intro_then_gen name_flag move_flag force_flag dep_flag tac =
         let sigma = Tacmach.New.project gl in
         Proofview.tclZERO (RefinerError (env, sigma, IntroNeedsProduct))
     | Some id ->
-      build_intro_tac id move_flag tac
+      build_intro_tac id move_flag <*> tac id
   end
 
 let intro_gen n m f d = intro_then_gen n m f d (fun _ -> Proofview.tclUNIT ())
@@ -1072,23 +1071,19 @@ let rec intros_using = function
 let intros = Tacticals.New.tclREPEAT intro
 
 let intro_forthcoming_then_gen name_flag move_flag dep_flag n bound tac =
+  Proofview.Goal.enter begin fun gl ->
   let rec aux n ids =
     (* Note: we always use the bound when there is one for "*" and "**" *)
     if (match bound with None -> true | Some (_,p) -> n < p) then
-    Proofview.tclORELSE
-      begin
-      intro_then_gen name_flag move_flag false dep_flag
-         (fun id -> aux (n+1) (id::ids))
-      end
-      begin function (e, info) -> match e with
-      | RefinerError (env, sigma, IntroNeedsProduct) ->
-          tac ids
-      | e -> Proofview.tclZERO ~info e
-      end
+      find_intro name_flag false dep_flag >>= function
+      | Some id ->
+        build_intro_tac id move_flag <*> aux (n+1) (id::ids)
+      | None -> Proofview.tclUNIT ids
     else
-      tac ids
+      Proofview.tclUNIT ids
   in
-  aux n []
+  aux n [] >>= tac
+  end
 
 let intro_replacing id =
   Proofview.Goal.enter begin fun gl ->
