@@ -383,17 +383,14 @@ let naming_of_name = function
   | Anonymous -> NamingAvoid Id.Set.empty
   | Name id -> NamingMustBe (CAst.make id)
 
-let find_name mayrepl decl naming gl = match naming with
+let find_name env sigma mayrepl decl naming = match naming with
   | NamingAvoid idl ->
       (* this case must be compatible with [find_intro_names] below. *)
-      let env = Proofview.Goal.env gl in
-      let sigma = Tacmach.New.project gl in
-      new_fresh_id idl (default_id env sigma decl) gl
-  | NamingBasedOn (id,idl) ->  new_fresh_id idl id gl
+      fresh_id_in_env idl (default_id env sigma decl) env
+  | NamingBasedOn (id,idl) ->  fresh_id_in_env idl id env
   | NamingMustBe {CAst.loc;v=id} ->
      (* When name is given, we allow to hide a global name *)
-     let ids_of_hyps = Tacmach.New.pf_ids_set_of_hyps gl in
-     if not mayrepl && Id.Set.mem id ids_of_hyps then
+     if not mayrepl && Id.Map.mem id (Environ.named_context_val env).env_named_map then
        user_err ?loc  (Id.print id ++ str" is already used.");
      id
 
@@ -473,7 +470,9 @@ let internal_cut_rev ?(check=true) = internal_cut_gen ~check false
 let assert_before_then_gen b naming t tac =
   let open Context.Rel.Declaration in
   Proofview.Goal.enter begin fun gl ->
-    let id = find_name b (LocalAssum (make_annot Anonymous Sorts.Relevant,t)) naming gl in
+    let env = Proofview.Goal.env gl in
+    let sigma = Proofview.Goal.sigma gl in
+    let id = find_name env sigma b (LocalAssum (make_annot Anonymous Sorts.Relevant,t)) naming in
     Tacticals.New.tclTHENLAST
       (internal_cut b id t)
       (tac id)
@@ -488,7 +487,9 @@ let assert_before_replacing id = assert_before_gen true (NamingMustBe (CAst.make
 let assert_after_then_gen b naming t tac =
   let open Context.Rel.Declaration in
   Proofview.Goal.enter begin fun gl ->
-    let id = find_name b (LocalAssum (make_annot Anonymous Sorts.Relevant,t)) naming gl in
+    let env = Proofview.Goal.env gl in
+    let sigma = Proofview.Goal.sigma gl in
+    let id = find_name env sigma b (LocalAssum (make_annot Anonymous Sorts.Relevant,t)) naming in
     Tacticals.New.tclTHENFIRST
       (internal_cut_rev b id t)
       (tac id)
@@ -1004,40 +1005,47 @@ let build_intro_tac id dest tac = match dest with
   | dest -> Tacticals.New.tclTHENLIST
     [introduction id; move_hyp id dest; tac id]
 
-let rec intro_then_gen name_flag move_flag force_flag dep_flag tac =
-  let open Context.Rel.Declaration in
-  Proofview.Goal.enter begin fun gl ->
+(* Expects to be focussed *)
+let rec find_intro name_flag force_flag dep_flag =
+  Proofview.Goal.enter_one begin fun gl ->
+    let env = Proofview.Goal.env gl in
     let sigma = Tacmach.New.project gl in
-    let env = Tacmach.New.pf_env gl in
     let concl = Proofview.Goal.concl gl in
+    let open Context.Rel.Declaration in
     match EConstr.kind sigma concl with
     | Prod (name,t,u) when not dep_flag || not (noccurn sigma 1 u) ->
-        let name = find_name false (LocalAssum (name,t)) name_flag gl in
-        build_intro_tac name move_flag tac
+        let name = find_name env sigma false (LocalAssum (name,t)) name_flag in
+        Proofview.tclUNIT (Some name)
     | LetIn (name,b,t,u) when not dep_flag || not (noccurn sigma 1 u) ->
-        let name = find_name false (LocalDef (name,b,t)) name_flag gl in
-        build_intro_tac name move_flag tac
+        let name = find_name env sigma false (LocalDef (name,b,t)) name_flag in
+        Proofview.tclUNIT (Some name)
     | Evar ev when force_flag ->
         let sigma, t = Evardefine.define_evar_as_product env sigma ev in
-        Tacticals.New.tclTHEN
-          (Proofview.Unsafe.tclEVARS sigma)
-          (intro_then_gen name_flag move_flag force_flag dep_flag tac)
+        Proofview.Unsafe.tclEVARS sigma <*>
+        find_intro name_flag force_flag dep_flag
     | _ ->
-        begin if not force_flag then Proofview.tclZERO (RefinerError (env, sigma, IntroNeedsProduct))
+        if not force_flag then Proofview.tclUNIT None
             (* Note: red_in_concl includes betaiotazeta and this was like *)
             (* this since at least V6.3 (a pity *)
             (* that intro do betaiotazeta only when reduction is needed; and *)
             (* probably also a pity that intro does zeta *)
-          else Proofview.tclUNIT ()
-        end <*>
-          Proofview.tclORELSE
-          (Tacticals.New.tclTHEN hnf_in_concl
-             (intro_then_gen name_flag move_flag false dep_flag tac))
-          begin function (e, info) -> match e with
-            | RefinerError (env, sigma, IntroNeedsProduct) ->
-                Tacticals.New.tclZEROMSG (str "No product even after head-reduction.")
-            | e -> Proofview.tclZERO ~info e
-          end
+        else
+          hnf_in_concl <*>
+          find_intro name_flag false dep_flag
+  end
+
+let intro_then_gen name_flag move_flag force_flag dep_flag tac =
+  Proofview.Goal.enter begin fun gl ->
+    find_intro name_flag force_flag dep_flag >>= function
+    | None ->
+      if force_flag then
+        Tacticals.New.tclZEROMSG (str "No product even after head-reduction.")
+      else
+        let env = Proofview.Goal.env gl in
+        let sigma = Tacmach.New.project gl in
+        Proofview.tclZERO (RefinerError (env, sigma, IntroNeedsProduct))
+    | Some id ->
+      build_intro_tac id move_flag tac
   end
 
 let intro_gen n m f d = intro_then_gen n m f d (fun _ -> Proofview.tclUNIT ())
@@ -1865,7 +1873,7 @@ let apply_in_once ?(respect_opaque = false) with_delta
   let sigma = Tacmach.New.project gl in
   let t' = Tacmach.New.pf_get_hyp_typ id gl in
   let innerclause = mk_clenv_from_env env sigma (Some 0) (mkVar id,t') in
-  let targetid = find_name true (LocalAssum (make_annot Anonymous Sorts.Relevant,t')) naming gl in
+  let targetid = find_name env sigma true (LocalAssum (make_annot Anonymous Sorts.Relevant,t')) naming in
   let rec aux idstoclear with_destruct c =
     Proofview.Goal.enter begin fun gl ->
     let env = Proofview.Goal.env gl in
