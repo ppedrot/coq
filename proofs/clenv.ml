@@ -41,11 +41,11 @@ type clausenv = {
 let cl_env ce = ce.env
 let cl_sigma ce =  ce.evd
 
-let clenv_nf_meta clenv c = nf_meta clenv.evd c
-let clenv_term clenv c = meta_instance clenv.evd c
-let clenv_meta_type clenv mv = Typing.meta_type clenv.evd mv
-let clenv_value clenv = meta_instance clenv.evd clenv.templval
-let clenv_type clenv = meta_instance clenv.evd clenv.templtyp
+let clenv_nf_meta clenv c = nf_meta clenv.env clenv.evd c
+let clenv_term clenv c = meta_instance clenv.env clenv.evd c
+let clenv_meta_type clenv mv = Typing.meta_type clenv.env clenv.evd mv
+let clenv_value clenv = meta_instance clenv.env clenv.evd clenv.templval
+let clenv_type clenv = meta_instance clenv.env clenv.evd clenv.templtyp
 
 let refresh_undefined_univs clenv =
   match EConstr.kind clenv.evd clenv.templval.rebus with
@@ -212,19 +212,19 @@ let clenv_assign mv rhs clenv =
    In any case, we respect the order given in A.
 *)
 
-let clenv_metas_in_type_of_meta evd mv =
-  (mk_freelisted (meta_instance evd (meta_ftype evd mv))).freemetas
+let clenv_metas_in_type_of_meta env evd mv =
+  (mk_freelisted (meta_instance env evd (meta_ftype evd mv))).freemetas
 
 let dependent_in_type_of_metas clenv mvs =
   List.fold_right
-    (fun mv -> Metaset.union (clenv_metas_in_type_of_meta clenv.evd mv))
+    (fun mv -> Metaset.union (clenv_metas_in_type_of_meta clenv.env clenv.evd mv))
     mvs Metaset.empty
 
 let dependent_closure clenv mvs =
   let rec aux mvs acc =
     Metaset.fold
       (fun mv deps ->
-        let metas_of_meta_type = clenv_metas_in_type_of_meta clenv.evd mv in
+        let metas_of_meta_type = clenv_metas_in_type_of_meta clenv.env clenv.evd mv in
         aux metas_of_meta_type (Metaset.union deps metas_of_meta_type))
       mvs acc in
   aux mvs mvs

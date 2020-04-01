@@ -314,5 +314,5 @@ val whd_betaiota_deltazeta_for_iota_state :
   TransparentState.t -> Environ.env -> Evd.evar_map -> state -> state
 
 (** {6 Meta-related reduction functions } *)
-val meta_instance : evar_map -> constr freelisted -> constr
-val nf_meta       : evar_map -> constr -> constr
+val meta_instance : Environ.env -> evar_map -> constr freelisted -> constr
+val nf_meta       : Environ.env -> evar_map -> constr -> constr

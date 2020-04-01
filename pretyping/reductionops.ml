@@ -1637,9 +1637,9 @@ let plain_instance sigma s c =
      empty map).
  *)
 
-let instance sigma s c =
+let instance env sigma s c =
   (* if s = [] then c else *)
-  local_strong whd_betaiota sigma (plain_instance sigma s c)
+  clos_norm_flags CClosure.betaiota env sigma (plain_instance sigma s c)
 
 (* pseudo-reduction rule:
  * [hnf_prod_app env s (Prod(_,B)) N --> B[N]
@@ -1785,23 +1785,23 @@ let is_arity env sigma c =
 (*************************************)
 (* Metas *)
 
-let meta_value evd mv =
+let meta_value env evd mv =
   let rec valrec mv =
     match meta_opt_fvalue evd mv with
     | Some (b,_) ->
       let metas = Metamap.bind valrec b.freemetas in
-      instance evd metas b.rebus
+      instance env evd metas b.rebus
     | None -> mkMeta mv
   in
   valrec mv
 
-let meta_instance sigma b =
+let meta_instance env sigma b =
   let fm = b.freemetas in
   if Metaset.is_empty fm then b.rebus
   else
-    let c_sigma = Metamap.bind (fun mv -> meta_value sigma mv) fm in
-    instance sigma c_sigma b.rebus
+    let c_sigma = Metamap.bind (fun mv -> meta_value env sigma mv) fm in
+    instance env sigma c_sigma b.rebus
 
-let nf_meta sigma c =
+let nf_meta env sigma c =
   let cl = mk_freelisted c in
-  meta_instance sigma { cl with rebus = cl.rebus }
+  meta_instance env sigma { cl with rebus = cl.rebus }

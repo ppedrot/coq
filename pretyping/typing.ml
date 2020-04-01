@@ -29,11 +29,11 @@ open Context.Rel.Declaration
 
 module GR = Names.GlobRef
 
-let meta_type evd mv =
+let meta_type env evd mv =
   let ty =
     try Evd.meta_ftype evd mv
     with Not_found -> anomaly (str "unknown meta ?" ++ str (Nameops.string_of_meta mv) ++ str ".") in
-  meta_instance evd ty
+  meta_instance env evd ty
 
 let inductive_type_knowing_parameters env sigma (ind,u) jl =
   let u = Unsafe.to_instance u in
@@ -335,7 +335,7 @@ let rec execute env sigma cstr =
   let cstr = whd_evar sigma cstr in
   match EConstr.kind sigma cstr with
     | Meta n ->
-        sigma, { uj_val = cstr; uj_type = meta_type sigma n }
+        sigma, { uj_val = cstr; uj_type = meta_type env sigma n }
 
     | Evar ev ->
         let ty = EConstr.existential_type sigma ev in

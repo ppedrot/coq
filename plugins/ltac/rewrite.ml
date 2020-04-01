@@ -711,7 +711,7 @@ let unify_eqn (car, rel, prf, c1, c2, holes, sort) l2r flags env (sigma, cstrs) 
     let sigma = Typeclasses.resolve_typeclasses ~filter:(no_constraints cstrs)
       ~fail:true env sigma in
     let evd = solve_remaining_by env sigma holes by in
-    let nf c = Reductionops.nf_evar evd (Reductionops.nf_meta evd c) in
+    let nf c = Reductionops.nf_evar evd (Reductionops.nf_meta env evd c) in
     let c1 = nf c1 and c2 = nf c2
     and rew_car = nf car and rel = nf rel
     and prf = nf prf in
