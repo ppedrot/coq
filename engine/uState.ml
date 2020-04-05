@@ -265,7 +265,7 @@ let process_universe_constraints ctx cstrs =
                 | Some l ->
                   Univ.Constraint.add (l, Le, r') local
                 | None ->
-                  if UGraph.check_leq univs l r then local else enforce_leq l r local
+                  enforce_leq l r local
               end
           | ULub (l, r) ->
               equalize_variables true (Universe.make l) l (Universe.make r) r local
