@@ -623,26 +623,37 @@ let subst_defined_metas_evars sigma (bl,el) c =
      evar-insensitive primitives blow up the time passed in this
      function. *)
   let c = EConstr.Unsafe.to_constr c in
-  let rec substrec c = match Constr.kind c with
+  let rec substrec accu c = match Constr.kind c with
     | Meta i ->
       let select (j,_,_) = Int.equal i j in
-      substrec (EConstr.Unsafe.to_constr (pi2 (List.find select bl)))
+      let c = pi2 (List.find select bl) in
+      substrec accu (EConstr.Unsafe.to_constr c)
     | Evar (evk,args) ->
       let eq c1 c2 = Constr.equal c1 (EConstr.Unsafe.to_constr c2) in
       let select (_,(evk',args'),_) = Evar.equal evk evk' && Array.for_all2 eq args args' in
-      (try substrec (EConstr.Unsafe.to_constr (pi3 (List.find select el)))
-       with Not_found -> Constr.map substrec c)
-    | _ -> Constr.map substrec c
-  in try Some (EConstr.of_constr (substrec c)) with Not_found -> None
+      let ground, c =
+        try substrec true (EConstr.Unsafe.to_constr (pi3 (List.find select el)))
+        with Not_found ->
+          let c = whd_evar sigma (EConstr.of_constr c) in
+          let ground, c = Constr.fold_map substrec true (EConstr.Unsafe.to_constr c) in
+          Evd.is_defined sigma evk && ground, c
+      in
+      (accu && ground, c)
+    | _ -> Constr.fold_map substrec accu c
+  in
+    try
+      let (ground, c) = substrec true c in
+      Some (ground, EConstr.of_constr c)
+    with Not_found -> None
 
 let check_compatibility env pbty flags (sigma,metasubst,evarsubst : subst0) tyM tyN =
   match subst_defined_metas_evars sigma (metasubst,[]) tyM with
   | None -> sigma
-  | Some m ->
+  | Some (ground_m, m) ->
   match subst_defined_metas_evars sigma (metasubst,[]) tyN with
   | None -> sigma
-  | Some n ->
-    if is_ground_term sigma m && is_ground_term sigma n then
+  | Some (ground_n, n) ->
+    if ground_m && ground_n then
       match infer_conv ~pb:pbty ~ts:flags.modulo_delta_types env sigma m n with
       | Some sigma -> sigma
       | None -> error_cannot_unify env sigma (m,n)
@@ -1012,10 +1023,10 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst : subst0) conv_at_top e
       let subst = ((if flags.use_metas_eagerly_in_conv_on_closed_terms then metasubst else ms), (if flags.use_evars_eagerly_in_conv_on_closed_terms then evarsubst else es)) in
       match subst_defined_metas_evars sigma subst cM with
       | None -> (* some undefined Metas in cM *) None
-      | Some m1 ->
+      | Some (ground_m, m1) ->
       match subst_defined_metas_evars sigma subst cN with
       | None -> (* some undefined Metas in cN *) None
-      | Some n1 ->
+      | Some (ground_n, n1) ->
          (* No subterm restriction there, too much incompatibilities *)
          let sigma =
            if opt.with_types then
@@ -1031,7 +1042,7 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst : subst0) conv_at_top e
         | Some sigma ->
           Some (sigma, metasubst, evarsubst)
         | None ->
-          if is_ground_term sigma m1 && is_ground_term sigma n1 then
+          if ground_m && ground_n then
             error_cannot_unify curenv sigma (cM,cN)
           else None
     in
