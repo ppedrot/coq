@@ -72,14 +72,15 @@ let occur_meta_or_undefined_evar evd c =
      resulting heuristic. *)
   let c = EConstr.Unsafe.to_constr c in
   let rec occrec c = match Constr.kind c with
-    | Meta _ -> raise Occur
-    | Evar (ev,args) ->
-        (match evar_body (Evd.find evd ev) with
-        | Evar_defined c ->
-            occrec (EConstr.Unsafe.to_constr c); List.iter occrec args
-        | Evar_empty -> raise Occur)
-    | _ -> Constr.iter occrec c
-  in try occrec c; false with Occur | Not_found -> true
+  | Meta _ -> raise Occur
+  | Evar (ev, args) -> occrec_evars ev; List.iter occrec args
+  | _ -> Constr.iter occrec c
+  and occrec_evars ev = match evar_body (Evd.find evd ev) with
+  | Evar_defined c -> occrec (EConstr.Unsafe.to_constr c)
+  | Evar_alias e -> occrec_evars e
+  | Evar_empty -> raise Occur
+  in
+  try occrec c; false with Occur | Not_found -> true
 
 let whd_meta sigma c = match EConstr.kind sigma c with
   | Meta p ->

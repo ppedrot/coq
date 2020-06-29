@@ -716,6 +716,7 @@ module New = struct
       let evi = Evd.find sigma evk in
       match Evd.evar_body evi with
       | Evd.Evar_empty -> Some (evk,evi)
+      | Evd.Evar_alias e -> is_undefined_up_to_restriction sigma e
       | Evd.Evar_defined c -> match Constr.kind (EConstr.Unsafe.to_constr c) with
         | Evar (evk,l) -> is_undefined_up_to_restriction sigma evk
         | _ ->

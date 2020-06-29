@@ -93,6 +93,7 @@ end
 
 type evar_body =
   | Evar_empty
+  | Evar_alias of Evar.t
   | Evar_defined of econstr
 
 type evar_info = {
@@ -128,7 +129,6 @@ val evar_filter : evar_info -> Filter.t
 val evar_env : env -> evar_info -> env
 val evar_filtered_env : env -> evar_info -> env
 
-val map_evar_body : (econstr -> econstr) -> evar_body -> evar_body
 val map_evar_info : (econstr -> econstr) -> evar_info -> evar_info
 
 (** {6 Unification state} **)
@@ -204,9 +204,6 @@ val define_with_evar : Evar.t -> econstr -> evar_map -> evar_map
 (** Same as [define ev body evd], except the body must be an existential variable [ev'].
     This additionally makes [ev'] inherit the [obligation] and [typeclass] flags of [ev]. *)
 
-val cmap : (econstr -> econstr) -> evar_map -> evar_map
-(** Map the function on all terms in the evar map. *)
-
 val is_evar : evar_map -> Evar.t-> bool
 (** Alias for {!mem}. *)
 
@@ -250,6 +247,9 @@ val evar_instance_array : (Constr.named_declaration -> 'a -> bool) -> evar_info 
   'a list -> (Id.t * 'a) list
 
 val instantiate_evar_array : evar_info -> econstr -> econstr list -> econstr
+
+val expand_identity : evar_map -> Evar.t -> econstr
+(** Build the identitys instance of an evar *)
 
 val evars_reset_evd  : ?with_conv_pbs:bool -> ?with_univs:bool ->
   evar_map ->  evar_map -> evar_map

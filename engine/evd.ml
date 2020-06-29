@@ -149,6 +149,7 @@ let string_of_existential evk = "?X" ^ string_of_int (Evar.repr evk)
 
 type evar_body =
   | Evar_empty
+  | Evar_alias of Evar.t
   | Evar_defined of constr
 
 type evar_info = {
@@ -215,17 +216,6 @@ let evar_filtered_env env evi = match Filter.repr (evar_filter evi) with
   | _ -> instance_mismatch ()
   in
   make_env filter (evar_context evi)
-
-let map_evar_body f = function
-  | Evar_empty -> Evar_empty
-  | Evar_defined d -> Evar_defined (f d)
-
-let map_evar_info f evi =
-  {evi with
-    evar_body = map_evar_body f evi.evar_body;
-    evar_hyps = map_named_val (fun d -> NamedDecl.map_constr f d) evi.evar_hyps;
-    evar_concl = f evi.evar_concl;
-    evar_candidates = Option.map (List.map f) evi.evar_candidates }
 
 (* This exception is raised by *.existential_value *)
 exception NotInstantiatedEvar
@@ -482,7 +472,7 @@ let add_with_name ?name ?(typeclass_candidate = true) d e i = match i.evar_body 
     else d.evar_flags
   in
   { d with undf_evars = EvMap.add e i d.undf_evars; evar_names; evar_flags }
-| Evar_defined _ ->
+| Evar_alias _ | Evar_defined _ ->
   let evar_names = EvNames.remove_name_defined e d.evar_names in
   { d with defn_evars = EvMap.add e i d.defn_evars; evar_names }
 
@@ -620,12 +610,21 @@ let is_defined d e = EvMap.mem e d.defn_evars
 
 let is_undefined d e = EvMap.mem e d.undf_evars
 
+let expand_identity evd e =
+  let info = find evd e in
+  let ctxt = evar_filtered_context info in
+  let id_inst = List.map (NamedDecl.get_id %> mkVar) ctxt in
+  mkEvar(e, id_inst)
+
 let existential_opt_value d (n, args) =
   match EvMap.find_opt n d.defn_evars with
   | None -> None
   | Some info ->
     match evar_body info with
     | Evar_defined c -> Some (instantiate_evar_array info c args)
+    | Evar_alias e ->
+      let body = expand_identity d e in (* FIXME *)
+      Some (instantiate_evar_array info body args)
     | Evar_empty -> None (* impossible but w/e *)
 
 let existential_value d ev = match existential_opt_value d ev with
@@ -659,6 +658,18 @@ let is_empty d =
   EvMap.is_empty d.undf_evars &&
   List.is_empty d.conv_pbs &&
   Metamap.is_empty d.metas
+
+let map_evar_body f = function
+  | Evar_empty -> Evar_empty
+  | Evar_alias e -> Evar_alias e
+  | Evar_defined d -> Evar_defined (f d)
+
+let map_evar_info f evi =
+  {evi with
+    evar_body = map_evar_body f evi.evar_body;
+    evar_hyps = map_named_val (fun d -> NamedDecl.map_constr f d) evi.evar_hyps;
+    evar_concl = f evi.evar_concl;
+    evar_candidates = Option.map (List.map f) evi.evar_candidates }
 
 let cmap f evd =
   { evd with
@@ -742,12 +753,12 @@ let define_aux def undef evk body =
         anomaly ~label:"Evd.define" (Pp.str "cannot define undeclared evar.")
   in
   let () = assert (oldinfo.evar_body == Evar_empty) in
-  let newinfo = { oldinfo with evar_body = Evar_defined body } in
+  let newinfo = { oldinfo with evar_body = body } in
   EvMap.add evk newinfo def, EvMap.remove evk undef
 
 (* define the existential of section path sp as the constr body *)
 let define_gen evk body evd evar_flags =
-  let (defn_evars, undf_evars) = define_aux evd.defn_evars evd.undf_evars evk body in
+  let (defn_evars, undf_evars) = define_aux evd.defn_evars evd.undf_evars evk (Evar_defined body) in
   let last_mods = match evd.conv_pbs with
   | [] ->  evd.last_mods
   | _ -> Evar.Set.add evk evd.last_mods
@@ -787,10 +798,7 @@ let restrict evk filter ?candidates ?src evd =
   | [] ->  evd.last_mods
   | _ -> Evar.Set.add evk evd.last_mods in
   let evar_names = EvNames.reassign_name_defined evk evk' evd.evar_names in
-  let ctxt = Filter.filter_list filter (evar_context evar_info) in
-  let id_inst = List.map (NamedDecl.get_id %> mkVar) ctxt in
-  let body = mkEvar(evk',id_inst) in
-  let (defn_evars, undf_evars) = define_aux evd.defn_evars evd.undf_evars evk body in
+  let (defn_evars, undf_evars) = define_aux evd.defn_evars evd.undf_evars evk (Evar_alias evk') in
   let evar_flags = declare_restricted_evar evd.evar_flags evk evk' in
   let evar_flags = inherit_evar_flags evar_flags evk evk' in
   { evd with undf_evars = EvMap.add evk' evar_info' undf_evars;
@@ -1431,10 +1439,13 @@ let evars_of_named_context evd nc =
     nc
     ~init:Evar.Set.empty
 
+let rec evars_of_evar_body evd = function
+| Evar_empty -> Evar.Set.empty
+| Evar_alias e -> evars_of_evar_body evd (find evd e).evar_body
+| Evar_defined b -> evars_of_term evd b
+
 let evars_of_filtered_evar_info evd evi =
   Evar.Set.union (evars_of_term evd evi.evar_concl)
     (Evar.Set.union
-       (match evi.evar_body with
-       | Evar_empty -> Evar.Set.empty
-       | Evar_defined b -> evars_of_term evd b)
+       (evars_of_evar_body evd evi.evar_body)
        (evars_of_named_context evd (evar_filtered_context evi)))

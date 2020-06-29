@@ -1917,9 +1917,7 @@ end = struct (* {{{ *)
         let st = Vernacstate.freeze_interp_state ~marshallable:false in
         ignore(stm_vernac_interp r_state_fb st ast);
         let Proof.{sigma} = Proof.data (PG_compat.give_me_the_proof ()) in
-        match Evd.(evar_body (find sigma r_goal)) with
-        | Evd.Evar_empty -> RespNoProgress
-        | Evd.Evar_defined t ->
+        let handle t =
             let t = Evarutil.nf_evar sigma t in
             let evars = Evarutil.undefined_evars_of_term sigma t in
             if Evar.Set.is_empty evars then
@@ -1930,6 +1928,11 @@ end = struct (* {{{ *)
                 Pp.(str"The par: selector requires a tactic that makes no progress or fully" ++
                     str" solves the goal and leaves no unresolved existential variables. The following" ++
                     str" existentials remain unsolved: " ++ prlist (Termops.pr_existential_key sigma) (Evar.Set.elements evars))
+        in
+        match Evd.(evar_body (find sigma r_goal)) with
+        | Evd.Evar_empty -> RespNoProgress
+        | Evd.Evar_alias e -> handle (Evd.expand_identity sigma e)
+        | Evd.Evar_defined t -> handle t
        end) ()
     with e when CErrors.noncritical e -> RespError (CErrors.print e)
 

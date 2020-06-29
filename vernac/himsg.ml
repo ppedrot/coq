@@ -590,6 +590,7 @@ let rec explain_evar_kind env sigma evk ty =
       let evi,src = find_source evk' in
       let pc = match evi.evar_body with
       | Evar_defined c -> pr_leconstr_env env sigma c
+      | Evar_alias e -> pr_leconstr_env env sigma (expand_identity sigma e)
       | Evar_empty -> assert false in
       let ty' = evi.evar_concl in
       pr_existential_key sigma evk ++

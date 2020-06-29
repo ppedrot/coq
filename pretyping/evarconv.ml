@@ -1485,7 +1485,7 @@ let second_order_matching flags env_rhs evd (evk,args) (test,argoccs) rhs =
                let env = Evd.evar_env env_rhs evi in
                Feedback.msg_debug Pp.(str"evar is defined: " ++
                  int (Evar.repr evk) ++ spc () ++
-                 prc env evd (match evar_body evi with Evar_defined c -> c
+                 prc env evd (match evar_body evi with Evar_defined c -> c | Evar_alias e -> expand_identity evd e
                    | Evar_empty -> assert false)));
             evd)
        in force_instantiation evd evs
@@ -1499,7 +1499,7 @@ let second_order_matching flags env_rhs evd (evk,args) (test,argoccs) rhs =
           begin
             let evi = Evd.find evd evk in
             let evenv = evar_env env_rhs evi in
-            let body = match evar_body evi with Evar_empty -> assert false | Evar_defined c -> c in
+            let body = match evar_body evi with Evar_empty -> assert false | Evar_defined c -> c | Evar_alias e -> expand_identity evd e in
             Feedback.msg_debug Pp.(str"evar was defined already as: " ++ prc evenv evd body)
           end;
         evd)

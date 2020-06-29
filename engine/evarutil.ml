@@ -680,6 +680,10 @@ let process_dependent_evar q acc evm is_dependent e =
   match evi.evar_body with
   | Evar_empty ->
       if is_dependent then Evar.Map.add e None acc else acc
+  | Evar_alias e ->
+      let subevars = Evar.Set.singleton e in
+      queue_set q is_dependent subevars;
+      if is_dependent then Evar.Map.add e (Some subevars) acc else acc
   | Evar_defined b ->
       let subevars = evar_nodes_of_term b in
       (* evars appearing in the definition of an evar [e] are marked
@@ -722,7 +726,7 @@ let rec advance sigma evk =
   let evi = Evd.find sigma evk in
   match evi.evar_body with
   | Evar_empty -> Some evk
-  | Evar_defined v ->
+  | Evar_defined _ | Evar_alias _ ->
       match is_restricted_evar sigma evk with
       | Some evk -> advance sigma evk
       | None -> None
@@ -732,15 +736,7 @@ let rec advance sigma evk =
     This is roughly a combination of the previous functions and
     [nf_evar]. *)
 
-let undefined_evars_of_term evd t =
-  let rec evrec acc c =
-    match EConstr.kind evd c with
-      | Evar (n, l) ->
-        let acc = Evar.Set.add n acc in
-        List.fold_left evrec acc l
-      | _ -> EConstr.fold evd evrec acc c
-  in
-  evrec Evar.Set.empty t
+let undefined_evars_of_term = Evd.evars_of_term
 
 let undefined_evars_of_named_context evd nc =
   Context.Named.fold_outside
@@ -748,12 +744,14 @@ let undefined_evars_of_named_context evd nc =
     nc
     ~init:Evar.Set.empty
 
+let rec undefined_evars_of_evar_body sigma body = match body with
+| Evar_empty -> Evar.Set.empty
+| Evar_alias e -> undefined_evars_of_evar_body sigma (Evd.find sigma e).evar_body
+| Evar_defined b -> undefined_evars_of_term sigma b
+
 let undefined_evars_of_evar_info evd evi =
   Evar.Set.union (undefined_evars_of_term evd evi.evar_concl)
-    (Evar.Set.union
-       (match evi.evar_body with
-         | Evar_empty -> Evar.Set.empty
-         | Evar_defined b -> undefined_evars_of_term evd b)
+    (Evar.Set.union (undefined_evars_of_evar_body evd evi.evar_body)
        (undefined_evars_of_named_context evd
           (named_context_of_val evi.evar_hyps)))
 
@@ -799,10 +797,7 @@ let filtered_undefined_evars_of_evar_info ?cache sigma evi =
     let fold decl accu = cached_evar_of_hyp cache sigma (EConstr.of_named_decl decl) accu in
     Context.Named.fold_outside fold nc ~init:accu
   in
-  let accu = match evi.evar_body with
-  | Evar_empty -> Evar.Set.empty
-  | Evar_defined b -> evars_of_term sigma b
-  in
+  let accu = undefined_evars_of_evar_body sigma evi.evar_body in
   let accu = Evar.Set.union (undefined_evars_of_term sigma evi.evar_concl) accu in
   let ctxt = EConstr.Unsafe.to_named_context (evar_filtered_context evi) in
   evars_of_named_context cache accu ctxt
