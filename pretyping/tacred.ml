@@ -986,7 +986,14 @@ let hnf_constr = whd_simpl_orelse_delta_but_fix
 let whd_simpl env sigma c =
   applist (whd_simpl_stack env sigma c)
 
-let simpl env sigma c = strong whd_simpl env sigma c
+let simpl env sigma c =
+  let rec strongrec env c =
+    (* Do not call simpl recursively on the head since it is in normal form *)
+    let hd, stk = whd_simpl_stack env sigma c in
+    let hd = map_constr_with_full_binders sigma push_rel strongrec env hd in
+    mkApp (hd, Array.map_of_list (fun c -> strongrec env c) stk)
+  in
+  strongrec env c
 
 (* Reduction at specific subterms *)
 
