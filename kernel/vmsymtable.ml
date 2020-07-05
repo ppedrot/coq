@@ -151,11 +151,11 @@ struct
 end
 
 
-(*******************)
-(* Linkage du code *)
-(*******************)
+(****************)
+(* Code linking *)
+(****************)
 
-(* Table des globaux *)
+(* Global Table *)
 
 (** [global_table] containts values of global constants, switch annotations,
     structure_constant and projections. *)
