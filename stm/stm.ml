@@ -1689,18 +1689,18 @@ end = struct (* {{{ *)
         (* No need to delay the computation, the future has been forced by
            the call to [check_task_aux] above. *)
         let uc = Opaqueproof.force_constraints Library.indirect_accessor (Global.opaque_tables ()) o in
-        let uc = Univ.hcons_universe_context_set uc in
+        let uc = Univ.hcons_constraints uc in
         let (pr, priv, ctx) = Option.get (Global.body_of_constant_body Library.indirect_accessor c) in
         (* We only manipulate monomorphic terms here. *)
         let () = assert (Univ.AbstractContext.is_empty ctx) in
         let () = match priv with
-        | Opaqueproof.PrivateMonomorphic () -> ()
+        | Opaqueproof.PrivateMonomorphic ((), _) -> () (* FIXME? *)
         | Opaqueproof.PrivatePolymorphic (univs, uctx) ->
           let () = assert (Int.equal (Univ.AbstractContext.size ctx) univs) in
           assert (Univ.ContextSet.is_empty uctx)
         in
         let () = Opaqueproof.set_opaque_disk (Option.get bucket) (pr, priv) p in
-        Univ.ContextSet.union cst uc, false
+        Univ.ContextSet.add_constraints uc cst, false
 
   let check_task name l i =
     match check_task_aux "" name l i with

@@ -39,7 +39,7 @@ val translate_opaque :
 
 val translate_recipe : env -> Constant.t -> Cooking.recipe -> constant_body
 
-val check_delayed : 'a effect_handler -> typing_context -> 'a proof_output -> (Constr.t * Univ.ContextSet.t Opaqueproof.delayed_universes)
+val check_delayed : 'a effect_handler -> typing_context -> 'a proof_output -> (Constr.t * Univ.Constraints.t Opaqueproof.delayed_universes)
 
 (** Internal functions, mentioned here for debug purpose only *)
 

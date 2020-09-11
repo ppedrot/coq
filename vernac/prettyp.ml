@@ -630,9 +630,9 @@ let print_constant with_values sep sp udecl =
       let body_uctxs = Opaqueproof.force_constraints Library.indirect_accessor otab o in
       match cb.const_universes with
       | Monomorphic ctx ->
-        Monomorphic (ContextSet.union body_uctxs ctx)
+        Monomorphic (ContextSet.add_constraints body_uctxs ctx)
       | Polymorphic ctx ->
-        assert(ContextSet.is_empty body_uctxs);
+        assert(Constraints.is_empty body_uctxs);
         Polymorphic ctx
   in
   let uctx =
@@ -650,7 +650,7 @@ let print_constant with_values sep sp udecl =
         Printer.pr_universes sigma univs
     | Some (c, priv, ctx) ->
       let priv = match priv with
-      | Opaqueproof.PrivateMonomorphic () -> None
+      | Opaqueproof.PrivateMonomorphic ((), ctx) -> Some ctx
       | Opaqueproof.PrivatePolymorphic (_, ctx) -> Some ctx
       in
         print_basename sp ++ print_instance sigma cb ++ str sep ++ cut () ++

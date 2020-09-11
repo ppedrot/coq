@@ -427,6 +427,18 @@ let push_subgraph (levels,csts) env =
   in
   map_universes add_subgraph env
 
+let split_subgraph (levels,csts) env =
+  let lbound = universes_lbound env in
+  let g = env.env_universes in
+  let newg = Univ.Level.Set.fold (fun v g -> UGraph.add_universe ~lbound ~strict:false v g) levels g in
+  let newg = UGraph.merge_constraints csts newg in
+  let restricted =
+    if Univ.Constraints.is_empty csts then Univ.Constraints.empty
+    else UGraph.constraints_for ~kept:(UGraph.domain g) newg
+  in
+  let env = { env with env_universes = newg } in
+  restricted, env
+
 (* It's convenient to use [{flags with foo = bar}] so we're smart wrt to it. *)
 let same_flags {
      check_guarded;

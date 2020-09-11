@@ -142,7 +142,7 @@ type safe_environment =
     modlabels : Label.Set.t;
     objlabels : Label.Set.t;
     univ : Univ.ContextSet.t;
-    future_cst : Univ.ContextSet.t Future.computation list;
+    future_cst : Univ.Constraints.t Future.computation list;
     required : vodigest DPmap.t;
     loads : (ModPath.t * module_body) list;
     local_retroknowledge : Retroknowledge.action list;
@@ -387,7 +387,7 @@ let get_section = function
 
 type constraints_addition =
   | Now of Univ.ContextSet.t
-  | Later of Univ.ContextSet.t Future.computation
+  | Later of Univ.Constraints.t Future.computation
 
 let push_context_set ~strict cst senv =
   if Univ.ContextSet.is_empty cst then senv
@@ -417,7 +417,7 @@ let join_safe_environment ?(except=Future.UUIDSet.empty) e =
   List.fold_left
     (fun e fc ->
        if Future.UUIDSet.mem (Future.uuid fc) except then e
-       else add_constraints (Now (Future.join fc)) e)
+       else add_constraints (Now (Univ.Level.Set.empty, Future.join fc)) e)
     {e with future_cst = []} e.future_cst
 
 let is_joined_environment e = List.is_empty e.future_cst
@@ -795,11 +795,11 @@ let export_eff eff =
   (eff.seff_constant, eff.seff_body)
 
 let is_empty_private = function
-| Opaqueproof.PrivateMonomorphic ctx -> Univ.ContextSet.is_empty ctx
+| Opaqueproof.PrivateMonomorphic (cst, ctx) -> Univ.Constraints.is_empty cst && Univ.ContextSet.is_empty ctx
 | Opaqueproof.PrivatePolymorphic (_, ctx) -> Univ.ContextSet.is_empty ctx
 
 let empty_private univs = match univs with
-| Monomorphic _ -> Opaqueproof.PrivateMonomorphic Univ.ContextSet.empty
+| Monomorphic _ -> Opaqueproof.PrivateMonomorphic (Univ.Constraints.empty, Univ.ContextSet.empty)
 | Polymorphic auctx -> Opaqueproof.PrivatePolymorphic (Univ.AbstractContext.size auctx, Univ.ContextSet.empty)
 
 (* Special function to call when the body of an opaque definition is provided.
@@ -903,13 +903,13 @@ let add_constant l decl senv =
       let delayed_cst =
         if not (Declareops.constant_is_polymorphic cb) then
           let map (_, u) = match u with
-          | Opaqueproof.PrivateMonomorphic ctx -> ctx
+          | Opaqueproof.PrivateMonomorphic (cst, _) -> cst
           | Opaqueproof.PrivatePolymorphic _ -> assert false
           in
           let fc = Future.chain fc map in
           match Future.peek_val fc with
           | None -> [Later fc]
-          | Some c -> [Now c]
+          | Some c -> [Now (Univ.Level.Set.empty, c)]
         else []
       in
       senv, { cb with const_body = OpaqueDef o }, delayed_cst
@@ -1124,7 +1124,7 @@ let propagate_senv newdef newenv newresolver senv oldsenv =
     modlabels = Label.Set.add (fst newdef) oldsenv.modlabels;
     univ =
       List.fold_left (fun acc cst ->
-        Univ.ContextSet.union acc (Future.force cst))
+        Univ.ContextSet.add_constraints (Future.force cst) acc)
       (Univ.ContextSet.union senv.univ oldsenv.univ)
       now_cst;
     future_cst = later_cst @ oldsenv.future_cst;

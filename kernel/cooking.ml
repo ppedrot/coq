@@ -204,7 +204,7 @@ let lift_univs subst auctx0 = function
 let cook_constr { modlist; abstract = {abstr_ctx; abstr_subst; abstr_uctx;}; } (c, priv) =
   let cache = RefTable.create 13 in
   let abstr_subst, priv = match priv with
-  | Opaqueproof.PrivateMonomorphic () ->
+  | Opaqueproof.PrivateMonomorphic ((), _) ->
     let () = assert (AbstractContext.is_empty abstr_uctx) in
     let () = assert (Instance.is_empty abstr_subst) in
     abstr_subst, priv
