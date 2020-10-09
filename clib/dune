@@ -4,4 +4,4 @@
  (public_name coq-core.clib)
  (wrapped false)
  (modules_without_implementation cSig)
- (libraries str unix threads))
+ (libraries str unix threads memtrace))

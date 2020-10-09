@@ -87,4 +87,5 @@ let custom_coqc : ((Coqcargs.t * Colors.color) * Stm.AsyncOpts.stm_opt, 'b) Coqt
 }
 
 let main () =
+  let () = Memtrace.trace_if_requested () in
   Coqtop.start_coq custom_coqc
