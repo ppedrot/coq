@@ -1,0 +1,4 @@
+BUILDING SUMMARY FILE
+FAILURES
+    ide/blocking-futures.fake...Error!
+    ide/univ.fake...Error!
