@@ -1630,7 +1630,7 @@ let close_proof ~opaque ~keep_body_ucst_separate ps =
           || not (Safe_typing.is_empty_private_constants eff.Evd.seff_private))
       then make_univs_deferred ~initial_euctx ~poly ~uctx ~udecl t b
       (* private_poly_univs case *)
-      else if poly && opaque && private_poly_univs ()
+      else if opaque && (not poly || private_poly_univs ())
       then make_univs_private_poly ~poly ~uctx ~udecl t b
       else make_univs ~poly ~uctx ~udecl t b
     in
