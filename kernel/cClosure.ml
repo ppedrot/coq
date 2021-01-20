@@ -247,9 +247,33 @@ module KeyTable = Hashtbl.Make(IdKeyHash)
 
 open Context.Named.Declaration
 
-let assoc_defined id env = match Environ.lookup_named id env with
-| LocalDef (_, c, _) -> c
-| LocalAssum _ -> raise Not_found
+exception Irrelevant
+
+type mode = Conversion | Reduction
+(* In conversion mode we can introduce FIrrelevant terms *)
+
+let shortcut_irrelevant mode r = match mode, r with
+| Conversion, Sorts.Irrelevant -> raise Irrelevant
+| (Conversion | Reduction), (Sorts.Relevant | Sorts.Irrelevant) -> ()
+
+let assoc_defined mode id env = match Environ.lookup_named id env with
+| LocalDef (na, c, _) ->
+  let () = shortcut_irrelevant mode (binder_relevance na) in
+  c
+| LocalAssum (na, _) ->
+  let () = shortcut_irrelevant mode (binder_relevance na) in
+  raise Not_found
+
+let constant_value_in mode env (kn, u) =
+  let cb = lookup_constant kn env in
+  let () = shortcut_irrelevant mode (cb.const_relevance) in
+  match cb.const_body with
+    | Def l_body ->
+      let b = Mod_subst.force_constr l_body in
+        subst_instance_constr u b
+    | OpaqueDef _ -> raise (NotEvaluableConst Opaque)
+    | Undef _ -> raise (NotEvaluableConst NoBody)
+    | Primitive p -> raise (NotEvaluableConst (IsPrimitive (u,p)))
 
 (**********************************************************************)
 (* Lazy reduction: the one used in kernel operations                  *)
@@ -355,6 +379,7 @@ and fterm =
   | FArray of Univ.Instance.t * fconstr Parray.t * fconstr
   | FLIFT of int * fconstr
   | FCLOS of constr * fconstr subs
+  | FIrrelevant
   | FLOCKED
 
 and finvert = fconstr array
@@ -382,6 +407,7 @@ type infos_cache = {
   i_sigma : existential -> constr option;
   i_share : bool;
   i_univs : UGraph.t;
+  i_mode : mode;
 }
 
 type clos_infos = {
@@ -449,7 +475,7 @@ let rec stack_args_size = function
 let rec lft_fconstr n ft =
   let r = Mark.relevance ft.mark in
   match ft.term with
-    | (FInd _|FConstruct _|FFlex(ConstKey _|VarKey _)|FInt _|FFloat _) -> ft
+    | (FInd _|FConstruct _|FFlex(ConstKey _|VarKey _)|FInt _|FFloat _|FIrrelevant) -> ft
     | FRel i -> {mark=mark Ntrl r;term=FRel(i+n)}
     | FLambda(k,tys,f,e) -> {mark=mark Cstr r; term=FLambda(k,tys,f,subs_shft(n,e))}
     | FFix(fx,e) ->
@@ -526,6 +552,8 @@ let mk_clos e t =
 
 let inject c = mk_clos (subs_id 0) c
 
+let mk_irrelevant = { mark = mark Cstr KnownI; term = FIrrelevant }
+
 (************************************************************************)
 
 (** Hand-unrolling of the map function to bypass the call to the generic array
@@ -554,15 +582,17 @@ let ref_value_cache ({ i_cache = cache; _ }) tab ref =
               try Range.get cache.i_env.env_rel_context.env_rel_map i
               with Invalid_argument _ -> raise Not_found
             in
+            let () = shortcut_irrelevant cache.i_mode (get_relevance d) in
             begin match d with
               | LocalAssum _ -> raise Not_found
               | LocalDef (_, t, _) -> lift n t
             end
-          | VarKey id -> assoc_defined id cache.i_env
-          | ConstKey cst -> constant_value_in cache.i_env cst
+          | VarKey id -> assoc_defined cache.i_mode id cache.i_env
+          | ConstKey cst -> constant_value_in cache.i_mode cache.i_env cst
         in
         Def (inject body)
       with
+      | Irrelevant -> Def mk_irrelevant
       | NotEvaluableConst (IsPrimitive (_u,op)) (* Const *) -> Primitive op
       | Not_found (* List.assoc *)
       | NotEvaluableConst _ (* Const *)
@@ -650,7 +680,7 @@ let rec to_constr lfts v =
       else
         let subs = comp_subs lfts env in
         subst_constr subs t
-    | FLOCKED -> assert false (*mkVar(Id.of_string"_LOCK_")*)
+    | FLOCKED | FIrrelevant -> assert false (*mkVar(Id.of_string"_LOCK_")*)
 
 and to_constr_case lfts ci u pms p iv c ve env =
   if is_subs_id env && is_lift_id lfts then
@@ -1348,7 +1378,7 @@ let rec knh info m stk =
        | Some s -> knh info c (s :: zupdate info m stk))
 
 (* cases where knh stops *)
-    | (FFlex _|FLetIn _|FConstruct _|FEvar _|FCaseInvert _|
+    | (FFlex _|FLetIn _|FConstruct _|FEvar _|FCaseInvert _|FIrrelevant|
        FCoFix _|FLambda _|FRel _|FAtom _|FInd _|FProd _|FInt _|FFloat _|FArray _) ->
         (m, stk)
 
@@ -1386,6 +1416,8 @@ and knht info e t stk =
 let conv : (clos_infos -> clos_tab -> fconstr -> fconstr -> bool) ref
   = ref (fun _ _ _ _ -> (assert false : bool))
 let set_conv f = conv := f
+
+let skip_irrelevant_stack stk = stk (* FIXME *)
 
 (* Computes a weak head normal form from the result of knh. *)
 let rec knr info tab m stk =
@@ -1473,6 +1505,9 @@ let rec knr info tab m stk =
       | Some c -> knit info tab env c stk
       | None -> (m, stk)
     end
+  | FIrrelevant ->
+    let stk = skip_irrelevant_stack stk in
+    (m, stk)
   | FLOCKED | FRel _ | FAtom _ | FFlex (RelKey _ | ConstKey _ | VarKey _) | FInd _ | FApp _ | FProj _
     | FFix _ | FCoFix _ | FCaseT _ | FCaseInvert _ | FLambda _ | FProd _ | FLetIn _ | FLIFT _
     | FCLOS _ -> (m, stk)
@@ -1595,6 +1630,7 @@ and norm_head info tab m =
       | FLOCKED | FRel _ | FAtom _ | FFlex _ | FInd _ | FConstruct _
       | FApp _ | FCaseT _ | FCaseInvert _ | FLIFT _ | FCLOS _ | FInt _
       | FFloat _ | FArray _ -> term_of_fconstr m
+      | FIrrelevant -> assert false (* only introduced when converting *)
 
 (* Initialization and then normalization *)
 
@@ -1621,6 +1657,18 @@ let whd_stack infos tab m stk = match Mark.red_state m.mark with
   in
   k
 
+let create_conv_infos ?univs ?(evars=fun _ -> None) flgs env =
+  let univs = Option.default (universes env) univs in
+  let share = (Environ.typing_flags env).Declarations.share_reduction in
+  let cache = {
+    i_env = env;
+    i_sigma = evars;
+    i_share = share;
+    i_univs = univs;
+    i_mode = Conversion;
+  } in
+  { i_flags = flgs; i_relevances = Range.empty; i_cache = cache }
+
 let create_clos_infos ?univs ?(evars=fun _ -> None) flgs env =
   let univs = Option.default (universes env) univs in
   let share = (Environ.typing_flags env).Declarations.share_reduction in
@@ -1629,6 +1677,7 @@ let create_clos_infos ?univs ?(evars=fun _ -> None) flgs env =
     i_sigma = evars;
     i_share = share;
     i_univs = univs;
+    i_mode = Reduction;
   } in
   { i_flags = flgs; i_relevances = Range.empty; i_cache = cache }
 

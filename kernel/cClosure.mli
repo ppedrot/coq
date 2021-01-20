@@ -121,6 +121,7 @@ type fterm =
   | FArray of Univ.Instance.t * fconstr Parray.t * fconstr
   | FLIFT of int * fconstr
   | FCLOS of constr * fconstr subs
+  | FIrrelevant
   | FLOCKED
 
 (***********************************************************************
@@ -175,6 +176,8 @@ val set_relevance : Sorts.relevance -> fconstr -> unit
 (** Global and local constant cache *)
 type clos_infos
 type clos_tab
+val create_conv_infos :
+  ?univs:UGraph.t -> ?evars:(existential->constr option) -> reds -> env -> clos_infos
 val create_clos_infos :
   ?univs:UGraph.t -> ?evars:(existential->constr option) -> reds -> env -> clos_infos
 val oracle_of_infos : clos_infos -> Conv_oracle.oracle

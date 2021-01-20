@@ -723,6 +723,19 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
       let cuniv = Parray.fold_left2 (fun u v1 v2 -> ccnv CONV l2r infos el1 el2 v1 v2 u) cuniv t1 t2 in
       convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
 
+    | FIrrelevant, FIrrelevant ->
+      convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
+
+    | FIrrelevant, _ ->
+      if is_irrelevant infos lft2 hd2 then
+        convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
+      else raise NotConvertible
+
+    | _, FIrrelevant ->
+      if is_irrelevant infos lft1 hd1 then
+        convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
+      else raise NotConvertible
+
      (* Should not happen because both (hd1,v1) and (hd2,v2) are in whnf *)
      | ( (FLetIn _, _) | (FCaseT _,_) | (FApp _,_) | (FCLOS _,_) | (FLIFT _,_)
        | (_, FLetIn _) | (_,FCaseT _) | (_,FApp _) | (_,FCLOS _) | (_,FLIFT _)
@@ -851,7 +864,7 @@ and convert_list l2r infos lft1 lft2 v1 v2 cuniv = match v1, v2 with
 
 let clos_gen_conv trans cv_pb l2r evars env graph univs t1 t2 =
   let reds = CClosure.RedFlags.red_add_transparent betaiotazeta trans in
-  let infos = create_clos_infos ~univs:graph ~evars reds env in
+  let infos = create_conv_infos ~univs:graph ~evars reds env in
   let infos = {
     cnv_inf = infos;
     lft_tab = create_tab ();
