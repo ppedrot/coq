@@ -1417,7 +1417,22 @@ let conv : (clos_infos -> clos_tab -> fconstr -> fconstr -> bool) ref
   = ref (fun _ _ _ _ -> (assert false : bool))
 let set_conv f = conv := f
 
-let skip_irrelevant_stack stk = stk (* FIXME *)
+let rec skip_irrelevant_stack stk = match stk with
+| [] -> []
+| (Zshift _ | Zapp _) :: s -> skip_irrelevant_stack s
+| (Zfix _ | Zproj _) :: s ->
+  (* Typing rules ensure that fix / proj over SProp is irrelevant *)
+  skip_irrelevant_stack s
+| ZcaseT (ci, _, _, _, _, _) :: s ->
+  begin match ci.ci_relevance with
+  | Sorts.Irrelevant -> skip_irrelevant_stack s
+  | Sorts.Relevant -> stk
+  end
+| Zprimitive _ :: _ -> assert false (* no irrelevant primitives so far *)
+| Zupdate m :: s ->
+  (** The stack contains [Zupdate] marks only if in sharing mode *)
+  let _ = update ~share:true m mk_irrelevant.mark mk_irrelevant.term in
+  skip_irrelevant_stack s
 
 (* Computes a weak head normal form from the result of knh. *)
 let rec knr info tab m stk =
