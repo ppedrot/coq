@@ -16,7 +16,6 @@ let parse_log line =
   match line with
   | "File" :: f :: "line" :: n :: _ ->
     let f = String.sub f 1 (String.length f - 3) in
-    let f = String.sub f 20 (String.length f - 20) in
     let n = int_of_string @@ String.sub n 0 (String.length n - 1) in
     Some (f, n)
   | _ -> None
