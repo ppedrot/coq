@@ -1,0 +1,4 @@
+    success/Inductive.v...Error! (should be accepted)
+    success/polymorphism.v...Error! (should be accepted)
+    bugs/bug_12414.v...Error! (bug seems to be opened, please check)
+    bugs/bug_3291.v...Error! (bug seems to be opened, please check)
