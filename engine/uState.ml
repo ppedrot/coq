@@ -192,12 +192,20 @@ let sort_inconsistency cst l r =
 let subst_univs_sort normalize s =
   Sorts.sort_of_univ (subst_univs_universe normalize (Sorts.univ_of_sort s))
 
+type level_kind = KProp | KSProp | KLevel
+
+let level_kind l =
+  if Level.is_prop l then KProp
+  else if Level.is_sprop l then KSProp
+  else KLevel (* necessarily Set / Var / UGlobal *)
+
 let process_universe_constraints uctx cstrs =
   let open UnivSubst in
   let open UnivProblem in
   let univs = uctx.universes in
   let vars = ref uctx.univ_variables in
   let weak = ref uctx.weak_constraints in
+  let cumulative_sprop = UGraph.cumulative_sprop univs in
   let normalize u = normalize_univ_variable_opt_subst !vars u in
   let nf_constraint = function
     | ULub (u, v) -> ULub (level_subst_of normalize u, level_subst_of normalize v)
@@ -218,7 +226,7 @@ let process_universe_constraints uctx cstrs =
         instantiate_variable l' r vars
       else if is_local r' then
         instantiate_variable r' l vars
-      else if not (UGraph.check_eq_level univs l' r') then
+      else if not (UnivProblem.check_eq_level univs l' r') then
         (* Two rigid/global levels, none of them being local,
             one of them being Prop/Set, disallow *)
         if Level.is_small l' || Level.is_small r' then
@@ -302,6 +310,31 @@ let process_universe_constraints uctx cstrs =
   let local =
     UnivProblem.Set.fold unify_universes cstrs Constraints.empty
   in
+  (* Remove constraints mentioning Prop / SProp *)
+  let maybe_univ_inconsistency c l r =
+    if UGraph.type_in_type univs then false
+    else raise (UniverseInconsistency (c, Universe.make l, Universe.make r, None))
+  in
+  let filter (l, c, r) = match c with
+  | Eq ->
+    begin match level_kind l, level_kind r with
+    | KProp, KProp | KSProp, KSProp -> false
+    | (KSProp | KProp), KLevel | KLevel, (KSProp | KProp) | KProp, KSProp | KSProp, KProp ->
+      maybe_univ_inconsistency c l r
+    | KLevel, KLevel -> true
+    end
+  | Lt | Le ->
+    begin match level_kind l, level_kind r with
+    | KProp, (KProp | KLevel) | KSProp, KSProp ->
+      if c == Lt && Level.equal l r then maybe_univ_inconsistency c l r else false
+    | KProp, KSProp -> maybe_univ_inconsistency c l r
+    | KSProp, (KProp | KLevel) ->
+      if cumulative_sprop then false else maybe_univ_inconsistency c l r
+    | KLevel, (KProp | KSProp) -> maybe_univ_inconsistency c l r
+    | KLevel, KLevel -> true
+    end
+  in
+  let local = Constraints.filter filter local in
     !vars, !weak, local
 
 let add_constraints uctx cstrs =

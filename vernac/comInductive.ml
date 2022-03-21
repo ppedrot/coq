@@ -332,7 +332,7 @@ let inductive_levels env evd arities inds =
             (* If not a syntactic arity, the universe may be used in a
                polymorphic instance and so cannot be lowered to Prop.
                See #13300. *)
-              then true, Evd.set_eq_sort env evd Sorts.prop du
+              then true, evd
               else false, Evd.set_eq_sort env evd Sorts.set du
             else false, evd
           else false, Evd.set_eq_sort env evd cu du
@@ -514,10 +514,9 @@ let interp_mutual_inductive_gen env0 ~template udecl (uparamsl,paramsl,indl) not
   let indnames = List.map (fun ind -> ind.ind_name) indl in
   let ninds = List.length indl in
 
-  (* In case of template polymorphism, we need to compute more constraints *)
-  let env0 = if poly then env0 else Environ.set_universes_lbound env0 UGraph.Bound.Prop in
-
   let sigma, env_params, (ctx_params, env_uparams, ctx_uparams, userimpls, useruimpls, impls, udecl, variances) =
+    (* In case of template polymorphism, we need to compute more constraints *)
+    let env0 = if poly then env0 else Environ.set_universes_lbound env0 UGraph.Bound.Prop in
     interp_params env0 udecl uparamsl paramsl
   in
 
