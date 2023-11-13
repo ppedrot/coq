@@ -259,6 +259,7 @@ module Bounded_net :
 sig
   type t
   val empty : TransparentState.t option -> t
+  val build : TransparentState.t -> stored_data list -> t
   val add : t -> hint_pattern -> stored_data -> t
   val lookup : Environ.env -> Evd.evar_map -> t -> EConstr.constr -> stored_data list
 end =
@@ -268,26 +269,41 @@ struct
 
   type diff = hint_pattern * stored_data
 
-  type data = Bnet of (TransparentState.t option * Bnet.t) | Diff of diff * data ref
+  type data =
+  | Bnet of (TransparentState.t option * Bnet.t)
+  | Diff of diff * data ref
+  | Build of TransparentState.t * stored_data list
+
   type t = data ref
 
   let empty st = ref (Bnet (st, Bnet.empty))
 
   let add net p v = ref (Diff ((p, v), net))
 
-  let rec force env sigma net = match !net with
-  | Bnet dn -> dn
-  | Diff ((p, v), rem) ->
-    let st, dn = force env sigma rem in
+  let build st data = ref (Build (st, data))
+
+  let add0 env sigma st p v dn =
     let p = match p with
     | ConstrPattern p -> Bnet.pattern env st p
     | DefaultPattern ->
       let c = get_default_pattern (snd v).code.obj in
       Bnet.constr_pattern env sigma st c
     in
-    let dn = Bnet.add dn p v in
+    Bnet.add dn p v
+
+  let rec force env sigma net = match !net with
+  | Bnet dn -> dn
+  | Diff ((p, v), rem) ->
+    let st, dn = force env sigma rem in
+    let dn = add0 env sigma st p v dn in
     let () = net := (Bnet (st, dn)) in
     st, dn
+  | Build (st, data) ->
+    let st = Some st in
+    let fold dn v = add0 env sigma st (Option.get (snd v).pat) v dn in
+    let ans = List.fold_left fold Bnet.empty data in
+    let () = net := Bnet (st, ans) in
+    st, ans
 
   let lookup env sigma net p =
     let st, dn = force env sigma net in
@@ -363,12 +379,7 @@ let add_tac pat t se =
         sentry_bnet = Bounded_net.add se.sentry_bnet pat t; }
 
 let rebuild_dn st se =
-  let dn' =
-    List.fold_left
-      (fun dn (id, t) ->
-        Bounded_net.add dn (Option.get t.pat) (id, t))
-      (Bounded_net.empty st) (StoredData.elements se.sentry_pat)
-  in
+  let dn' = Bounded_net.build st (StoredData.elements se.sentry_pat) in
   { se with sentry_bnet = dn' }
 
 let lookup_tacs env sigma concl se =
@@ -711,7 +722,7 @@ struct
 
   let rebuild_db st' db =
     let db' =
-      { db with hintdb_map = GlobRef.Map.map (rebuild_dn (Some st')) db.hintdb_map;
+      { db with hintdb_map = GlobRef.Map.map (rebuild_dn st') db.hintdb_map;
         hintdb_state = st'; hintdb_nopat = [] }
     in
       List.fold_left (fun db (id, v) -> addkv None id v db) db' db.hintdb_nopat
@@ -746,7 +757,9 @@ struct
     if pat == se.sentry_pat && nopat == se.sentry_nopat then se
     else
       let se = { se with sentry_nopat = nopat; sentry_pat = pat } in
-      rebuild_dn st se
+      match st with
+      | None -> se
+      | Some st -> rebuild_dn st se
 
   let remove_list env grs db =
     let filter (_, h) =
