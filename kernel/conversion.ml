@@ -243,6 +243,7 @@ type conv_tab = {
   cnv_inf : clos_infos;
   lft_tab : clos_tab;
   rgt_tab : clos_tab;
+  cnv_typ : bool;
 }
 (** Invariant: for any tl ∈ lft_tab and tr ∈ rgt_tab, there is no mutable memory
     location contained both in tl and in tr. *)
@@ -757,12 +758,16 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
 
 and convert_stacks l2r infos lft1 lft2 stk1 stk2 cuniv =
   let f (l1, t1) (l2, t2) cuniv = ccnv CONV l2r infos l1 l2 t1 t2 cuniv in
+  let f' cuniv (l1, t1) (l2, t2) = ccnv CONV l2r infos l1 l2 t1 t2 cuniv in
   let rec cmp_rec pstk1 pstk2 cuniv =
     match (pstk1,pstk2) with
       | (z1::s1, z2::s2) ->
-          let cu1 = cmp_rec s1 s2 cuniv in
-          (match (z1,z2) with
+          let cu1 = if infos.cnv_typ then cuniv else cmp_rec s1 s2 cuniv in
+          let cu1 = match (z1,z2) with
             | (Zlapp a1,Zlapp a2) ->
+              if infos.cnv_typ then
+               Array.fold_left2 f' cu1 a1 a2
+              else
                Array.fold_right2 f a1 a2 cu1
             | (Zlproj (c1,_l1),Zlproj (c2,_l2)) ->
               if not (Projection.Repr.CanOrd.equal c1 c2) then
@@ -799,7 +804,9 @@ and convert_stacks l2r infos lft1 lft2 stk1 stk2 cuniv =
                 let cu2 = List.fold_right2 f rargs1 rargs2 cu1 in
                 let fk (_,a1) (_,a2) cu = f a1 a2 cu in
                 List.fold_right2 fk kargs1 kargs2 cu2
-            | ((Zlapp _ | Zlproj _ | Zlfix _| Zlcase _| Zlprimitive _), _) -> assert false)
+            | ((Zlapp _ | Zlproj _ | Zlfix _| Zlcase _| Zlprimitive _), _) -> assert false
+          in
+          if infos.cnv_typ then cmp_rec s1 s2 cu1 else cu1
       | _ -> cuniv in
   if compare_stack_shape stk1 stk2 then
     cmp_rec (pure_stack lft1 stk1) (pure_stack lft2 stk2) cuniv
@@ -875,7 +882,7 @@ and convert_list l2r infos lft1 lft2 v1 v2 cuniv = match v1, v2 with
   convert_list l2r infos lft1 lft2 v1 v2 cuniv
 | _, _ -> raise NotConvertible
 
-let clos_gen_conv trans cv_pb l2r evars env graph univs t1 t2 =
+let clos_gen_conv typed trans cv_pb l2r evars env graph univs t1 t2 =
   NewProfile.profile "Conversion" (fun () ->
       let reds = RedFlags.red_add_transparent RedFlags.betaiotazeta trans in
       let infos = create_conv_infos ~univs:graph ~evars reds env in
@@ -883,6 +890,7 @@ let clos_gen_conv trans cv_pb l2r evars env graph univs t1 t2 =
         cnv_inf = infos;
         lft_tab = create_tab ();
         rgt_tab = create_tab ();
+        cnv_typ = typed;
       } in
       ccnv cv_pb l2r infos el_id el_id (inject t1) (inject t2) univs)
     ()
@@ -920,7 +928,7 @@ let () =
   let conv infos tab a b =
     try
       let univs = info_univs infos in
-      let infos = { cnv_inf = infos; lft_tab = tab; rgt_tab = tab; } in
+      let infos = { cnv_inf = infos; lft_tab = tab; rgt_tab = tab; cnv_typ = true } in
       let univs', _ = ccnv CONV false infos el_id el_id a b
           (univs, checked_universes)
       in
@@ -930,7 +938,7 @@ let () =
   in
   CClosure.set_conv conv
 
-let gen_conv cv_pb ?(l2r=false) ?(reds=TransparentState.full) env ?(evars=default_evar_handler env) t1 t2 =
+let gen_conv typed cv_pb ?(l2r=false) ?(reds=TransparentState.full) env ?(evars=default_evar_handler env) t1 t2 =
   let univs = Environ.universes env in
   let b =
     if cv_pb = CUMUL then leq_constr_univs univs t1 t2
@@ -938,19 +946,19 @@ let gen_conv cv_pb ?(l2r=false) ?(reds=TransparentState.full) env ?(evars=defaul
   in
     if b then ()
     else
-      let _ = clos_gen_conv reds cv_pb l2r evars env univs (univs, checked_universes) t1 t2 in
+      let _ = clos_gen_conv typed reds cv_pb l2r evars env univs (univs, checked_universes) t1 t2 in
         ()
 
-let conv = gen_conv CONV
-let conv_leq = gen_conv CUMUL
+let conv = gen_conv false CONV
+let conv_leq = gen_conv false CUMUL
 
 let generic_conv cv_pb ~l2r reds env ?(evars=default_evar_handler env) univs t1 t2 =
   let graph = Environ.universes env in
   let (s, _) =
-    clos_gen_conv reds cv_pb l2r evars env graph univs t1 t2
+    clos_gen_conv false reds cv_pb l2r evars env graph univs t1 t2
   in s
 
 let default_conv cv_pb env t1 t2 =
-    gen_conv cv_pb env t1 t2
+    gen_conv true cv_pb env t1 t2
 
 let default_conv_leq = default_conv CUMUL
