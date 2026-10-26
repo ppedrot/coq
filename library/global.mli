@@ -56,8 +56,6 @@ val add_constant :
   ?typing_flags:typing_flags ->
   Id.t -> Entries.constant_entry -> Constant.t
 val fill_opaque : Safe_typing.opaque_certificate -> unit
-val fill_unchecked_opaque : Opaqueproof.opaque_handle -> Constr.t ->
-  Univ.ContextSet.t Opaqueproof.delayed_universes -> unit
 val add_rewrite_rules : Id.t -> rewrite_rules_body -> unit
 val add_mind :
   ?typing_flags:typing_flags ->
